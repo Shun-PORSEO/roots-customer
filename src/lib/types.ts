@@ -13,21 +13,10 @@ export interface ICustomer {
   nickname: string;
 }
 
-export type RegisterStatus = "created" | "exists";
-
-export interface IRegisterResponse {
-  status: RegisterStatus | "error";
+export interface IApiResponse<T = any> {
+  status: "ok" | "created" | "exists" | "updated" | "error";
+  message?: string;
   nickname?: string;
-  message?: string;
-}
-
-export interface ITasksResponse {
   tasks?: ITask[];
-  status?: "error";
-  message?: string;
-}
-
-export interface IUpdateTaskResponse {
-  status: "updated" | "error";
-  message?: string;
+  [key: string]: any;
 }

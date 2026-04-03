@@ -1,36 +1,48 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { initLiff, ensureLogin, getLineId } from "@/lib/liff";
-import { checkRegistered } from "@/lib/api";
-import LoadingSpinner from "@/components/LoadingSpinner";
-import ErrorMessage from "@/components/ErrorMessage";
-import { useState } from "react";
+import { useLiff } from "@/hooks/useLiff";
+import { apiClient } from "@/lib/api";
+import { Spinner } from "@/components/Spinner";
+import { ErrorMessage } from "@/components/ErrorMessage";
 
-export default function HomePage() {
+export default function LoadingPage() {
+  const { isLiffReady, profile, error } = useLiff();
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
+  const [apiError, setApiError] = useState<string | null>(null);
 
   useEffect(() => {
-    (async () => {
-      try {
-        await initLiff();
-        await ensureLogin();
-        const lineId = await getLineId();
-        const result = await checkRegistered(lineId);
-        if (result.status === "exists") {
-          router.replace("/dashboard");
-        } else {
-          router.replace("/register");
+    const checkUser = async () => {
+      if (isLiffReady && profile) {
+        try {
+          const res = await apiClient.post({
+            action: "register",
+            line_id: profile.userId,
+            nickname: profile.displayName, // Set default nickname
+          });
+          if (res.status === "created") {
+            router.push("/register");
+          } else if (res.status === "exists") {
+            router.push("/dashboard");
+          }
+        } catch (err: any) {
+          setApiError(err.message || "予期せぬエラーが発生しました");
         }
-      } catch (err) {
-        console.error(err);
-        setError("LINEアプリからアクセスしてください");
       }
-    })();
-  }, [router]);
+    };
+    checkUser();
+  }, [isLiffReady, profile, router]);
 
-  if (error) return <ErrorMessage message={error} />;
-  return <LoadingSpinner />;
+  if (error || apiError) {
+    return (
+      <div className="flex items-center justify-center min-h-screen text-center p-4">
+        <div>
+          <p className="text-[var(--colorError)] font-bold mb-4">{error || "通信エラーが発生しました。"}</p>
+        </div>
+      </div>
+    );
+  }
+
+  return <Spinner fullScreen />;
 }

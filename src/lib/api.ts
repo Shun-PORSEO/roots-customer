@@ -1,85 +1,54 @@
-import type {
-  IRegisterResponse,
-  ITasksResponse,
-  IUpdateTaskResponse,
-} from "./types";
+import { IApiResponse } from "./types";
 
-const GAS_ENDPOINT = process.env.NEXT_PUBLIC_GAS_ENDPOINT ?? "";
+const GAS_ENDPOINT = process.env.NEXT_PUBLIC_GAS_ENDPOINT || "";
 
-async function gasGet<T>(params: Record<string, string>): Promise<T> {
-  const query = new URLSearchParams(params).toString();
-  const res = await fetch(`${GAS_ENDPOINT}?${query}`, {
-    method: "GET",
-    headers: { "Content-Type": "application/json" },
-  });
-  if (!res.ok) {
-    throw new Error(`HTTP error: ${res.status}`);
-  }
-  return res.json() as Promise<T>;
-}
+// Mock data list
+let MOCK_TASKS = [
+  { task_id: "T001", title: "招待状リストアップ", description: "テスト説明", manual_url: "", due_offset_days: 90, is_done: false, is_visible: true }
+];
 
-async function gasPost<T>(body: Record<string, unknown>): Promise<T> {
-  const res = await fetch(GAS_ENDPOINT, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    throw new Error(`HTTP error: ${res.status}`);
-  }
-  return res.json() as Promise<T>;
-}
+export const apiClient = {
+  get: async (action: string, lineId: string): Promise<IApiResponse> => {
+    if (!GAS_ENDPOINT || GAS_ENDPOINT === "YOUR_GAS_WEB_APP_URL_HERE") {
+      if (action === "getTasks") {
+        return { status: "ok", tasks: MOCK_TASKS }; 
+      }
+      return { status: "ok" };
+    }
+    const url = `${GAS_ENDPOINT}?action=${action}&line_id=${lineId}`;
+    try {
+      const res = await fetch(url, { method: "GET" });
+      const data = await res.json();
+      if (data.status === "error") throw new Error(data.message);
+      return data;
+    } catch (e: any) {
+      throw new Error(e.message || "Failed to fetch data");
+    }
+  },
 
-export async function registerUser(
-  line_id: string,
-  nickname: string
-): Promise<IRegisterResponse> {
-  const data = await gasPost<IRegisterResponse>({
-    action: "register",
-    line_id,
-    nickname,
-  });
-  if (data.status === "error") {
-    throw new Error(data.message ?? "登録に失敗しました");
-  }
-  return data;
-}
+  post: async (payload: any): Promise<IApiResponse> => {
+    if (!GAS_ENDPOINT || GAS_ENDPOINT === "YOUR_GAS_WEB_APP_URL_HERE") {
+      if (payload.action === "updateTask") {
+        MOCK_TASKS = MOCK_TASKS.map(t => t.task_id === payload.task_id ? { ...t, is_done: payload.is_done } : t);
+        return { status: "updated" };
+      }
+      if (payload.action === "register") {
+        return { status: "created", nickname: payload.nickname };
+      }
+      return { status: "ok" };
+    }
+    try {
+      const res = await fetch(GAS_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (data.status === "error") throw new Error(data.message);
+      return data;
+    } catch (e: any) {
+      throw new Error(e.message || "Failed to post data");
+    }
+  },
+};
 
-export async function checkRegistered(
-  line_id: string
-): Promise<IRegisterResponse> {
-  const data = await gasPost<IRegisterResponse>({
-    action: "register",
-    line_id,
-    nickname: "",
-  });
-  return data;
-}
-
-export async function getTasks(line_id: string): Promise<ITasksResponse> {
-  const data = await gasGet<ITasksResponse>({
-    action: "getTasks",
-    line_id,
-  });
-  if (data.status === "error") {
-    throw new Error(data.message ?? "タスクの取得に失敗しました");
-  }
-  return data;
-}
-
-export async function updateTask(
-  line_id: string,
-  task_id: string,
-  is_done: boolean
-): Promise<IUpdateTaskResponse> {
-  const data = await gasPost<IUpdateTaskResponse>({
-    action: "updateTask",
-    line_id,
-    task_id,
-    is_done,
-  });
-  if (data.status === "error") {
-    throw new Error(data.message ?? "タスクの更新に失敗しました");
-  }
-  return data;
-}

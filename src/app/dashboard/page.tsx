@@ -1,117 +1,155 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { getLineId } from "@/lib/liff";
-import { checkRegistered } from "@/lib/api";
-import { useTaskList } from "@/hooks/useTaskList";
-import TaskCard from "@/components/TaskCard";
-import SkeletonCard from "@/components/SkeletonCard";
-import Toast from "@/components/Toast";
-import ErrorMessage from "@/components/ErrorMessage";
-
-type Tab = "todo" | "done";
+import { useLiff } from "@/hooks/useLiff";
+import { apiClient } from "@/lib/api";
+import { ITask } from "@/lib/types";
+import { TaskCard } from "@/components/TaskCard";
+import { Spinner } from "@/components/Spinner";
+import { ErrorMessage } from "@/components/ErrorMessage";
 
 export default function DashboardPage() {
+  const { isLiffReady, profile } = useLiff();
   const router = useRouter();
-  const [lineId, setLineId] = useState<string | null>(null);
-  const [nickname, setNickname] = useState<string>("");
-  const [initError, setInitError] = useState<string | null>(null);
-  const [tab, setTab] = useState<Tab>("todo");
+  
+  const [tasks, setTasks] = useState<ITask[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"incomplete" | "completed">("incomplete");
 
-  const { tasks, loading, error, toggleTask, toastMessage, clearToast } =
-    useTaskList(lineId);
+  const fetchTasks = useCallback(async () => {
+    if (!profile) return;
+    try {
+      const res = await apiClient.get("getTasks", profile.userId);
+      setTasks(res.tasks || []);
+      setError(null);
+    } catch (err: any) {
+      setError("タスクの取得に失敗しました。もう一度お試しください。");
+    } finally {
+      setLoading(false);
+    }
+  }, [profile]);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const id = await getLineId();
-        setLineId(id);
-        const reg = await checkRegistered(id);
-        if (reg.status === "exists" && reg.nickname) {
-          setNickname(reg.nickname);
-        } else if (reg.status !== "exists") {
-          router.replace("/register");
-        }
-      } catch (err) {
-        console.error(err);
-        setInitError("LINEアプリからアクセスしてください");
-      }
-    })();
-  }, [router]);
+    if (isLiffReady && profile) {
+      fetchTasks();
+    }
+  }, [isLiffReady, profile, fetchTasks]);
 
-  if (initError) return <ErrorMessage message={initError} />;
-  if (error) return <ErrorMessage message={error} />;
+  const handleToggleTask = async (taskId: string, isDone: boolean) => {
+    if (!profile) return;
+    
+    // Optimistic UI handled within TaskCard partially, but we update our main list here.
+    const originalTasks = [...tasks];
+    setTasks(prev => prev.map(t => t.task_id === taskId ? { ...t, is_done: isDone } : t));
 
-  const todoTasks = tasks.filter((t) => !t.is_done);
-  const doneTasks = tasks.filter((t) => t.is_done);
-  const displayed = tab === "todo" ? todoTasks : doneTasks;
+    try {
+      await apiClient.post({
+        action: "updateTask",
+        line_id: profile.userId,
+        task_id: taskId,
+        is_done: isDone,
+      });
+    } catch (err: any) {
+      // Revert on error
+      setTasks(originalTasks);
+      setError("更新に失敗しました。");
+      // Auto dismiss error
+      setTimeout(() => setError(null), 3000);
+    }
+  };
+
+  const handleTaskClick = (taskId: string) => {
+    router.push(`/tasks/${taskId}`);
+  };
+
+  if (!isLiffReady || (loading && tasks.length === 0)) {
+    return <Spinner fullScreen />;
+  }
+
+  const incompleteTasks = tasks.filter(t => !t.is_done);
+  const completedTasks = tasks.filter(t => t.is_done);
+
+  const displayTasks = activeTab === "incomplete" ? incompleteTasks : completedTasks;
 
   return (
-    <div className="flex flex-col min-h-screen bg-bg animate-fade-in">
+    <div className="min-h-screen flex flex-col bg-[var(--colorBg)]">
       {/* Header */}
-      <header className="bg-white border-b border-border px-4 py-4">
-        <h1 className="text-[20px] font-bold text-text-main">
-          {nickname ? `${nickname}さんの準備ダッシュボード` : "準備ダッシュボード"}
+      <header className="bg-white px-4 py-6 border-b border-[var(--colorBorder)] sticky top-0 z-10">
+        <h1 className="text-xl font-bold text-[var(--colorText)]">
+          {profile?.displayName}さんの準備ダッシュボード
         </h1>
       </header>
 
       {/* Tabs */}
-      <div className="flex border-b border-border bg-white">
+      <div className="px-4 pt-4 pb-2 bg-white flex border-b border-[var(--colorBorder)] sticky top-[77px] z-10" role="tablist">
         <button
-          className={`flex-1 min-h-[44px] text-[15px] font-semibold transition-colors ${
-            tab === "todo"
-              ? "text-primary border-b-2 border-primary"
-              : "text-text-sub"
+          role="tab"
+          onClick={() => setActiveTab("incomplete")}
+          className={`flex-1 pb-3 text-[15px] font-semibold transition-colors duration-200 border-b-[3px] ${
+            activeTab === "incomplete"
+              ? "border-[var(--colorPrimary)] text-[var(--colorPrimary)]"
+              : "border-transparent text-[var(--colorTextLight)]"
           }`}
-          onClick={() => setTab("todo")}
         >
-          未完了
-          {!loading && todoTasks.length > 0 && (
-            <span className="ml-1 text-[13px] font-normal">({todoTasks.length})</span>
-          )}
+          未完了 ({incompleteTasks.length})
         </button>
         <button
-          className={`flex-1 min-h-[44px] text-[15px] font-semibold transition-colors ${
-            tab === "done"
-              ? "text-primary border-b-2 border-primary"
-              : "text-text-sub"
+          role="tab"
+          onClick={() => setActiveTab("completed")}
+          className={`flex-1 pb-3 text-[15px] font-semibold transition-colors duration-200 border-b-[3px] ${
+            activeTab === "completed"
+              ? "border-[var(--colorPrimary)] text-[var(--colorPrimary)]"
+              : "border-transparent text-[var(--colorTextLight)]"
           }`}
-          onClick={() => setTab("done")}
         >
-          完了済み
-          {!loading && doneTasks.length > 0 && (
-            <span className="ml-1 text-[13px] font-normal">({doneTasks.length})</span>
-          )}
+          完了済み ({completedTasks.length})
         </button>
       </div>
 
-      {/* Content */}
-      <main className="flex-1 px-4 py-4 space-y-3 safe-bottom">
+      {/* Main Content */}
+      <div className="flex-1 px-4 py-4 overflow-y-auto">
         {loading ? (
-          <>
-            <SkeletonCard />
-            <SkeletonCard />
-            <SkeletonCard />
-          </>
-        ) : displayed.length === 0 ? (
-          <div className="flex items-center justify-center h-40 text-center px-4">
-            <p className="text-[15px] text-text-sub">
-              {tab === "todo"
-                ? tasks.length === 0
-                  ? "タスクがまだ登録されていません。プランナーにご連絡ください"
-                  : "すべてのタスクが完了しています！お疲れ様でした"}
-                : "完了済みのタスクはありません"}
-            </p>
-          </div>
-        ) : (
-          displayed.map((task) => (
-            <TaskCard key={task.task_id} task={task} onToggle={toggleTask} />
+          <Spinner />
+        ) : displayTasks.length > 0 ? (
+          displayTasks.map((task) => (
+            <TaskCard
+              key={task.task_id}
+              taskId={task.task_id}
+              title={task.title}
+              description={task.description}
+              isDone={task.is_done}
+              onToggle={handleToggleTask}
+              onClick={handleTaskClick}
+            />
           ))
+        ) : (
+          <div className="py-12 flex flex-col items-center justify-center text-center">
+            {activeTab === "incomplete" ? (
+              tasks.length === 0 ? (
+                <>
+                  <div className="w-16 h-16 bg-[var(--colorSecondary)] rounded-full flex items-center justify-center mb-4">
+                    <svg className="w-8 h-8 text-[var(--colorPrimary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+                  </div>
+                  <p className="text-[var(--colorTextLight)] font-medium">タスクがまだ登録されていません。<br/>プランナーにご連絡ください。</p>
+                </>
+              ) : (
+                <>
+                  <div className="w-16 h-16 bg-[#ebf7eb] rounded-full flex items-center justify-center mb-4">
+                    <svg className="w-8 h-8 text-[var(--colorSuccess)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                  </div>
+                  <p className="text-[var(--colorTextLight)] font-medium">すべてのタスクが完了しています！<br/>お疲れ様でした。</p>
+                </>
+              )
+            ) : (
+              <p className="text-[var(--colorTextLight)] font-medium">完了済みのタスクはありません。</p>
+            )}
+          </div>
         )}
-      </main>
+      </div>
 
-      {toastMessage && <Toast message={toastMessage} onClose={clearToast} />}
+      {error && <ErrorMessage message={error} />}
     </div>
   );
 }

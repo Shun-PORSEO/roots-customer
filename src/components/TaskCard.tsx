@@ -1,72 +1,50 @@
-"use client";
-
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import type { ITask } from "@/lib/types";
+import React, { useState } from "react";
+import { Checkbox } from "./Checkbox";
 
 interface TaskCardProps {
-  task: ITask;
-  onToggle: (task_id: string, is_done: boolean) => Promise<void>;
+  taskId: string;
+  title: string;
+  description?: string;
+  isDone: boolean;
+  onToggle: (taskId: string, isDone: boolean) => void;
+  onClick: (taskId: string) => void;
 }
 
-export default function TaskCard({ task, onToggle }: TaskCardProps) {
-  const router = useRouter();
-  const [animating, setAnimating] = useState(false);
+export const TaskCard: React.FC<TaskCardProps> = ({
+  taskId,
+  title,
+  description,
+  isDone,
+  onToggle,
+  onClick,
+}) => {
+  const [internalDone, setInternalDone] = useState(isDone);
 
-  const handleCheckboxClick = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setAnimating(true);
-    setTimeout(() => setAnimating(false), 150);
-    await onToggle(task.task_id, !task.is_done);
-  };
-
-  const handleCardClick = () => {
-    router.push(`/tasks/${task.task_id}`);
+  const handleToggle = (checked: boolean) => {
+    setInternalDone(checked);
+    onToggle(taskId, checked);
   };
 
   return (
     <div
-      className="flex items-center gap-3 p-4 bg-white rounded-card border border-border shadow-card active:bg-[#F0EBE0] cursor-pointer transition-colors"
-      onClick={handleCardClick}
+      onClick={() => onClick(taskId)}
+      data-testid="task-card"
+      className="bg-white p-4 rounded-xl border border-[var(--colorBorder)] shadow-sm active:bg-[#F0EBE0] cursor-pointer transition-colors duration-200 mb-3 flex items-start gap-3 w-full"
       role="button"
-      aria-label={`タスク: ${task.title}`}
     >
-      <button
-        className={`
-          w-6 h-6 min-w-[24px] rounded-md border-2 flex items-center justify-center transition-all
-          ${task.is_done ? "bg-primary border-primary" : "border-border bg-white"}
-          ${animating ? "scale-110" : "scale-100"}
-        `}
-        onClick={handleCheckboxClick}
-        aria-label={task.is_done ? "完了済み" : "未完了"}
-        style={{ transition: "transform 150ms ease" }}
-      >
-        {task.is_done && (
-          <svg
-            className="w-3.5 h-3.5 text-white"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={3}
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-          </svg>
+      <div className="pt-0.5">
+        <Checkbox checked={internalDone} onChange={handleToggle} />
+      </div>
+      <div className="flex-1">
+        <h3 className={`text-base font-semibold transition-colors duration-200 ${internalDone ? 'text-[var(--colorTextLight)] line-through' : 'text-[var(--colorText)]'}`}>
+          {title}
+        </h3>
+        {description && (
+          <p className="text-sm text-[var(--colorTextLight)] mt-1 line-clamp-2">
+            {description}
+          </p>
         )}
-      </button>
-      <span
-        className={`flex-1 text-[15px] ${task.is_done ? "line-through text-text-sub" : "text-text-main"}`}
-      >
-        {task.title}
-      </span>
-      <svg
-        className="w-4 h-4 text-text-sub flex-shrink-0"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={2}
-        viewBox="0 0 24 24"
-      >
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-      </svg>
+      </div>
     </div>
   );
-}
+};

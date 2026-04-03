@@ -1,52 +1,38 @@
-import {
-  ICustomerRow,
-  ITaskMasterRow,
-  ITaskProgressRow,
-} from "./types";
+import { ICustomer, ITaskMaster, ITaskProgress } from "./types";
 
-const SPREADSHEET_ID = PropertiesService.getScriptProperties().getProperty(
-  "SPREADSHEET_ID"
-) ?? "";
+const getSheet = (name: string) => SpreadsheetApp.getActiveSpreadsheet().getSheetByName(name);
 
-function getSheet(name: string): GoogleAppsScript.Spreadsheet.Sheet {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const sheet = ss.getSheetByName(name);
-  if (!sheet) throw new Error(`Sheet not found: ${name}`);
-  return sheet;
-}
-
-// ── customers ──────────────────────────────────────────────────
-
-export function findCustomer(lineId: string): ICustomerRow | null {
+export const getCustomer = (lineId: string): ICustomer | null => {
   const sheet = getSheet("customers");
-  const data = sheet.getDataRange().getValues() as string[][];
+  if (!sheet) return null;
+  const data = sheet.getDataRange().getValues();
   for (let i = 1; i < data.length; i++) {
     if (data[i][0] === lineId) {
       return {
-        line_id: data[i][0],
-        nickname: data[i][1],
-        created_at: data[i][2],
+        line_id: String(data[i][0]),
+        nickname: String(data[i][1]),
+        created_at: String(data[i][2]),
       };
     }
   }
   return null;
-}
+};
 
-export function createCustomer(lineId: string, nickname: string): void {
+export const createCustomer = (lineId: string, nickname: string): void => {
   const sheet = getSheet("customers");
+  if (!sheet) return;
   sheet.appendRow([lineId, nickname, new Date().toISOString()]);
-}
+};
 
-// ── task_master ─────────────────────────────────────────────────
-
-export function getActiveTasks(): ITaskMasterRow[] {
+export const getActiveTasks = (): ITaskMaster[] => {
   const sheet = getSheet("task_master");
+  if (!sheet) return [];
   const data = sheet.getDataRange().getValues();
-  const rows: ITaskMasterRow[] = [];
+  const tasks: ITaskMaster[] = [];
   for (let i = 1; i < data.length; i++) {
-    const isActive = data[i][5];
-    if (isActive === true || isActive === "TRUE") {
-      rows.push({
+    const isActive = data[i][5] === true || String(data[i][5]).toLowerCase() === "true";
+    if (isActive) {
+      tasks.push({
         task_id: String(data[i][0]),
         title: String(data[i][1]),
         description: String(data[i][2]),
@@ -56,55 +42,39 @@ export function getActiveTasks(): ITaskMasterRow[] {
       });
     }
   }
-  return rows;
-}
+  return tasks;
+};
 
-// ── task_progress ───────────────────────────────────────────────
-
-export function getProgressByLineId(lineId: string): ITaskProgressRow[] {
+export const getTaskProgress = (lineId: string): ITaskProgress[] => {
   const sheet = getSheet("task_progress");
+  if (!sheet) return [];
   const data = sheet.getDataRange().getValues();
-  const rows: ITaskProgressRow[] = [];
+  const progress: ITaskProgress[] = [];
   for (let i = 1; i < data.length; i++) {
     if (data[i][0] === lineId) {
-      rows.push({
+      progress.push({
         line_id: String(data[i][0]),
         task_id: String(data[i][1]),
-        is_done: data[i][2] === true || data[i][2] === "TRUE",
+        is_done: data[i][2] === true || String(data[i][2]).toLowerCase() === "true",
         updated_at: String(data[i][3]),
-        is_visible: data[i][4] !== false && data[i][4] !== "FALSE",
+        is_visible: data[i][4] === true || String(data[i][4]).toLowerCase() === "true" || data[i][4] === "", // Default true if empty
       });
     }
   }
-  return rows;
-}
+  return progress;
+};
 
-export function upsertProgress(
-  lineId: string,
-  taskId: string,
-  isDone: boolean
-): void {
+export const updateOrCreateTaskProgress = (lineId: string, taskId: string, isDone: boolean): void => {
   const sheet = getSheet("task_progress");
+  if (!sheet) return;
   const data = sheet.getDataRange().getValues();
-  const now = new Date().toISOString();
-
   for (let i = 1; i < data.length; i++) {
     if (data[i][0] === lineId && data[i][1] === taskId) {
       sheet.getRange(i + 1, 3).setValue(isDone);
-      sheet.getRange(i + 1, 4).setValue(now);
+      sheet.getRange(i + 1, 4).setValue(new Date().toISOString());
       return;
     }
   }
-
-  // Insert new row
-  sheet.appendRow([lineId, taskId, isDone, now, true]);
-}
-
-export function ensureProgressRows(lineId: string, tasks: ITaskMasterRow[]): void {
-  const existing = getProgressByLineId(lineId).map((r) => r.task_id);
-  for (const task of tasks) {
-    if (!existing.includes(task.task_id)) {
-      upsertProgress(lineId, task.task_id, false);
-    }
-  }
-}
+  // Not found, append
+  sheet.appendRow([lineId, taskId, isDone, new Date().toISOString(), true]);
+};

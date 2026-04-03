@@ -23,8 +23,8 @@ test.describe("タスク完了チェック機能", () => {
     // チェックを入れる
     await firstCheckbox.click();
 
-    // 楽観的UIとして即座にチェック状態になることを確認
-    await expect(firstCheckbox).toBeChecked({ timeout: 3000 });
+    // 楽観的UIとして即座に未完了リストから消えることを確認
+    await expect(firstCheckbox).toBeHidden({ timeout: 5000 });
   });
 
   test("完了タスクのチェックを外すと未完了に戻る", async ({ page }) => {

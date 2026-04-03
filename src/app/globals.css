@@ -4,43 +4,41 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  body {
-    background-color: #FAFAF7;
-    color: #2C2C2C;
-    font-family: 'Noto Sans JP', sans-serif;
-    font-size: 16px;
-    line-height: 1.6;
-    -webkit-font-smoothing: antialiased;
-  }
+:root {
+  --colorPrimary: #4A7C59;
+  --colorSecondary: #F5F0E8;
+  --colorAccent: #D4A853;
+  --colorText: #2C2C2C;
+  --colorTextLight: #7A7A7A;
+  --colorError: #C0392B;
+  --colorSuccess: #27AE60;
+  --colorBorder: #E0D8CC;
+  --colorBg: #FAFAF7;
 }
 
-@layer utilities {
-  .animate-slide-up {
-    animation: slideUp 200ms ease-out;
-  }
-  .animate-fade-in {
-    animation: fadeIn 200ms ease-out;
-  }
+body {
+  background-color: var(--colorBg);
+  color: var(--colorText);
+  font-family: 'Noto Sans JP', sans-serif;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
 }
 
-@keyframes slideUp {
-  from {
-    transform: translate(-50%, 20px);
-    opacity: 0;
-  }
-  to {
-    transform: translate(-50%, 0);
-    opacity: 1;
-  }
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-/* iOS safe area */
-.safe-bottom {
+/* Ensure padding for safe area */
+main {
+  max-width: 440px; /* LINE WebView width constraint */
+  margin: 0 auto;
+  min-height: 100vh;
+  background-color: white; /* Base container background */
+  box-shadow: 0 0 10px rgba(0,0,0,0.05); /* Soft shadow on wider screens */
   padding-bottom: env(safe-area-inset-bottom);
+  padding-top: env(safe-area-inset-top);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Tap highlight removal for clean UI */
+* {
+  -webkit-tap-highlight-color: transparent;
 }

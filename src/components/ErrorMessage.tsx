@@ -1,13 +1,15 @@
+import React from "react";
+
 interface ErrorMessageProps {
   message: string;
 }
 
-export default function ErrorMessage({ message }: ErrorMessageProps) {
+export const ErrorMessage: React.FC<ErrorMessageProps> = ({ message }) => {
   return (
-    <div className="flex items-center justify-center min-h-screen bg-bg px-4">
-      <div className="bg-white rounded-card border border-border shadow-card p-6 text-center max-w-app w-full">
-        <p className="text-error font-semibold">{message}</p>
+    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 w-11/12 max-w-[400px] z-50">
+      <div className="bg-[var(--colorError)] text-white px-4 py-3 rounded-lg shadow-lg flex items-center justify-center animate-[slideUp_0.2s_ease-out]">
+        <span className="text-sm font-semibold">{message}</span>
       </div>
     </div>
   );
-}
+};

@@ -28,10 +28,10 @@ test.describe("初回登録フロー", () => {
 
   test("ニックネームを入力して登録するとダッシュボードへ遷移する", async ({ page }) => {
     await page.goto("/register");
-    await page.getByRole("textbox").fill("テスト太郎");
+    await page.getByRole("textbox").fill("テストユーザー");
     await page.getByRole("button", { name: /はじめる/ }).click();
     // ダッシュボード画面に遷移し、ニックネームが表示される
-    await expect(page.getByText("テスト太郎さんの準備ダッシュボード")).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("テストユーザーさんの準備ダッシュボード")).toBeVisible({ timeout: 10000 });
   });
 
   test("ニックネームが空のまま登録ボタンを押してもエラーが表示される", async ({ page }) => {

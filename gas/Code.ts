@@ -1,137 +1,83 @@
-import {
-  findCustomer,
-  createCustomer,
-  getActiveTasks,
-  getProgressByLineId,
-  upsertProgress,
-  ensureProgressRows,
-} from "./sheets";
-import { ApiResponse, ITaskForClient } from "./types";
+import { createCustomer, getActiveTasks, getCustomer, getTaskProgress, updateOrCreateTaskProgress } from "./sheets";
+import { ITaskResponse } from "./types";
 
-function cors(output: GoogleAppsScript.Content.TextOutput): GoogleAppsScript.Content.TextOutput {
-  return output;
-}
+const responseJSON = (data: any) => {
+  return ContentService.createTextOutput(JSON.stringify(data)).setMimeType(ContentService.MimeType.JSON);
+};
 
-function json(data: ApiResponse): GoogleAppsScript.Content.TextOutput {
-  return cors(
-    ContentService.createTextOutput(JSON.stringify(data)).setMimeType(
-      ContentService.MimeType.JSON
-    )
-  );
-}
-
-function errorResponse(message: string): GoogleAppsScript.Content.TextOutput {
-  return json({ status: "error", message });
-}
-
-// ── doGet ───────────────────────────────────────────────────────
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function doGet(e: any): GoogleAppsScript.Content.TextOutput {
+export const doGet = (e: any) => {
   try {
-    const action = e.parameter?.action as string | undefined;
-    const lineId = e.parameter?.line_id as string | undefined;
+    const action = e.parameter.action;
+    const lineId = e.parameter.line_id;
 
-    if (!lineId) return errorResponse("Unauthorized");
+    if (!lineId) {
+      return responseJSON({ status: "error", message: "Unauthorized" });
+    }
 
     if (action === "getTasks") {
-      return handleGetTasks(lineId);
+      // 顧客が存在するか確認
+      const customer = getCustomer(lineId);
+      if (!customer) {
+         return responseJSON({ status: "error", message: "Customer not found" });
+      }
+
+      const allTasks = getActiveTasks();
+      const progressData = getTaskProgress(lineId);
+
+      const tasks: ITaskResponse[] = allTasks.map(task => {
+        const prog = progressData.find(p => p.task_id === task.task_id);
+        const isDone = prog ? prog.is_done : false;
+        const isVisible = prog ? prog.is_visible : true;
+        
+        return {
+          task_id: task.task_id,
+          title: task.title,
+          description: task.description,
+          manual_url: task.manual_url,
+          due_offset_days: task.due_offset_days,
+          is_done: isDone,
+          is_visible: isVisible
+        };
+      }).filter(t => t.is_visible);
+
+      return responseJSON({ tasks });
     }
 
-    return errorResponse("Unknown action");
-  } catch (err) {
-    return errorResponse(String(err));
+    return responseJSON({ status: "error", message: "Invalid action" });
+  } catch (error: any) {
+    return responseJSON({ status: "error", message: error.message });
   }
-}
+};
 
-// ── doPost ──────────────────────────────────────────────────────
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function doPost(e: any): GoogleAppsScript.Content.TextOutput {
+export const doPost = (e: any) => {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let body: any = {};
-    try {
-      body = JSON.parse(e.postData?.contents ?? "{}");
-    } catch {
-      return errorResponse("Invalid JSON");
+    const postData = JSON.parse(e.postData.contents);
+    const action = e.parameter.action || postData.action;
+    const lineId = postData.line_id;
+
+    if (!lineId) {
+      return responseJSON({ status: "error", message: "Unauthorized" });
     }
-
-    const action = body.action as string | undefined;
-    const lineId = body.line_id as string | undefined;
-
-    if (!lineId) return errorResponse("Unauthorized");
 
     if (action === "register") {
-      return handleRegister(lineId, body.nickname as string);
+      const nickname = postData.nickname;
+      const existing = getCustomer(lineId);
+      if (existing) {
+        return responseJSON({ status: "exists", nickname: existing.nickname });
+      }
+      createCustomer(lineId, nickname);
+      return responseJSON({ status: "created", nickname });
     }
 
     if (action === "updateTask") {
-      return handleUpdateTask(lineId, body.task_id as string, body.is_done as boolean);
+      const taskId = postData.task_id;
+      const isDone = postData.is_done;
+      updateOrCreateTaskProgress(lineId, taskId, isDone);
+      return responseJSON({ status: "updated" });
     }
 
-    return errorResponse("Unknown action");
-  } catch (err) {
-    return errorResponse(String(err));
+    return responseJSON({ status: "error", message: "Invalid action" });
+  } catch (error: any) {
+    return responseJSON({ status: "error", message: error.message });
   }
-}
-
-// ── Handlers ────────────────────────────────────────────────────
-
-function handleRegister(
-  lineId: string,
-  nickname: string
-): GoogleAppsScript.Content.TextOutput {
-  const existing = findCustomer(lineId);
-  if (existing) {
-    return json({ status: "exists", nickname: existing.nickname });
-  }
-  const trimmedNickname = (nickname ?? "").trim();
-  if (!trimmedNickname) {
-    return json({ status: "exists", nickname: "" });
-  }
-  createCustomer(lineId, trimmedNickname);
-
-  // Initialize progress rows for all active tasks
-  const activeTasks = getActiveTasks();
-  ensureProgressRows(lineId, activeTasks);
-
-  return json({ status: "created", nickname: trimmedNickname });
-}
-
-function handleGetTasks(lineId: string): GoogleAppsScript.Content.TextOutput {
-  const activeTasks = getActiveTasks();
-
-  // Ensure all tasks have progress rows
-  ensureProgressRows(lineId, activeTasks);
-
-  const progressRows = getProgressByLineId(lineId);
-  const progressMap = new Map(progressRows.map((r) => [r.task_id, r]));
-
-  const tasks: ITaskForClient[] = activeTasks
-    .map((t) => {
-      const progress = progressMap.get(t.task_id);
-      return {
-        task_id: t.task_id,
-        title: t.title,
-        description: t.description,
-        manual_url: t.manual_url,
-        due_offset_days: t.due_offset_days,
-        is_done: progress?.is_done ?? false,
-        is_visible: progress?.is_visible ?? true,
-      };
-    })
-    .filter((t) => t.is_visible);
-
-  return json({ tasks });
-}
-
-function handleUpdateTask(
-  lineId: string,
-  taskId: string,
-  isDone: boolean
-): GoogleAppsScript.Content.TextOutput {
-  if (!taskId) return errorResponse("task_id is required");
-  upsertProgress(lineId, taskId, isDone);
-  return json({ status: "updated" });
-}
+};

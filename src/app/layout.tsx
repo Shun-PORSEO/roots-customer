@@ -1,21 +1,30 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "結婚式準備ダッシュボード",
-  description: "結婚式準備タスクを管理するアプリです",
+  title: "Roots Customer",
+  description: "結婚式準備をスムーズに進めるための専用アプリです。",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
+}>) {
   return (
     <html lang="ja">
       <body>
-        <div className="max-w-app mx-auto min-h-screen">{children}</div>
+        <main>{children}</main>
       </body>
     </html>
   );
 }
+

@@ -2,86 +2,79 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { getLineId } from "@/lib/liff";
-import { registerUser } from "@/lib/api";
-import LoadingSpinner from "@/components/LoadingSpinner";
-import ErrorMessage from "@/components/ErrorMessage";
+import { useLiff } from "@/hooks/useLiff";
+import { apiClient } from "@/lib/api";
+import { Spinner } from "@/components/Spinner";
+import { ErrorMessage } from "@/components/ErrorMessage";
 
 export default function RegisterPage() {
+  const { isLiffReady, profile } = useLiff();
   const router = useRouter();
   const [nickname, setNickname] = useState("");
-  const [submitting, setSubmitting] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const trimmed = nickname.trim();
-    if (!trimmed) return;
-
-    setSubmitting(true);
+    if (!nickname.trim() || !profile) return;
+    
+    setLoading(true);
     setError(null);
     try {
-      const lineId = await getLineId();
-      await registerUser(lineId, trimmed);
-      router.replace("/dashboard");
-    } catch (err) {
-      console.error(err);
-      setError("通信エラーが発生しました。もう一度お試しください");
-      setSubmitting(false);
+      await apiClient.post({
+        action: "register",
+        line_id: profile.userId,
+        nickname: nickname.trim(),
+      });
+      router.push("/dashboard");
+    } catch (err: any) {
+      setError(err.message || "エラーが発生しました");
+      setLoading(false);
     }
   };
 
-  if (submitting) return <LoadingSpinner />;
+  if (!isLiffReady || !profile) {
+    return <Spinner fullScreen />;
+  }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-bg px-6 animate-fade-in">
-      <div className="w-full max-w-app">
-        {/* Logo / Title */}
-        <div className="text-center mb-8">
-          <h1 className="text-[20px] font-bold text-primary">結婚式準備ダッシュボード</h1>
-          <p className="text-[13px] text-text-sub mt-2">
-            ニックネームを登録してはじめましょう
-          </p>
-        </div>
-
-        {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-error rounded-card text-error text-sm text-center">
-            {error}
-          </div>
-        )}
-
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-[var(--colorBg)]">
+      <div className="w-full max-w-sm bg-white p-6 rounded-2xl shadow-sm border border-[var(--colorBorder)]">
+        <h1 className="text-xl font-bold text-center mb-2 text-[var(--colorText)]">ニックネーム登録</h1>
+        <p className="text-sm text-[var(--colorTextLight)] text-center mb-6">
+          登録するニックネームを入力してください。（最大20文字）
+        </p>
+        
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div>
-            <label
-              htmlFor="nickname"
-              className="block text-[15px] font-semibold text-text-main mb-1"
-            >
-              ニックネーム
-            </label>
-            <input
-              id="nickname"
-              type="text"
-              value={nickname}
-              onChange={(e) => setNickname(e.target.value)}
-              maxLength={20}
-              placeholder="例: しゅん"
-              className="w-full px-4 py-3 border border-border rounded-card text-[15px] bg-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition"
-              aria-describedby="nickname-hint"
-              autoFocus
-            />
-            <p id="nickname-hint" className="text-[13px] text-text-sub mt-1">
-              最大20文字
-            </p>
-          </div>
+          <input
+            type="text"
+            value={nickname}
+            onChange={(e) => setNickname(e.target.value)}
+            maxLength={20}
+            placeholder="例: たろう"
+            required
+            className="w-full px-4 py-3 border border-[var(--colorBorder)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--colorPrimary)] bg-gray-50 transition-all font-medium text-[var(--colorText)] text-base"
+          />
           <button
             type="submit"
-            disabled={!nickname.trim()}
-            className="w-full min-h-[44px] bg-primary text-white font-semibold text-[15px] rounded-card py-3 active:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed transition"
+            disabled={!nickname.trim() || loading}
+            className={`
+              w-full py-3 h-12 rounded-lg font-bold text-base transition-all duration-200
+              ${!nickname.trim() || loading 
+                ? "bg-[#DCDCDC] text-white cursor-not-allowed" 
+                : "bg-[var(--colorPrimary)] text-white hover:opacity-90 active:scale-95 shadow-md shadow-[var(--colorPrimary)]/30"}
+            `}
           >
-            はじめる
+            {loading ? (
+              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto"></div>
+            ) : (
+              "はじめる"
+            )}
           </button>
         </form>
       </div>
+
+      {error && <ErrorMessage message={error} />}
     </div>
   );
 }

@@ -1,10 +1,10 @@
-export interface ICustomerRow {
+export interface ICustomer {
   line_id: string;
   nickname: string;
-  created_at: string;
+  created_at?: string;
 }
 
-export interface ITaskMasterRow {
+export interface ITaskMaster {
   task_id: string;
   title: string;
   description: string;
@@ -13,7 +13,7 @@ export interface ITaskMasterRow {
   is_active: boolean;
 }
 
-export interface ITaskProgressRow {
+export interface ITaskProgress {
   line_id: string;
   task_id: string;
   is_done: boolean;
@@ -21,7 +21,7 @@ export interface ITaskProgressRow {
   is_visible: boolean;
 }
 
-export interface ITaskForClient {
+export interface ITaskResponse {
   task_id: string;
   title: string;
   description: string;
@@ -30,10 +30,3 @@ export interface ITaskForClient {
   is_done: boolean;
   is_visible: boolean;
 }
-
-export type ApiResponse =
-  | { status: "created"; nickname: string }
-  | { status: "exists"; nickname: string }
-  | { status: "updated" }
-  | { tasks: ITaskForClient[] }
-  | { status: "error"; message: string };
