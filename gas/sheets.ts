@@ -12,16 +12,18 @@ function getCustomer(lineId: string): ICustomer | null {
         line_id: String(data[i][0]),
         wedding_date: String(data[i][1]),
         created_at: String(data[i][2]),
+        name1_kana: String(data[i][3] || ""),
+        name2_kana: String(data[i][4] || ""),
       };
     }
   }
   return null;
 };
 
-function createCustomer(lineId: string, weddingDate: string): void {
+function createCustomer(lineId: string, weddingDate: string, name1Kana?: string, name2Kana?: string): void {
   const sheet = getSheet("customers");
   if (!sheet) return;
-  sheet.appendRow([lineId, weddingDate, new Date().toISOString()]);
+  sheet.appendRow([lineId, weddingDate, new Date().toISOString(), name1Kana || "", name2Kana || ""]);
 };
 
 function getUsers(): ICustomer[] {
@@ -34,6 +36,8 @@ function getUsers(): ICustomer[] {
       line_id: String(data[i][0]),
       wedding_date: String(data[i][1]),
       created_at: String(data[i][2]),
+      name1_kana: String(data[i][3] || ""),
+      name2_kana: String(data[i][4] || ""),
     });
   }
   return users;

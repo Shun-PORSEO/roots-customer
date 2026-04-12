@@ -14,12 +14,16 @@ export interface ICustomer {
   line_id: string;
   wedding_date: string;
   created_at?: string;
+  name1_kana?: string;
+  name2_kana?: string;
 }
 
-export interface IApiResponse<T = any> {
+export interface IApiResponse {
   status: "ok" | "created" | "exists" | "updated" | "deleted" | "error" | "not_found";
   message?: string;
   wedding_date?: string;
+  name1_kana?: string;
+  name2_kana?: string;
   tasks?: ITask[];
   users?: ICustomer[];
   [key: string]: any;

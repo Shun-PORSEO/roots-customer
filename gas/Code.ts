@@ -67,18 +67,25 @@ function doPost(e: any) {
     if (action === "getUser") {
       const existing = getCustomer(lineId);
       if (existing) {
-        return responseJSON({ status: "exists", wedding_date: existing.wedding_date });
+        return responseJSON({
+          status: "exists",
+          wedding_date: existing.wedding_date,
+          name1_kana: existing.name1_kana || "",
+          name2_kana: existing.name2_kana || "",
+        });
       }
       return responseJSON({ status: "not_found" });
     }
 
     if (action === "register") {
       const weddingDate = postData.wedding_date;
+      const name1Kana = postData.name1_kana || "";
+      const name2Kana = postData.name2_kana || "";
       const existing = getCustomer(lineId);
       if (existing) {
         return responseJSON({ status: "exists", wedding_date: existing.wedding_date });
       }
-      createCustomer(lineId, weddingDate);
+      createCustomer(lineId, weddingDate, name1Kana, name2Kana);
       return responseJSON({ status: "created", wedding_date: weddingDate });
     }
 

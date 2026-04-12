@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useLiff } from "@/hooks/useLiff";
 import { apiClient } from "@/lib/api";
 import { ITask } from "@/lib/types";
+import { formatJapaneseDate, getDaysFromToday } from "@/lib/utils";
 import { TaskCard } from "@/components/TaskCard";
 import { Spinner } from "@/components/Spinner";
 import { ErrorMessage } from "@/components/ErrorMessage";
@@ -12,16 +13,18 @@ import { ErrorMessage } from "@/components/ErrorMessage";
 export default function DashboardPage() {
   const { isLiffReady, profile } = useLiff();
   const router = useRouter();
-  
+
   const [tasks, setTasks] = useState<ITask[]>([]);
   const [weddingDate, setWeddingDate] = useState<string | null>(null);
+  const [name1, setName1] = useState<string>("");
+  const [name2, setName2] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"incomplete" | "completed">("incomplete");
 
   const fetchTasks = useCallback(async () => {
     if (!profile) return;
-    
+
     // 1. Fast Path: Read from LocalStorage cache
     const cacheKey = `roots_dashboard_${profile.userId}`;
     const cachedData = localStorage.getItem(cacheKey);
@@ -30,7 +33,9 @@ export default function DashboardPage() {
         const parsed = JSON.parse(cachedData);
         setTasks(parsed.tasks);
         setWeddingDate(parsed.weddingDate);
-        setLoading(false); // Instantly dismiss loading screen
+        setName1(parsed.name1 || "");
+        setName2(parsed.name2 || "");
+        setLoading(false);
       } catch (e) {
         // ignore parse error
       }
@@ -44,13 +49,21 @@ export default function DashboardPage() {
       ]);
       const newTasks = resTasks.tasks || [];
       const newWeddingDate = resUser.wedding_date || null;
-      
+      const newName1 = resUser.name1_kana || "";
+      const newName2 = resUser.name2_kana || "";
+
       setTasks(newTasks);
       setWeddingDate(newWeddingDate);
+      setName1(newName1);
+      setName2(newName2);
       setError(null);
-      
-      // Update Cache
-      localStorage.setItem(cacheKey, JSON.stringify({ tasks: newTasks, weddingDate: newWeddingDate }));
+
+      localStorage.setItem(cacheKey, JSON.stringify({
+        tasks: newTasks,
+        weddingDate: newWeddingDate,
+        name1: newName1,
+        name2: newName2,
+      }));
     } catch (err: any) {
       if (!cachedData) {
         setError("タスクの取得に失敗しました。もう一度お試しください。");
@@ -68,8 +81,7 @@ export default function DashboardPage() {
 
   const handleToggleTask = async (taskId: string, isDone: boolean) => {
     if (!profile) return;
-    
-    // Optimistic UI handled within TaskCard partially, but we update our main list here.
+
     const originalTasks = [...tasks];
     setTasks(prev => prev.map(t => t.task_id === taskId ? { ...t, is_done: isDone } : t));
 
@@ -81,10 +93,8 @@ export default function DashboardPage() {
         is_done: isDone,
       });
     } catch (err: any) {
-      // Revert on error
       setTasks(originalTasks);
       setError("更新に失敗しました。");
-      // Auto dismiss error
       setTimeout(() => setError(null), 3000);
     }
   };
@@ -99,20 +109,57 @@ export default function DashboardPage() {
 
   const incompleteTasks = tasks.filter(t => !t.is_done);
   const completedTasks = tasks.filter(t => t.is_done);
-
   const displayTasks = activeTab === "incomplete" ? incompleteTasks : completedTasks;
+
+  // ヘッダー用の日付・カウントダウン計算
+  const weddingDateObj = weddingDate
+    ? (() => { const [y, m, d] = weddingDate.split("-").map(Number); return new Date(y, m - 1, d); })()
+    : null;
+  const formattedWeddingDate = weddingDateObj ? formatJapaneseDate(weddingDateObj) : null;
+  const daysUntil = weddingDateObj ? getDaysFromToday(weddingDateObj) : null;
+
+  const coupleLabel = name1 && name2 ? `${name1}＆${name2}` : null;
 
   return (
     <div className="min-h-screen flex flex-col bg-[var(--colorBg)]">
       {/* Header */}
-      <header className="bg-white px-4 py-6 border-b border-[var(--colorBorder)] sticky top-0 z-10">
-        <h1 className="text-xl font-bold text-[var(--colorText)]">
-          挙式日: {weddingDate ? weddingDate : "取得中"} のダッシュボード
-        </h1>
+      <header className="sticky top-0 z-10 border-b border-[var(--colorBorder)]"
+        style={{ background: "linear-gradient(135deg, #F9EDE8 0%, #FDF8F0 60%, #F5F0E8 100%)" }}
+      >
+        <div className="px-5 py-4 text-center">
+          <p className="text-[10px] font-bold tracking-[0.25em] text-[var(--colorPrimary)] uppercase mb-1">
+            Wedding Planner
+          </p>
+          <h1 className="text-[17px] font-bold text-[var(--colorText)] leading-tight">
+            {coupleLabel ? `${coupleLabel} ウェディング` : "ウェディングプランナー"}
+          </h1>
+          {daysUntil !== null && (
+            <div className="mt-2 flex items-baseline justify-center gap-1">
+              {daysUntil > 0 ? (
+                <>
+                  <span className="text-[13px] text-[var(--colorTextLight)]">結婚式まで あと</span>
+                  <span className="text-[32px] font-bold leading-none" style={{ color: "var(--colorAccent)" }}>
+                    {daysUntil}
+                  </span>
+                  <span className="text-[13px] text-[var(--colorTextLight)]">日</span>
+                </>
+              ) : daysUntil === 0 ? (
+                <span className="text-[18px] font-bold" style={{ color: "var(--colorAccent)" }}>
+                  今日が結婚式です！
+                </span>
+              ) : (
+                <span className="text-[13px] text-[var(--colorTextLight)]">結婚式が終わりました</span>
+              )}
+            </div>
+          )}
+          {formattedWeddingDate && (
+            <p className="text-[12px] text-[var(--colorTextLight)] mt-0.5">{formattedWeddingDate}</p>
+          )}
+        </div>
       </header>
 
       {/* Tabs */}
-      <div className="px-4 pt-4 pb-2 bg-white flex border-b border-[var(--colorBorder)] sticky top-[77px] z-10" role="tablist">
+      <div className="px-4 pt-4 pb-2 bg-white flex border-b border-[var(--colorBorder)] sticky top-[calc(var(--header-h,88px))] z-10" role="tablist">
         <button
           role="tab"
           onClick={() => setActiveTab("incomplete")}
@@ -148,7 +195,9 @@ export default function DashboardPage() {
               taskId={task.task_id}
               category={task.category}
               taskContent={task.task_content}
+              dueFormula={task.due_formula}
               dueEstimate={task.due_estimate}
+              weddingDate={weddingDate}
               memo={task.memo}
               isDone={task.is_done}
               onToggle={handleToggleTask}

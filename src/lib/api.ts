@@ -35,11 +35,18 @@ export const apiClient = {
       }
       if (payload.action === "getUser") {
         const date = localStorage.getItem("mock_wedding_date");
-        if (date) return { status: "exists", wedding_date: date };
+        if (date) return {
+          status: "exists",
+          wedding_date: date,
+          name1_kana: localStorage.getItem("mock_name1") || "",
+          name2_kana: localStorage.getItem("mock_name2") || "",
+        };
         return { status: "not_found" };
       }
       if (payload.action === "register") {
         localStorage.setItem("mock_wedding_date", payload.wedding_date);
+        localStorage.setItem("mock_name1", payload.name1_kana || "");
+        localStorage.setItem("mock_name2", payload.name2_kana || "");
         return { status: "created", wedding_date: payload.wedding_date };
       }
       if (payload.action === "getUsers") {

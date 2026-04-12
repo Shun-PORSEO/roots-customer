@@ -2,6 +2,8 @@ interface ICustomer {
   line_id: string;
   wedding_date: string;
   created_at?: string;
+  name1_kana?: string;
+  name2_kana?: string;
 }
 
 interface ITaskMaster {
