@@ -1,3 +1,91 @@
+function generateDummyData() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  // --- customers ---
+  const customersSheet = ss.getSheetByName("customers");
+  if (!customersSheet) {
+    Logger.log("customers シートが見つかりません。先に setupEnvironment を実行してください。");
+    return;
+  }
+
+  // 既存のダミーデータを削除（2行目以降）
+  const lastRow = customersSheet.getLastRow();
+  if (lastRow > 1) {
+    customersSheet.getRange(2, 1, lastRow - 1, customersSheet.getLastColumn()).clearContent();
+  }
+
+  const firstNames = [
+    "さくら", "はな", "あかり", "みく", "りな", "ゆい", "まい", "なな", "ひな", "れいな",
+    "あおい", "ことは", "みお", "りこ", "のぞみ", "めい", "ひより", "みずき", "えま", "るか",
+    "いちか", "こはる", "さな", "ゆな", "みお", "はるか", "りさ", "かな", "しおり", "あやか"
+  ];
+  const lastNames = [
+    "たろう", "けんた", "ゆうき", "しょうた", "りょう", "こうき", "はると", "だいき", "ゆうと", "そうた",
+    "けいすけ", "まさや", "たくや", "ひろき", "けんじ", "やまと", "しんじ", "みつき", "かずき", "れん",
+    "ゆうすけ", "こうへい", "たいが", "りょうた", "しんた", "あきら", "としき", "なおき", "まこと", "ひでき"
+  ];
+
+  // 挙式日を過去〜1.5年後に分散（リアルなシナリオ）
+  const today = new Date();
+  const customerRows: any[][] = [];
+  const progressRows: any[][] = [];
+
+  for (let i = 0; i < 30; i++) {
+    const lineId = "U" + ("dummy" + String(i + 1).padStart(3, "0") + "0000000000000000000000000");
+    // 挙式日：-6ヶ月〜+18ヶ月の範囲でランダム
+    const offsetDays = Math.floor(Math.random() * (540)) - 180; // -180 〜 +360日
+    const weddingDate = new Date(today);
+    weddingDate.setDate(weddingDate.getDate() + offsetDays);
+    // 土曜日に寄せる
+    const dow = weddingDate.getDay();
+    if (dow !== 6) weddingDate.setDate(weddingDate.getDate() + (6 - dow));
+    const weddingStr = Utilities.formatDate(weddingDate, "Asia/Tokyo", "yyyy-MM-dd");
+
+    const name1 = firstNames[i];
+    const name2 = lastNames[i];
+    const isAdmin = i === 0; // 先頭の1件だけ管理者
+    const createdAt = new Date(weddingDate);
+    createdAt.setMonth(createdAt.getMonth() - 8);
+
+    customerRows.push([lineId, weddingStr, createdAt.toISOString(), name1, name2, isAdmin]);
+
+    // タスク進捗：挙式までの残り日数に応じて完了率を決める
+    const daysUntil = Math.round((weddingDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    const allTaskIds = ["T001","T002","T003","T004","T005","T006","T007","T008","T009","T010","T011","T012","T013","T014","T015","T016"];
+    // 挙式まで日数が少ないほど完了タスクが多い
+    const doneRatio = daysUntil < 0 ? 1.0
+                    : daysUntil < 30 ? 0.85 + Math.random() * 0.15
+                    : daysUntil < 60 ? 0.65 + Math.random() * 0.2
+                    : daysUntil < 90 ? 0.45 + Math.random() * 0.25
+                    : daysUntil < 180 ? 0.2 + Math.random() * 0.3
+                    : Math.random() * 0.2;
+    const doneCount = Math.round(allTaskIds.length * doneRatio);
+    for (let t = 0; t < allTaskIds.length; t++) {
+      const isDone = t < doneCount;
+      progressRows.push([lineId, allTaskIds[t], isDone, new Date().toISOString(), true]);
+    }
+  }
+
+  // customers に書き込み
+  customersSheet.getRange(2, 1, customerRows.length, customerRows[0].length).setValues(customerRows);
+
+  // task_progress をクリアして書き込み
+  const progressSheet = ss.getSheetByName("task_progress");
+  if (progressSheet) {
+    const lastPRow = progressSheet.getLastRow();
+    if (lastPRow > 1) {
+      progressSheet.getRange(2, 1, lastPRow - 1, progressSheet.getLastColumn()).clearContent();
+    }
+    progressSheet.getRange(2, 1, progressRows.length, progressRows[0].length).setValues(progressRows);
+  }
+
+  // キャッシュをクリア
+  CacheService.getScriptCache().remove("activeTasks");
+
+  Logger.log(`✅ ダミーデータ生成完了: ${customerRows.length} 件のお客様、${progressRows.length} 件の進捗データ`);
+  return `Done: ${customerRows.length} customers, ${progressRows.length} progress rows`;
+}
+
 function setupEnvironment() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   
