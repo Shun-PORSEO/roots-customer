@@ -10,13 +10,13 @@ import { ErrorMessage } from "@/components/ErrorMessage";
 export default function RegisterPage() {
   const { isLiffReady, profile } = useLiff();
   const router = useRouter();
-  const [nickname, setNickname] = useState("");
+  const [weddingDate, setWeddingDate] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nickname.trim() || !profile) return;
+    if (!weddingDate || !profile) return;
     
     setLoading(true);
     setError(null);
@@ -24,7 +24,7 @@ export default function RegisterPage() {
       await apiClient.post({
         action: "register",
         line_id: profile.userId,
-        nickname: nickname.trim(),
+        wedding_date: weddingDate,
       });
       router.push("/dashboard");
     } catch (err: any) {
@@ -40,27 +40,25 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-[var(--colorBg)]">
       <div className="w-full max-w-sm bg-white p-6 rounded-2xl shadow-sm border border-[var(--colorBorder)]">
-        <h1 className="text-xl font-bold text-center mb-2 text-[var(--colorText)]">ニックネーム登録</h1>
+        <h1 className="text-xl font-bold text-center mb-2 text-[var(--colorText)]">挙式日の登録</h1>
         <p className="text-sm text-[var(--colorTextLight)] text-center mb-6">
-          登録するニックネームを入力してください。（最大20文字）
+          あなたの結婚式（挙式）の予定日を入力してください。
         </p>
         
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <input
-            type="text"
-            value={nickname}
-            onChange={(e) => setNickname(e.target.value)}
-            maxLength={20}
-            placeholder="例: たろう"
+            type="date"
+            value={weddingDate}
+            onChange={(e) => setWeddingDate(e.target.value)}
             required
             className="w-full px-4 py-3 border border-[var(--colorBorder)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--colorPrimary)] bg-gray-50 transition-all font-medium text-[var(--colorText)] text-base"
           />
           <button
             type="submit"
-            disabled={!nickname.trim() || loading}
+            disabled={!weddingDate || loading}
             className={`
               w-full py-3 h-12 rounded-lg font-bold text-base transition-all duration-200
-              ${!nickname.trim() || loading 
+              ${!weddingDate || loading 
                 ? "bg-[#DCDCDC] text-white cursor-not-allowed" 
                 : "bg-[var(--colorPrimary)] text-white hover:opacity-90 active:scale-95 shadow-md shadow-[var(--colorPrimary)]/30"}
             `}

@@ -9,13 +9,13 @@ test.describe("タスクダッシュボード", () => {
     // 登録済みユーザーとしてダッシュボードに直接アクセス
     await page.addInitScript(() => {
       localStorage.setItem("mock_line_id", "U_TEST_USER_001");
-      localStorage.setItem("mock_nickname", "テスト太郎");
+      localStorage.setItem("mock_wedding_date", "2026-10-10");
     });
   });
 
-  test("ダッシュボードにニックネームが表示される", async ({ page }) => {
+  test("ダッシュボードに挙式日が表示される", async ({ page }) => {
     await page.goto("/dashboard");
-    await expect(page.getByText(/テスト太郎さんの準備ダッシュボード/)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(/挙式日: 2026-10-10 のダッシュボード/)).toBeVisible({ timeout: 10000 });
   });
 
   test("「未完了」「完了済み」タブが表示される", async ({ page }) => {

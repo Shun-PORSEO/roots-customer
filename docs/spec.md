@@ -33,12 +33,14 @@
 
 | 列 | カラム名 | 型 | 説明 |
 |----|----------|----|------|
-| A | task_id | string | タスクID（例: T001） |
-| B | title | string | タスク名 |
-| C | description | string | タスクの詳細説明 |
-| D | manual_url | string | マニュアルPDF/外部リンクURL |
-| E | due_offset_days | number | 式当日から何日前が目安か |
-| F | is_active | boolean | FALSE で全顧客から非表示 |
+| A | task_id | string | タスクID（例: T001 または CUST-12345） |
+| B | category | string | タスクのカテゴリ |
+| C | task_content | string | タスクの詳細内容 |
+| D | due_formula | string | 完了期限の計算式（例: 挙式日 - 180日） |
+| E | due_estimate | string | 完了期限の目安（例: 挙式6ヶ月前） |
+| F | memo | string | 決まった内容メモ |
+| G | is_active | boolean | FALSE で非表示またはソフトデリート |
+| H | target_line_id | string | 個別タスク用：特定顧客のLINE ID（全員共通なら空欄） |
 
 ### シート3: `task_progress`（顧客別進捗）
 
@@ -87,10 +89,11 @@ https://script.google.com/macros/s/{DEPLOYMENT_ID}/exec
     "tasks": [
       {
         "task_id": "T001",
-        "title": "招待状リストアップ",
-        "description": "招待する全員のリストを作成してください",
-        "manual_url": "https://...",
-        "due_offset_days": 90,
+        "category": "招待状",
+        "task_content": "招待状の作成（Web/紙）と発送・案内完了",
+        "due_formula": "挙式日 - 90日",
+        "due_estimate": "挙式3ヶ月前",
+        "memo": "",
         "is_done": false,
         "is_visible": true
       }
@@ -111,6 +114,22 @@ https://script.google.com/macros/s/{DEPLOYMENT_ID}/exec
   { "status": "updated" }
   ```
 
+### 2-4. 管理者用API (Admin)
+
+- **Method:** POST
+- **Action:** `getUsers`, `getAdminUserTasks`, `toggleTaskVisibility`, `addCustomTask`, `deleteCustomTask`
+- **Request Body (例: addCustomTask):**
+  ```json
+  { 
+    "action": "addCustomTask",
+    "line_id": "admin",
+    "target_line_id": "Uxxxxxxxx",
+    "task": { "category": "...", "task_content": "..." }
+  }
+  ```
+- **Response:**
+  各アクションに応じた `status` と必要データ（`users`, `tasks` 等）
+
 ### 共通エラーレスポンス
 
 ```json
@@ -129,6 +148,8 @@ https://script.google.com/macros/s/{DEPLOYMENT_ID}/exec
 | P02 | ニックネーム登録 | `/register` |
 | P03 | タスクダッシュボード | `/dashboard` |
 | P04 | タスク詳細 | `/tasks/[task_id]` |
+| A01 | プランナー管理画面ログイン/手配一覧 | `/admin` |
+| A02 | プランナー用顧客個別設定画面 | `/admin/[line_id]` |
 
 ### 3-2. P01 ロード/初期化
 

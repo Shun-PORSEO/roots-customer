@@ -3,8 +3,8 @@ import { IApiResponse } from "./types";
 const GAS_ENDPOINT = process.env.NEXT_PUBLIC_GAS_ENDPOINT || "";
 
 // Mock data list
-let MOCK_TASKS = [
-  { task_id: "T001", title: "招待状リストアップ", description: "テスト説明", manual_url: "", due_offset_days: 90, is_done: false, is_visible: true }
+let MOCK_TASKS: any[] = [
+  { task_id: "T001", category: "会場決定", task_content: "・会場、日程の決定・お申込書、お内金振り込み", due_formula: "挙式日 - 180日", due_estimate: "挙式6ヶ月前", memo: "", is_done: false, is_visible: true }
 ];
 
 export const apiClient = {
@@ -12,6 +12,11 @@ export const apiClient = {
     if (!GAS_ENDPOINT || GAS_ENDPOINT === "YOUR_GAS_WEB_APP_URL_HERE") {
       if (action === "getTasks") {
         return { status: "ok", tasks: MOCK_TASKS }; 
+      }
+      if (action === "getUser") {
+        const date = localStorage.getItem("mock_wedding_date");
+        if (date) return { status: "exists", wedding_date: date };
+        return { status: "not_found" };
       }
       return { status: "ok" };
     }
@@ -33,7 +38,26 @@ export const apiClient = {
         return { status: "updated" };
       }
       if (payload.action === "register") {
-        return { status: "created", nickname: payload.nickname };
+        localStorage.setItem("mock_wedding_date", payload.wedding_date);
+        return { status: "created", wedding_date: payload.wedding_date };
+      }
+      if (payload.action === "getUsers") {
+        return { status: "ok", users: [{ line_id: "mock_user1", wedding_date: "2026-10-10", created_at: "2026-04-10" }] };
+      }
+      if (payload.action === "getAdminUserTasks") {
+        return { status: "ok", tasks: MOCK_TASKS }; 
+      }
+      if (payload.action === "toggleTaskVisibility") {
+        MOCK_TASKS = MOCK_TASKS.map(t => t.task_id === payload.task_id ? { ...t, is_visible: payload.is_visible } : t);
+        return { status: "updated" };
+      }
+      if (payload.action === "addCustomTask") {
+        MOCK_TASKS.push({ ...payload.task, task_id: "CUST-MOCK", is_done: false, is_visible: true, is_custom: true });
+        return { status: "created" };
+      }
+      if (payload.action === "deleteCustomTask") {
+        MOCK_TASKS = MOCK_TASKS.filter(t => t.task_id !== payload.task_id);
+        return { status: "deleted" };
       }
       return { status: "ok" };
     }

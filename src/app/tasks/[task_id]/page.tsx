@@ -21,16 +21,36 @@ export default function TaskDetailPage({ params }: { params: { task_id: string }
   useEffect(() => {
     const fetchTask = async () => {
       if (!profile) return;
+      
+      const cacheKey = `roots_dashboard_${profile.userId}`;
+      const cachedData = localStorage.getItem(cacheKey);
+      let parsedCache: any = null;
+      if (cachedData) {
+        try {
+          parsedCache = JSON.parse(cachedData);
+          const found = parsedCache?.tasks?.find((t: ITask) => t.task_id === params.task_id);
+          if (found) {
+            setTask(found);
+            setLoading(false); // Instantly dismiss
+          }
+        } catch (e) {}
+      }
+
       try {
         const res = await apiClient.get("getTasks", profile.userId);
         const found = res.tasks?.find((t) => t.task_id === params.task_id);
         if (found) {
           setTask(found);
-        } else {
+          // Also update the global cache so it's fresh for dashboard
+          localStorage.setItem(cacheKey, JSON.stringify({ 
+            tasks: res.tasks, 
+            weddingDate: parsedCache?.weddingDate || "" 
+          }));
+        } else if (!cachedData) {
           setError("タスクが見つかりませんでした。");
         }
       } catch (err: any) {
-        setError("タスクの取得に失敗しました。");
+        if (!cachedData) setError("タスクの取得に失敗しました。");
       } finally {
         setLoading(false);
       }
@@ -106,10 +126,14 @@ export default function TaskDetailPage({ params }: { params: { task_id: string }
             </div>
             <div>
               <h1 className={`text-[20px] font-bold leading-tight mb-2 ${task.is_done ? 'text-[var(--colorTextLight)] line-through' : 'text-[var(--colorText)]'}`}>
-                {task.title}
+                <span className="text-sm font-bold text-[var(--colorPrimary)] bg-[var(--colorSecondary)] px-2 py-0.5 rounded mr-2 uppercase tracking-wider inline-block mb-1 align-middle">
+                  {task.category}
+                </span>
+                <br/>
+                {task.task_content}
               </h1>
-              <p className="text-[14px] text-[var(--colorPrimary)] font-semibold">
-                期日目安: 式当日の {task.due_offset_days} 日前
+              <p className="text-[14px] text-[var(--colorPrimary)] font-semibold mt-2">
+                ⏳ 期限目安: {task.due_estimate}
               </p>
             </div>
           </div>
@@ -117,25 +141,14 @@ export default function TaskDetailPage({ params }: { params: { task_id: string }
           <div className="h-[1px] bg-[var(--colorBorder)] w-full"></div>
 
           <div>
-            <h2 className="text-[13px] text-[var(--colorTextLight)] mb-2 font-semibold uppercase tracking-wider">タスクの説明</h2>
-            <p className="text-[15px] leading-relaxed text-[var(--colorText)] whitespace-pre-wrap">
-              {task.description}
+            <h2 className="text-[13px] text-[var(--colorTextLight)] mb-2 font-semibold uppercase tracking-wider">メモ / 詳細</h2>
+            <p className="text-[15px] leading-relaxed text-[var(--colorText)] whitespace-pre-wrap bg-gray-50 p-4 rounded-xl border border-gray-100 min-h-[4rem]">
+              {task.memo || "特になし"}
             </p>
           </div>
 
-          {task.manual_url && (
-            <div className="pt-2 pb-1">
-              <a 
-                href={task.manual_url} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 w-full py-3 px-4 bg-[var(--colorSecondary)] text-[var(--colorPrimary)] font-bold rounded-xl active:bg-[#EBE4D5] transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
-                マニュアルを見る
-              </a>
-            </div>
-          )}
+
+
         </div>
       </main>
 

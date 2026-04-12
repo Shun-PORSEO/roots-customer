@@ -1,22 +1,26 @@
 export interface ITask {
   task_id: string;
-  title: string;
-  description: string;
-  manual_url: string;
-  due_offset_days: number;
+  category: string;
+  task_content: string;
+  due_formula: string;
+  due_estimate: string;
+  memo: string;
   is_done: boolean;
   is_visible: boolean;
+  is_custom?: boolean;
 }
 
 export interface ICustomer {
   line_id: string;
-  nickname: string;
+  wedding_date: string;
+  created_at?: string;
 }
 
 export interface IApiResponse<T = any> {
-  status: "ok" | "created" | "exists" | "updated" | "error";
+  status: "ok" | "created" | "exists" | "updated" | "deleted" | "error" | "not_found";
   message?: string;
-  nickname?: string;
+  wedding_date?: string;
   tasks?: ITask[];
+  users?: ICustomer[];
   [key: string]: any;
 }

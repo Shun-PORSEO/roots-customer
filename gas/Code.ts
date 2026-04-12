@@ -1,4 +1,15 @@
-import { createCustomer, getActiveTasks, getCustomer, getTaskProgress, updateOrCreateTaskProgress } from "./sheets";
+import { 
+  createCustomer, 
+  getActiveTasks, 
+  getCustomer, 
+  getTaskProgress, 
+  updateOrCreateTaskProgress,
+  getUsers,
+  getHiddenTasks,
+  toggleHiddenTask,
+  addCustomTask,
+  deleteCustomTask
+} from "./sheets";
 import { ITaskResponse } from "./types";
 
 const responseJSON = (data: any) => {
@@ -23,21 +34,26 @@ export const doGet = (e: any) => {
 
       const allTasks = getActiveTasks();
       const progressData = getTaskProgress(lineId);
+      const hiddenTasks = getHiddenTasks(lineId);
 
-      const tasks: ITaskResponse[] = allTasks.map(task => {
-        const prog = progressData.find(p => p.task_id === task.task_id);
-        const isDone = prog ? prog.is_done : false;
-        const isVisible = prog ? prog.is_visible : true;
-        
-        return {
-          task_id: task.task_id,
-          title: task.title,
-          description: task.description,
-          manual_url: task.manual_url,
-          due_offset_days: task.due_offset_days,
-          is_done: isDone,
-          is_visible: isVisible
-        };
+      const tasks: ITaskResponse[] = allTasks
+        .filter(task => !task.target_line_id || task.target_line_id === lineId)
+        .map(task => {
+          const prog = progressData.find(p => p.task_id === task.task_id);
+          const isDone = prog ? prog.is_done : false;
+          const isVisible = !hiddenTasks.has(task.task_id);
+          
+          return {
+            task_id: task.task_id,
+            category: task.category,
+            task_content: task.task_content,
+            due_formula: task.due_formula,
+            due_estimate: task.due_estimate,
+            memo: task.memo,
+            is_done: isDone,
+            is_visible: isVisible,
+            is_custom: !!task.target_line_id
+          };
       }).filter(t => t.is_visible);
 
       return responseJSON({ tasks });
@@ -59,14 +75,22 @@ export const doPost = (e: any) => {
       return responseJSON({ status: "error", message: "Unauthorized" });
     }
 
-    if (action === "register") {
-      const nickname = postData.nickname;
+    if (action === "getUser") {
       const existing = getCustomer(lineId);
       if (existing) {
-        return responseJSON({ status: "exists", nickname: existing.nickname });
+        return responseJSON({ status: "exists", wedding_date: existing.wedding_date });
       }
-      createCustomer(lineId, nickname);
-      return responseJSON({ status: "created", nickname });
+      return responseJSON({ status: "not_found" });
+    }
+
+    if (action === "register") {
+      const weddingDate = postData.wedding_date;
+      const existing = getCustomer(lineId);
+      if (existing) {
+        return responseJSON({ status: "exists", wedding_date: existing.wedding_date });
+      }
+      createCustomer(lineId, weddingDate);
+      return responseJSON({ status: "created", wedding_date: weddingDate });
     }
 
     if (action === "updateTask") {
@@ -74,6 +98,56 @@ export const doPost = (e: any) => {
       const isDone = postData.is_done;
       updateOrCreateTaskProgress(lineId, taskId, isDone);
       return responseJSON({ status: "updated" });
+    }
+
+    if (action === "getUsers") {
+      const users = getUsers();
+      return responseJSON({ status: "ok", users });
+    }
+
+    if (action === "getAdminUserTasks") {
+      const targetId = postData.target_line_id;
+      const allTasks = getActiveTasks();
+      const hiddenTasks = getHiddenTasks(targetId);
+      const tasks = allTasks
+        .filter(task => !task.target_line_id || task.target_line_id === targetId)
+        .map(task => ({
+          ...task,
+          is_visible: !hiddenTasks.has(task.task_id),
+          is_custom: !!task.target_line_id
+        }));
+      return responseJSON({ status: "ok", tasks });
+    }
+
+    if (action === "toggleTaskVisibility") {
+      const targetId = postData.target_line_id;
+      const taskId = postData.task_id;
+      const isVisible = postData.is_visible;
+      toggleHiddenTask(targetId, taskId, !isVisible);
+      return responseJSON({ status: "updated" });
+    }
+
+    if (action === "addCustomTask") {
+      const targetId = postData.target_line_id;
+      const taskData = postData.task;
+      const newTaskId = "CUST-" + new Date().getTime();
+      addCustomTask({
+        task_id: newTaskId,
+        category: taskData.category || "追加タスク",
+        task_content: taskData.task_content || "",
+        due_formula: taskData.due_formula || "",
+        due_estimate: taskData.due_estimate || "",
+        memo: taskData.memo || "",
+        is_active: true,
+        target_line_id: targetId
+      });
+      return responseJSON({ status: "created" });
+    }
+
+    if (action === "deleteCustomTask") {
+      const taskId = postData.task_id;
+      deleteCustomTask(taskId);
+      return responseJSON({ status: "deleted" });
     }
 
     return responseJSON({ status: "error", message: "Invalid action" });

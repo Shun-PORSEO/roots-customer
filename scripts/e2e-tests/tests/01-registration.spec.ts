@@ -13,30 +13,30 @@ test.describe("初回登録フロー", () => {
     await page.addInitScript(() => {
       (window as any).__LIFF_MOCK__ = {
         line_id: "U_TEST_USER_001",
-        nickname_display: "テストユーザー",
       };
     });
   });
 
-  test("初回アクセス時にニックネーム登録画面が表示される", async ({ page }) => {
+  test("初回アクセス時に挙式日登録画面が表示される", async ({ page }) => {
     await page.goto("/");
-    // ロード画面を経てニックネーム登録画面に到達する
-    await expect(page.getByRole("heading", { name: /ニックネーム/ })).toBeVisible({ timeout: 10000 });
-    await expect(page.getByRole("textbox")).toBeVisible();
+    // ロード画面を経て登録画面に到達する
+    await expect(page.getByRole("heading", { name: /挙式日/ })).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('input[type="date"]')).toBeVisible();
     await expect(page.getByRole("button", { name: /はじめる/ })).toBeVisible();
   });
 
-  test("ニックネームを入力して登録するとダッシュボードへ遷移する", async ({ page }) => {
+  test("挙式日を入力して登録するとダッシュボードへ遷移する", async ({ page }) => {
     await page.goto("/register");
-    await page.getByRole("textbox").fill("テストユーザー");
+    await page.locator('input[type="date"]').fill("2026-10-10");
     await page.getByRole("button", { name: /はじめる/ }).click();
-    // ダッシュボード画面に遷移し、ニックネームが表示される
-    await expect(page.getByText("テストユーザーさんの準備ダッシュボード")).toBeVisible({ timeout: 10000 });
+    // ダッシュボード画面に遷移し、挙式日が表示される
+    await expect(page.getByText("挙式日: 2026-10-10 のダッシュボード")).toBeVisible({ timeout: 10000 });
   });
 
-  test("ニックネームが空のまま登録ボタンを押してもエラーが表示される", async ({ page }) => {
+  test("挙式日が空のまま登録ボタンが押せないことを確認", async ({ page }) => {
     await page.goto("/register");
-    await page.getByRole("button", { name: /はじめる/ }).click();
-    await expect(page.getByText(/ニックネームを入力/)).toBeVisible();
+    const button = page.getByRole("button", { name: /はじめる/ });
+    await expect(button).toBeDisabled();
+    // 必須入力のHTML属性が効いているかもしくは無効化される想定
   });
 });

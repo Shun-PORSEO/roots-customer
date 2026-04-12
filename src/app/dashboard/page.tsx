@@ -14,18 +14,47 @@ export default function DashboardPage() {
   const router = useRouter();
   
   const [tasks, setTasks] = useState<ITask[]>([]);
+  const [weddingDate, setWeddingDate] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"incomplete" | "completed">("incomplete");
 
   const fetchTasks = useCallback(async () => {
     if (!profile) return;
+    
+    // 1. Fast Path: Read from LocalStorage cache
+    const cacheKey = `roots_dashboard_${profile.userId}`;
+    const cachedData = localStorage.getItem(cacheKey);
+    if (cachedData) {
+      try {
+        const parsed = JSON.parse(cachedData);
+        setTasks(parsed.tasks);
+        setWeddingDate(parsed.weddingDate);
+        setLoading(false); // Instantly dismiss loading screen
+      } catch (e) {
+        // ignore parse error
+      }
+    }
+
+    // 2. Background Revalidation: Fetch from GAS
     try {
-      const res = await apiClient.get("getTasks", profile.userId);
-      setTasks(res.tasks || []);
+      const [resTasks, resUser] = await Promise.all([
+        apiClient.get("getTasks", profile.userId),
+        apiClient.get("getUser", profile.userId),
+      ]);
+      const newTasks = resTasks.tasks || [];
+      const newWeddingDate = resUser.wedding_date || null;
+      
+      setTasks(newTasks);
+      setWeddingDate(newWeddingDate);
       setError(null);
+      
+      // Update Cache
+      localStorage.setItem(cacheKey, JSON.stringify({ tasks: newTasks, weddingDate: newWeddingDate }));
     } catch (err: any) {
-      setError("タスクの取得に失敗しました。もう一度お試しください。");
+      if (!cachedData) {
+        setError("タスクの取得に失敗しました。もう一度お試しください。");
+      }
     } finally {
       setLoading(false);
     }
@@ -78,7 +107,7 @@ export default function DashboardPage() {
       {/* Header */}
       <header className="bg-white px-4 py-6 border-b border-[var(--colorBorder)] sticky top-0 z-10">
         <h1 className="text-xl font-bold text-[var(--colorText)]">
-          {profile?.displayName}さんの準備ダッシュボード
+          挙式日: {weddingDate ? weddingDate : "取得中"} のダッシュボード
         </h1>
       </header>
 
@@ -117,8 +146,10 @@ export default function DashboardPage() {
             <TaskCard
               key={task.task_id}
               taskId={task.task_id}
-              title={task.title}
-              description={task.description}
+              category={task.category}
+              taskContent={task.task_content}
+              dueEstimate={task.due_estimate}
+              memo={task.memo}
               isDone={task.is_done}
               onToggle={handleToggleTask}
               onClick={handleTaskClick}

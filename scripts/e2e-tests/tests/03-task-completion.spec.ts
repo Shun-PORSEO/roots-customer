@@ -8,7 +8,7 @@ test.describe("タスク完了チェック機能", () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => {
       localStorage.setItem("mock_line_id", "U_TEST_USER_001");
-      localStorage.setItem("mock_nickname", "テスト太郎");
+      localStorage.setItem("mock_wedding_date", "2026-10-10");
     });
   });
 

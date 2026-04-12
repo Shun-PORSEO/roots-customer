@@ -16,15 +16,11 @@ export default function LoadingPage() {
     const checkUser = async () => {
       if (isLiffReady && profile) {
         try {
-          const res = await apiClient.post({
-            action: "register",
-            line_id: profile.userId,
-            nickname: profile.displayName, // Set default nickname
-          });
-          if (res.status === "created") {
-            router.push("/register");
-          } else if (res.status === "exists") {
+          const res = await apiClient.get("getUser", profile.userId);
+          if (res.status === "exists") {
             router.push("/dashboard");
+          } else {
+            router.push("/register");
           }
         } catch (err: any) {
           setApiError(err.message || "予期せぬエラーが発生しました");
