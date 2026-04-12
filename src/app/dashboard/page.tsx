@@ -40,7 +40,7 @@ export default function DashboardPage() {
     try {
       const [resTasks, resUser] = await Promise.all([
         apiClient.get("getTasks", profile.userId),
-        apiClient.get("getUser", profile.userId),
+        apiClient.post({ action: "getUser", line_id: profile.userId }),
       ]);
       const newTasks = resTasks.tasks || [];
       const newWeddingDate = resUser.wedding_date || null;

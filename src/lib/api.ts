@@ -13,11 +13,6 @@ export const apiClient = {
       if (action === "getTasks") {
         return { status: "ok", tasks: MOCK_TASKS }; 
       }
-      if (action === "getUser") {
-        const date = localStorage.getItem("mock_wedding_date");
-        if (date) return { status: "exists", wedding_date: date };
-        return { status: "not_found" };
-      }
       return { status: "ok" };
     }
     const url = `${GAS_ENDPOINT}?action=${action}&line_id=${lineId}`;
@@ -37,6 +32,11 @@ export const apiClient = {
       if (payload.action === "updateTask") {
         MOCK_TASKS = MOCK_TASKS.map(t => t.task_id === payload.task_id ? { ...t, is_done: payload.is_done } : t);
         return { status: "updated" };
+      }
+      if (payload.action === "getUser") {
+        const date = localStorage.getItem("mock_wedding_date");
+        if (date) return { status: "exists", wedding_date: date };
+        return { status: "not_found" };
       }
       if (payload.action === "register") {
         localStorage.setItem("mock_wedding_date", payload.wedding_date);

@@ -16,7 +16,7 @@ export default function LoadingPage() {
     const checkUser = async () => {
       if (isLiffReady && profile) {
         try {
-          const res = await apiClient.get("getUser", profile.userId);
+          const res = await apiClient.post({ action: "getUser", line_id: profile.userId });
           if (res.status === "exists") {
             router.push("/dashboard");
           } else {
