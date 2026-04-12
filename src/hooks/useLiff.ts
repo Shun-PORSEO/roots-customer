@@ -50,7 +50,7 @@ export const useLiff = () => {
         setIsLiffReady(true);
       } catch (err: any) {
         console.error("LIFF Init Error:", err);
-        setError("LINEアプリからアクセスしてください。");
+        setError(`LIFF Error: ${err.message || 'Unknown error'}`);
       }
     };
     initLiff();

@@ -27,7 +27,8 @@ export const apiClient = {
       if (data.status === "error") throw new Error(data.message);
       return data;
     } catch (e: any) {
-      throw new Error(e.message || "Failed to fetch data");
+      console.error(`API Error (GET ${action}):`, e);
+      throw new Error(`[GET ${action}] ${e.message || "Failed to fetch data"}`);
     }
   },
 
@@ -71,7 +72,8 @@ export const apiClient = {
       if (data.status === "error") throw new Error(data.message);
       return data;
     } catch (e: any) {
-      throw new Error(e.message || "Failed to post data");
+      console.error(`API Error (POST ${payload.action}):`, e);
+      throw new Error(`[POST ${payload.action}] ${e.message || "Failed to post data"}`);
     }
   },
 };

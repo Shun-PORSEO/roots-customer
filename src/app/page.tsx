@@ -33,8 +33,17 @@ export default function LoadingPage() {
   if (error || apiError) {
     return (
       <div className="flex items-center justify-center min-h-screen text-center p-4">
-        <div>
+        <div className="w-full">
           <p className="text-[var(--colorError)] font-bold mb-4">{error || "通信エラーが発生しました。"}</p>
+          {apiError && (
+            <div className="bg-red-50 text-red-800 text-xs text-left p-4 rounded mt-4 max-h-40 overflow-auto whitespace-pre-wrap flex-col break-all">
+              <span className="font-bold block mb-1">=== API Error Debug ===</span>
+              {apiError}
+            </div>
+          )}
+          <button onClick={() => window.location.reload()} className="mt-8 px-4 py-2 border rounded shadow-sm text-sm">
+            再読み込み
+          </button>
         </div>
       </div>
     );
