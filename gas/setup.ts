@@ -6,7 +6,7 @@ function setupEnvironment() {
   if (!customersSheet) {
     customersSheet = ss.insertSheet("customers");
   }
-  customersSheet.getRange("A1:C1").setValues([["line_id", "wedding_date", "created_at"]]);
+  customersSheet.getRange("A1:E1").setValues([["line_id", "wedding_date", "created_at", "name1_kana", "name2_kana"]]);
 
   // 2. task_master シートの作成とヘッダー
   let taskMasterSheet = ss.getSheetByName("task_master");
