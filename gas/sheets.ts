@@ -25,6 +25,7 @@ function getCustomer(lineId: string): ICustomer | null {
         created_at: String(data[i][2]),
         name1_kana: String(data[i][3] || ""),
         name2_kana: String(data[i][4] || ""),
+        is_admin: data[i][5] === true || String(data[i][5]).toLowerCase() === "true",
       };
     }
   }
@@ -62,9 +63,58 @@ function getUsers(): ICustomer[] {
       created_at: String(data[i][2]),
       name1_kana: String(data[i][3] || ""),
       name2_kana: String(data[i][4] || ""),
+      is_admin: data[i][5] === true || String(data[i][5]).toLowerCase() === "true",
     });
   }
   return users;
+};
+
+function getUsersWithProgress(): IUserProgress[] {
+  const users = getUsers();
+  if (users.length === 0) return [];
+
+  const allTasks = getActiveTasks(); // キャッシュ済み
+
+  // task_progress シートを一括読み込み
+  const progressSheet = getSheet("task_progress");
+  const progressData = progressSheet ? progressSheet.getDataRange().getValues() : [];
+
+  // user_hidden_tasks シートを一括読み込み
+  const hiddenSheet = getSheet("user_hidden_tasks");
+  const hiddenData = hiddenSheet ? hiddenSheet.getDataRange().getValues() : [];
+
+  return users.map(user => {
+    // 非表示タスクを収集
+    const hiddenIds = new Set<string>();
+    for (let i = 1; i < hiddenData.length; i++) {
+      if (String(hiddenData[i][0]) === user.line_id) {
+        hiddenIds.add(String(hiddenData[i][1]));
+      }
+    }
+
+    // 完了状況を収集
+    const progressMap = new Map<string, boolean>();
+    for (let i = 1; i < progressData.length; i++) {
+      if (progressData[i][0] === user.line_id) {
+        const isDone = progressData[i][2] === true || String(progressData[i][2]).toLowerCase() === "true";
+        progressMap.set(String(progressData[i][1]), isDone);
+      }
+    }
+
+    // 表示対象タスクを絞り込み
+    const visibleTasks = allTasks.filter(t =>
+      (!t.target_line_id || t.target_line_id === user.line_id) &&
+      !hiddenIds.has(t.task_id)
+    );
+
+    const doneCount = visibleTasks.filter(t => progressMap.get(t.task_id) === true).length;
+
+    return {
+      ...user,
+      total_tasks: visibleTasks.length,
+      done_tasks: doneCount,
+    };
+  });
 };
 
 function getActiveTasks(): ITaskMaster[] {

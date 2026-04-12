@@ -16,6 +16,12 @@ export interface ICustomer {
   created_at?: string;
   name1_kana?: string;
   name2_kana?: string;
+  is_admin?: boolean;
+}
+
+export interface IUserProgress extends ICustomer {
+  total_tasks: number;
+  done_tasks: number;
 }
 
 export interface IApiResponse {
@@ -25,6 +31,6 @@ export interface IApiResponse {
   name1_kana?: string;
   name2_kana?: string;
   tasks?: ITask[];
-  users?: ICustomer[];
+  users?: ICustomer[] | IUserProgress[];
   [key: string]: any;
 }

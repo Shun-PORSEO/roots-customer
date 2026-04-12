@@ -18,6 +18,7 @@ export default function DashboardPage() {
   const [weddingDate, setWeddingDate] = useState<string | null>(null);
   const [name1, setName1] = useState<string>("");
   const [name2, setName2] = useState<string>("");
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"incomplete" | "completed">("incomplete");
@@ -35,6 +36,7 @@ export default function DashboardPage() {
         setWeddingDate(parsed.weddingDate);
         setName1(parsed.name1 || "");
         setName2(parsed.name2 || "");
+        setIsAdmin(parsed.isAdmin || false);
         setLoading(false);
       } catch (e) {
         // ignore parse error
@@ -51,11 +53,13 @@ export default function DashboardPage() {
       const newWeddingDate = resUser.wedding_date || null;
       const newName1 = resUser.name1_kana || "";
       const newName2 = resUser.name2_kana || "";
+      const newIsAdmin = resUser.is_admin || false;
 
       setTasks(newTasks);
       setWeddingDate(newWeddingDate);
       setName1(newName1);
       setName2(newName2);
+      setIsAdmin(newIsAdmin);
       setError(null);
 
       localStorage.setItem(cacheKey, JSON.stringify({
@@ -63,6 +67,7 @@ export default function DashboardPage() {
         weddingDate: newWeddingDate,
         name1: newName1,
         name2: newName2,
+        isAdmin: newIsAdmin,
       }));
     } catch (err: any) {
       if (!cachedData) {
@@ -126,6 +131,17 @@ export default function DashboardPage() {
       <header className="sticky top-0 z-10 border-b border-[var(--colorBorder)]"
         style={{ background: "linear-gradient(135deg, #F9EDE8 0%, #FDF8F0 60%, #F5F0E8 100%)" }}
       >
+        {isAdmin && (
+          <div className="flex justify-end px-4 pt-2">
+            <button
+              onClick={() => router.push("/admin")}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--colorPrimary)] text-white text-[11px] font-bold rounded-full shadow-sm hover:opacity-90 active:scale-95 transition-all"
+            >
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+              管理者画面
+            </button>
+          </div>
+        )}
         <div className="px-5 py-4 text-center">
           <p className="text-[10px] font-bold tracking-[0.25em] text-[var(--colorPrimary)] uppercase mb-1">
             Wedding Planner

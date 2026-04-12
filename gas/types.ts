@@ -4,6 +4,12 @@ interface ICustomer {
   created_at?: string;
   name1_kana?: string;
   name2_kana?: string;
+  is_admin?: boolean;
+}
+
+interface IUserProgress extends ICustomer {
+  total_tasks: number;
+  done_tasks: number;
 }
 
 interface ITaskMaster {

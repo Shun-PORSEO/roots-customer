@@ -72,6 +72,7 @@ function doPost(e: any) {
           wedding_date: existing.wedding_date,
           name1_kana: existing.name1_kana || "",
           name2_kana: existing.name2_kana || "",
+          is_admin: existing.is_admin || false,
         });
       }
       return responseJSON({ status: "not_found" });
@@ -107,6 +108,11 @@ function doPost(e: any) {
 
     if (action === "getUsers") {
       const users = getUsers();
+      return responseJSON({ status: "ok", users });
+    }
+
+    if (action === "getUsersWithProgress") {
+      const users = getUsersWithProgress();
       return responseJSON({ status: "ok", users });
     }
 

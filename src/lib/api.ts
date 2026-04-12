@@ -40,6 +40,7 @@ export const apiClient = {
           wedding_date: date,
           name1_kana: localStorage.getItem("mock_name1") || "",
           name2_kana: localStorage.getItem("mock_name2") || "",
+          is_admin: localStorage.getItem("mock_is_admin") === "true",
         };
         return { status: "not_found" };
       }
@@ -50,7 +51,13 @@ export const apiClient = {
         return { status: "created", wedding_date: payload.wedding_date };
       }
       if (payload.action === "getUsers") {
-        return { status: "ok", users: [{ line_id: "mock_user1", wedding_date: "2026-10-10", created_at: "2026-04-10" }] };
+        return { status: "ok", users: [{ line_id: "mock_user1", wedding_date: "2026-10-10", name1_kana: "さくら", name2_kana: "たろう", created_at: "2026-04-10" }] };
+      }
+      if (payload.action === "getUsersWithProgress") {
+        return { status: "ok", users: [
+          { line_id: "mock_user1", wedding_date: "2026-10-10", name1_kana: "さくら", name2_kana: "たろう", is_admin: false, total_tasks: 20, done_tasks: 8 },
+          { line_id: "mock_user2", wedding_date: "2026-08-15", name1_kana: "はな", name2_kana: "けんた", is_admin: false, total_tasks: 18, done_tasks: 15 },
+        ]};
       }
       if (payload.action === "getAdminUserTasks") {
         return { status: "ok", tasks: MOCK_TASKS }; 

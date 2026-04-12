@@ -45,7 +45,7 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-[var(--colorBg)]">
-      <div className="w-full max-w-sm bg-white p-6 rounded-2xl shadow-sm border border-[var(--colorBorder)]">
+      <div className="w-full max-w-sm bg-white p-6 rounded-2xl shadow-sm border border-[var(--colorBorder)] overflow-hidden">
         <h1 className="text-xl font-bold text-center mb-2 text-[var(--colorText)]">はじめに登録</h1>
         <p className="text-sm text-[var(--colorTextLight)] text-center mb-6">
           お二人の情報を入力してください。
@@ -88,7 +88,7 @@ export default function RegisterPage() {
               value={weddingDate}
               onChange={(e) => setWeddingDate(e.target.value)}
               required
-              className="block w-full px-4 py-3 border border-[var(--colorBorder)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--colorPrimary)] bg-gray-50 text-[var(--colorText)] text-base"
+              className="block w-full max-w-full min-w-0 px-4 py-3 border border-[var(--colorBorder)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--colorPrimary)] bg-gray-50 text-[var(--colorText)] text-base box-border"
             />
           </div>
 
