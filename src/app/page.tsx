@@ -17,7 +17,7 @@ export default function LoadingPage() {
       if (isLiffReady && profile) {
         try {
           const res = await apiClient.post({ action: "getUser", line_id: profile.userId });
-          if (res.status === "exists") {
+          if (res.status === "exists" && res.name1_kana && res.name2_kana) {
             router.push("/dashboard");
           } else {
             router.push("/register");

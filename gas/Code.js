@@ -72,7 +72,16 @@ function doPost(e) {
             const name2Kana = postData.name2_kana || "";
             const existing = getCustomer(lineId);
             if (existing) {
-                return responseJSON({ status: "exists", wedding_date: existing.wedding_date });
+                // 既存ユーザーでも名前が未登録の場合は更新する
+                if ((!existing.name1_kana || !existing.name2_kana) && (name1Kana || name2Kana)) {
+                    updateCustomerNames(lineId, name1Kana, name2Kana);
+                }
+                return responseJSON({
+                    status: "exists",
+                    wedding_date: existing.wedding_date,
+                    name1_kana: name1Kana || existing.name1_kana || "",
+                    name2_kana: name2Kana || existing.name2_kana || "",
+                });
             }
             createCustomer(lineId, weddingDate, name1Kana, name2Kana);
             return responseJSON({ status: "created", wedding_date: weddingDate });

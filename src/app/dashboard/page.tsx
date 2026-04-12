@@ -131,8 +131,11 @@ export default function DashboardPage() {
             Wedding Planner
           </p>
           <h1 className="text-[17px] font-bold text-[var(--colorText)] leading-tight">
-            {coupleLabel ? `${coupleLabel} ウェディング` : "ウェディングプランナー"}
+            {coupleLabel ? `${coupleLabel}ペア` : "ウェディングプランナー"}
           </h1>
+          {coupleLabel && (
+            <p className="text-[12px] text-[var(--colorTextLight)] mt-0.5">結婚式までにやる事リスト</p>
+          )}
           {daysUntil !== null && (
             <div className="mt-2 flex items-baseline justify-center gap-1">
               {daysUntil > 0 ? (

@@ -1,5 +1,15 @@
 // types.ts interfaces are global
 const getSheet = (name) => SpreadsheetApp.getActiveSpreadsheet().getSheetByName(name);
+// Google Sheetsが日付セルをDateオブジェクトとして返すため、"YYYY-MM-DD"形式に変換する
+function formatDateCell(value) {
+    if (value instanceof Date) {
+        const y = value.getFullYear();
+        const m = String(value.getMonth() + 1).padStart(2, "0");
+        const d = String(value.getDate()).padStart(2, "0");
+        return `${y}-${m}-${d}`;
+    }
+    return String(value);
+}
 function getCustomer(lineId) {
     const sheet = getSheet("customers");
     if (!sheet)
@@ -9,7 +19,7 @@ function getCustomer(lineId) {
         if (data[i][0] === lineId) {
             return {
                 line_id: String(data[i][0]),
-                wedding_date: String(data[i][1]),
+                wedding_date: formatDateCell(data[i][1]),
                 created_at: String(data[i][2]),
                 name1_kana: String(data[i][3] || ""),
                 name2_kana: String(data[i][4] || ""),
@@ -26,6 +36,20 @@ function createCustomer(lineId, weddingDate, name1Kana, name2Kana) {
     sheet.appendRow([lineId, weddingDate, new Date().toISOString(), name1Kana || "", name2Kana || ""]);
 }
 ;
+function updateCustomerNames(lineId, name1Kana, name2Kana) {
+    const sheet = getSheet("customers");
+    if (!sheet)
+        return;
+    const data = sheet.getDataRange().getValues();
+    for (let i = 1; i < data.length; i++) {
+        if (data[i][0] === lineId) {
+            sheet.getRange(i + 1, 4).setValue(name1Kana);
+            sheet.getRange(i + 1, 5).setValue(name2Kana);
+            return;
+        }
+    }
+}
+;
 function getUsers() {
     const sheet = getSheet("customers");
     if (!sheet)
@@ -35,7 +59,7 @@ function getUsers() {
     for (let i = 1; i < data.length; i++) {
         users.push({
             line_id: String(data[i][0]),
-            wedding_date: String(data[i][1]),
+            wedding_date: formatDateCell(data[i][1]),
             created_at: String(data[i][2]),
             name1_kana: String(data[i][3] || ""),
             name2_kana: String(data[i][4] || ""),
