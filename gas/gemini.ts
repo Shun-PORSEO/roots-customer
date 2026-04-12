@@ -2,7 +2,7 @@
  * Gemini AI連携モジュール (GAS用)
  */
 
-export const generateReplyFromGemini = (userId: string, userMessage: string, context: any[]): string => {
+function generateReplyFromGemini(userId: string, userMessage: string, context: any[]): string {
   const apiKey = PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY") || "";
   
   if (!apiKey) {

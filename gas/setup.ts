@@ -1,4 +1,4 @@
-export const setupEnvironment = () => {
+function setupEnvironment() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   
   // 1. customers シートの作成とヘッダー

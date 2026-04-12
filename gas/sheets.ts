@@ -1,8 +1,8 @@
-import { ICustomer, ITaskMaster, ITaskProgress } from "./types";
+// types.ts interfaces are global
 
 const getSheet = (name: string) => SpreadsheetApp.getActiveSpreadsheet().getSheetByName(name);
 
-export const getCustomer = (lineId: string): ICustomer | null => {
+function getCustomer(lineId: string): ICustomer | null {
   const sheet = getSheet("customers");
   if (!sheet) return null;
   const data = sheet.getDataRange().getValues();
@@ -18,13 +18,13 @@ export const getCustomer = (lineId: string): ICustomer | null => {
   return null;
 };
 
-export const createCustomer = (lineId: string, weddingDate: string): void => {
+function createCustomer(lineId: string, weddingDate: string): void {
   const sheet = getSheet("customers");
   if (!sheet) return;
   sheet.appendRow([lineId, weddingDate, new Date().toISOString()]);
 };
 
-export const getUsers = (): ICustomer[] => {
+function getUsers(): ICustomer[] {
   const sheet = getSheet("customers");
   if (!sheet) return [];
   const data = sheet.getDataRange().getValues();
@@ -39,7 +39,7 @@ export const getUsers = (): ICustomer[] => {
   return users;
 };
 
-export const getActiveTasks = (): ITaskMaster[] => {
+function getActiveTasks(): ITaskMaster[] {
   const cache = CacheService.getScriptCache();
   const cached = cache.get("activeTasks");
   if (cached) return JSON.parse(cached);
@@ -67,7 +67,7 @@ export const getActiveTasks = (): ITaskMaster[] => {
   return tasks;
 };
 
-export const getTaskProgress = (lineId: string): ITaskProgress[] => {
+function getTaskProgress(lineId: string): ITaskProgress[] {
   const cache = CacheService.getScriptCache();
   const cacheKey = "progress_" + lineId;
   const cached = cache.get(cacheKey);
@@ -92,7 +92,7 @@ export const getTaskProgress = (lineId: string): ITaskProgress[] => {
   return progress;
 };
 
-export const updateOrCreateTaskProgress = (lineId: string, taskId: string, isDone: boolean): void => {
+function updateOrCreateTaskProgress(lineId: string, taskId: string, isDone: boolean): void {
   const sheet = getSheet("task_progress");
   if (!sheet) return;
   const data = sheet.getDataRange().getValues();
@@ -111,7 +111,7 @@ export const updateOrCreateTaskProgress = (lineId: string, taskId: string, isDon
   CacheService.getScriptCache().remove("progress_" + lineId);
 };
 
-export const getHiddenTasks = (lineId: string): Set<string> => {
+function getHiddenTasks(lineId: string): Set<string> {
   const cache = CacheService.getScriptCache();
   const cacheKey = "hidden_" + lineId;
   const cached = cache.get(cacheKey);
@@ -130,7 +130,7 @@ export const getHiddenTasks = (lineId: string): Set<string> => {
   return hidden;
 };
 
-export const toggleHiddenTask = (lineId: string, taskId: string, isHidden: boolean): void => {
+function toggleHiddenTask(lineId: string, taskId: string, isHidden: boolean): void {
   const sheet = getSheet("user_hidden_tasks");
   if (!sheet) return;
   const data = sheet.getDataRange().getValues();
@@ -152,7 +152,7 @@ export const toggleHiddenTask = (lineId: string, taskId: string, isHidden: boole
   CacheService.getScriptCache().remove("hidden_" + lineId);
 };
 
-export const addCustomTask = (task: ITaskMaster): void => {
+function addCustomTask(task: ITaskMaster): void {
   const sheet = getSheet("task_master");
   if (!sheet) return;
   sheet.appendRow([
@@ -168,7 +168,7 @@ export const addCustomTask = (task: ITaskMaster): void => {
   CacheService.getScriptCache().remove("activeTasks");
 };
 
-export const deleteCustomTask = (taskId: string): void => {
+function deleteCustomTask(taskId: string): void {
   const sheet = getSheet("task_master");
   if (!sheet) return;
   const data = sheet.getDataRange().getValues();

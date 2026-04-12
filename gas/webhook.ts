@@ -2,7 +2,7 @@
  * LINE Messaging API Webhook モジュール (GAS用)
  */
 
-export const replyToLine = (replyToken: string, messageText: string) => {
+function replyToLine(replyToken: string, messageText: string) {
   const channelAccessToken = PropertiesService.getScriptProperties().getProperty("LINE_CHANNEL_ACCESS_TOKEN") || "";
   
   if (!channelAccessToken) {

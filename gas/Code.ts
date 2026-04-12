@@ -1,22 +1,11 @@
-import { 
-  createCustomer, 
-  getActiveTasks, 
-  getCustomer, 
-  getTaskProgress, 
-  updateOrCreateTaskProgress,
-  getUsers,
-  getHiddenTasks,
-  toggleHiddenTask,
-  addCustomTask,
-  deleteCustomTask
-} from "./sheets";
-import { ITaskResponse } from "./types";
+// sheets.ts functions will be available globally in GAS
+// types.ts interfaces will be available globally in GAS
 
 const responseJSON = (data: any) => {
   return ContentService.createTextOutput(JSON.stringify(data)).setMimeType(ContentService.MimeType.JSON);
 };
 
-export const doGet = (e: any) => {
+function doGet(e: any) {
   try {
     const action = e.parameter.action;
     const lineId = e.parameter.line_id;
@@ -65,7 +54,7 @@ export const doGet = (e: any) => {
   }
 };
 
-export const doPost = (e: any) => {
+function doPost(e: any) {
   try {
     const postData = JSON.parse(e.postData.contents);
     const action = e.parameter.action || postData.action;

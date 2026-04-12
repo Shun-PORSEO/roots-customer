@@ -1,10 +1,10 @@
-export interface ICustomer {
+interface ICustomer {
   line_id: string;
   wedding_date: string;
   created_at?: string;
 }
 
-export interface ITaskMaster {
+interface ITaskMaster {
   task_id: string;
   category: string;
   task_content: string;
@@ -15,7 +15,7 @@ export interface ITaskMaster {
   target_line_id?: string;
 }
 
-export interface ITaskProgress {
+interface ITaskProgress {
   line_id: string;
   task_id: string;
   is_done: boolean;
@@ -23,7 +23,7 @@ export interface ITaskProgress {
   is_visible: boolean; // Note: We might phase this out, but keep for type compatibility
 }
 
-export interface ITaskResponse {
+interface ITaskResponse {
   task_id: string;
   category: string;
   task_content: string;
