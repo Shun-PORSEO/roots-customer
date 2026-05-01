@@ -6,7 +6,7 @@ import { apiClient } from "@/lib/api";
 import { IVenue, IUserProgress, ITaskMaster } from "@/lib/types";
 import { getDaysFromToday } from "@/lib/utils";
 import { Spinner } from "@/components/Spinner";
-import { ErrorMessage } from "@/components/ErrorMessage";
+import { ErrorMessage, InlineApiError } from "@/components/ErrorMessage";
 
 export default function VenueDetailPage({ params }: { params: { venue_id: string } }) {
   const router = useRouter();
@@ -16,13 +16,13 @@ export default function VenueDetailPage({ params }: { params: { venue_id: string
   const [users, setUsers] = useState<IUserProgress[]>([]);
   const [pendingDraftsCount, setPendingDraftsCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<unknown>(null);
 
   const [taskMasters, setTaskMasters] = useState<ITaskMaster[]>([]);
   const [urlDraft, setUrlDraft] = useState<Record<string, string>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
   const [savedFlashId, setSavedFlashId] = useState<string | null>(null);
-  const [manualError, setManualError] = useState<string | null>(null);
+  const [manualError, setManualError] = useState<unknown>(null);
 
   useEffect(() => {
     Promise.all([
@@ -41,7 +41,7 @@ export default function VenueDetailPage({ params }: { params: { venue_id: string
           setUrlDraft(Object.fromEntries(tasks.map((t) => [t.task_id, t.manual_url || ""])));
         }
       })
-      .catch((e) => setError(e.message))
+      .catch((e) => setError(e))
       .finally(() => setLoading(false));
   }, [venueId]);
 
@@ -61,15 +61,15 @@ export default function VenueDetailPage({ params }: { params: { venue_id: string
       setTaskMasters((prev) => prev.map((t) => (t.task_id === taskId ? { ...t, manual_url: url } : t)));
       setSavedFlashId(taskId);
       setTimeout(() => setSavedFlashId((id) => (id === taskId ? null : id)), 1500);
-    } catch (e: any) {
-      setManualError(e.message || "保存に失敗しました");
+    } catch (e) {
+      setManualError(e instanceof Error ? e : new Error("保存に失敗しました"));
     } finally {
       setSavingId(null);
     }
   };
 
   if (loading) return <Spinner fullScreen />;
-  if (error) return <ErrorMessage message={error} />;
+  if (error) return <div className="p-md"><InlineApiError error={error} /></div>;
   if (!venue) return <ErrorMessage message="式場が見つかりません" />;
 
   const couples = users.filter((u) => !u.is_admin);
@@ -154,11 +154,11 @@ export default function VenueDetailPage({ params }: { params: { venue_id: string
       <p className="text-body-sm text-neutral-50 mb-sm">
         各タスクに表示するマニュアル（手順書・資料など）のURLを登録します。設定すると、ペアのタスク画面から「マニュアルを見る」リンクが利用できるようになります。
       </p>
-      {manualError && (
-        <div className="card-base p-sm mb-sm border-error/40 text-body-sm text-error">
-          {manualError}
+      {manualError ? (
+        <div className="mb-sm">
+          <InlineApiError error={manualError} />
         </div>
-      )}
+      ) : null}
       {taskMasters.length === 0 ? (
         <div className="card-base p-lg text-center text-body-md text-neutral-50 mb-lg">
           この式場で利用できる基本タスクがありません

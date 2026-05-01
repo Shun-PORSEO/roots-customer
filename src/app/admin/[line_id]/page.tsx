@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { apiClient } from "@/lib/api";
 import { ITask } from "@/lib/types";
 import { Spinner } from "@/components/Spinner";
-import { ErrorMessage } from "@/components/ErrorMessage";
+import { InlineApiError } from "@/components/ErrorMessage";
 
 export default function AdminUserTaskPage({ params }: { params: { line_id: string } }) {
   const router = useRouter();
@@ -14,7 +14,7 @@ export default function AdminUserTaskPage({ params }: { params: { line_id: strin
   const [tasks, setTasks] = useState<ITask[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<unknown>(null);
 
   const [showForm, setShowForm] = useState(false);
   const [newTask, setNewTask] = useState({
@@ -35,8 +35,8 @@ export default function AdminUserTaskPage({ params }: { params: { line_id: strin
       if (res.tasks) {
         setTasks(res.tasks);
       }
-    } catch (e: any) {
-      setError(e.message);
+    } catch (e) {
+      setError(e);
     } finally {
       setLoading(false);
     }
@@ -110,7 +110,7 @@ export default function AdminUserTaskPage({ params }: { params: { line_id: strin
   };
 
   if (loading) return <Spinner fullScreen />;
-  if (error) return <ErrorMessage message={error} />;
+  if (error) return <div className="p-md"><InlineApiError error={error} /></div>;
 
   const globalTasks = tasks.filter((t) => !t.is_custom);
   const customTasks = tasks.filter((t) => t.is_custom);

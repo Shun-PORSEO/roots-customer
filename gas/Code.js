@@ -180,6 +180,14 @@ function doPost(e) {
         }
         // ─── 式場管理（超管理者） ────────────────────────────────────────
         if (action === "createVenue") {
+            // 半端に式場だけ追加されてタスク雛形だけ失敗、を避けるため
+            // 必要シートが両方そろっているかを最初にまとめて確認する。
+            if (!getSheet("venues") || !getSheet("task_master")) {
+                return responseJSON({
+                    status: "error",
+                    message: "venues / task_master シートが見つかりません。setupEnvironment を実行してください。"
+                });
+            }
             const newVenue = {
                 venue_id: postData.venue_id,
                 venue_name: postData.venue_name,

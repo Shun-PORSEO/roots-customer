@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiClient } from "@/lib/api";
+import { InlineApiError } from "@/components/ErrorMessage";
 
 export default function NewVenuePage() {
   const router = useRouter();
@@ -14,12 +15,12 @@ export default function NewVenuePage() {
     line_liff_id: "",
   });
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<unknown>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.venue_id || !form.venue_name) {
-      setError("式場IDと式場名は必須です");
+      setError(new Error("式場IDと式場名は必須です"));
       return;
     }
     setSaving(true);
@@ -27,8 +28,9 @@ export default function NewVenuePage() {
     try {
       await apiClient.post({ action: "createVenue", line_id: "admin", ...form });
       router.push("/admin/venues");
-    } catch (err: any) {
-      setError(err.message || "登録に失敗しました");
+    } catch (err) {
+      // ApiError が来れば InlineApiError 内で対処法も自動表示される
+      setError(err);
     } finally {
       setSaving(false);
     }
@@ -122,14 +124,7 @@ export default function NewVenuePage() {
           />
         </div>
 
-        {error && (
-          <p className="text-error text-body-md font-semibold flex items-center gap-xs">
-            <svg className="w-4 h-4 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-              <path fillRule="evenodd" d="M18 10A8 8 0 11 2 10a8 8 0 0116 0zM10 5a1 1 0 011 1v4a1 1 0 11-2 0V6a1 1 0 011-1zm0 8a1 1 0 100 2 1 1 0 000-2z" clipRule="evenodd" />
-            </svg>
-            {error}
-          </p>
-        )}
+        {error ? <InlineApiError error={error} /> : null}
 
         <div className="flex gap-sm pt-xs">
           <button

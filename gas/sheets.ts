@@ -34,9 +34,18 @@ function getVenueByPlannerId(plannerLineId: string): IVenue | null {
   return venues.find(v => v.planner_line_user_id === plannerLineId) || null;
 }
 
+// 失敗時はクライアント側 diagnose() が拾える英文キーワードを含むエラーを投げる。
 function createVenue(venue: Omit<IVenue, "created_at">): void {
   const sheet = getSheet("venues");
-  if (!sheet) return;
+  if (!sheet) {
+    throw new Error("venues シートが見つかりません。setupEnvironment を実行してください。");
+  }
+  if (!venue.venue_id || !venue.venue_name) {
+    throw new Error("venue_id と venue_name は必須です");
+  }
+  if (getVenue(venue.venue_id)) {
+    throw new Error(`venue_id "${venue.venue_id}" は already exists`);
+  }
   sheet.appendRow([
     venue.venue_id,
     venue.venue_name,

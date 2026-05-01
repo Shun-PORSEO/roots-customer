@@ -2,6 +2,111 @@ import { IApiResponse, IMessageDraft, IVenue, IUserProgress } from "./types";
 
 const GAS_ENDPOINT = process.env.NEXT_PUBLIC_GAS_ENDPOINT || "";
 
+// 開発者・運用者向けに「何が起きたか」と「どう直すか」を一緒に持つエラー型。
+// UI 側ではこれを受け取って message と solution の2段表示を行う。
+export class ApiError extends Error {
+  /** 想定される原因と対処手順（複数行・日本語）。UI に箇条書きでそのまま表示される。 */
+  solution: string;
+  /** 失敗した API アクション名（例: "createVenue"）。 */
+  action: string;
+  /** GET / POST の区別。 */
+  method: "GET" | "POST";
+
+  constructor(method: "GET" | "POST", action: string, message: string, solution: string) {
+    super(`[${method} ${action}] ${message}`);
+    this.name = "ApiError";
+    this.method = method;
+    this.action = action;
+    this.solution = solution;
+  }
+}
+
+/**
+ * 受け取った素のエラー / レスポンス文言から、想定原因と対処手順を組み立てる。
+ * GAS バックエンドの典型的な失敗パターンをカバーする。
+ */
+function diagnose(method: "GET" | "POST", action: string, raw: unknown): ApiError {
+  const rawMsg = raw instanceof Error ? raw.message : String(raw ?? "");
+  const lower = rawMsg.toLowerCase();
+
+  let message = rawMsg || "通信に失敗しました";
+  let solution = "";
+
+  // GAS_ENDPOINT 未設定（ありえないが保険）
+  if (!GAS_ENDPOINT || GAS_ENDPOINT === "YOUR_GAS_WEB_APP_URL_HERE") {
+    message = "GASエンドポイントが未設定です";
+    solution =
+      "1) src/.env.local の NEXT_PUBLIC_GAS_ENDPOINT に Apps Script の Web App URL を設定\n" +
+      "2) Next.js の dev サーバーを再起動 (npm run dev)";
+    return new ApiError(method, action, message, solution);
+  }
+
+  // ネットワーク到達不能 / CORS / URL 不正
+  if (lower.includes("failed to fetch") || lower.includes("networkerror") || lower.includes("load failed")) {
+    solution =
+      "1) .env.local の NEXT_PUBLIC_GAS_ENDPOINT のURLを再確認（末尾は /exec）\n" +
+      "2) Apps Script で「デプロイ → 新しいデプロイ → ウェブアプリ」を実行し最新URLを反映\n" +
+      "3) アクセスできるユーザーを「全員」に設定したか確認\n" +
+      "4) ブラウザDevToolsのNetworkタブでステータスコードを確認";
+    return new ApiError(method, action, message, solution);
+  }
+
+  // GAS が HTML（ログインページ）を返してきて JSON.parse が失敗
+  if (lower.includes("unexpected token") || lower.includes("invalid json") || lower.includes("json")) {
+    solution =
+      "Web Appが認証ページ(HTML)を返している可能性が高いです。\n" +
+      "1) Apps Script の「デプロイ → デプロイを管理」で\n" +
+      "   「次のユーザーとして実行: 自分」「アクセスできるユーザー: 全員」を確認\n" +
+      "2) 上記を変えたら『新しいデプロイ』を作成して .env.local のURLを差し替え";
+    return new ApiError(method, action, message, solution);
+  }
+
+  // 既存の GAS デプロイにそのアクションが無い（Code.js が古い）
+  if (lower.includes("invalid action")) {
+    solution =
+      "Apps Script のデプロイが古い可能性があります。\n" +
+      "1) gas/ 配下の最新コードを Apps Script エディタに貼り付け\n" +
+      "2) 「デプロイ → デプロイを管理 → 編集(鉛筆) → 新しいバージョン → デプロイ」\n" +
+      "3) URLが変わっていないか確認（変わっていれば .env.local を更新）";
+    return new ApiError(method, action, message, solution);
+  }
+
+  // line_id 欠如
+  if (lower.includes("unauthorized")) {
+    solution =
+      "リクエストに line_id が含まれていません。\n" +
+      "1) LIFFが正しく初期化されているか確認（NEXT_PUBLIC_LIFF_ID）\n" +
+      "2) ログインし直す（ブラウザのリロード）";
+    return new ApiError(method, action, message, solution);
+  }
+
+  // venues / task_master シートが存在しない
+  if (lower.includes("getrange") || lower.includes("getlastrow") || lower.includes("null") || lower.includes("シートが見つかりません")) {
+    solution =
+      "スプレッドシートに必要なシートがありません。\n" +
+      "1) Apps Script エディタで関数 `setupEnvironment` を実行\n" +
+      "   （venues / customers / task_master など必要シートを自動作成）\n" +
+      "2) 実行後にもう一度登録を試す";
+    return new ApiError(method, action, message, solution);
+  }
+
+  // 重複した venue_id
+  if (lower.includes("already exists") || lower.includes("既に存在")) {
+    solution =
+      "同じ式場ID(venue_id)が既に登録されています。\n" +
+      "1) 別の venue_id を入力（例: RC003 → RC004）\n" +
+      "2) 既存の式場を確認したい場合は『式場管理』一覧へ";
+    return new ApiError(method, action, message, solution);
+  }
+
+  // それ以外（汎用）
+  solution =
+    "1) ブラウザのDevToolsコンソール / Networkタブのレスポンスを確認\n" +
+    "2) Apps Script の『実行数』ログでエラー詳細を確認\n" +
+    "3) 改善しなければ上記2つのスクリーンショットを添えて開発担当へ";
+  return new ApiError(method, action, message, solution);
+}
+
 let MOCK_TASKS: any[] = [
   { task_id: "T001", category: "会場決定", task_content: "・会場、日程の決定・お申込書、お内金振り込み", due_formula: "挙式日 - 180日", due_estimate: "挙式6ヶ月前", memo: "", is_done: false, is_visible: true, manual_url: "" }
 ];
@@ -36,7 +141,7 @@ export const apiClient = {
       return data;
     } catch (e: any) {
       console.error(`API Error (GET ${action}):`, e);
-      throw new Error(`[GET ${action}] ${e.message || "Failed to fetch data"}`);
+      throw diagnose("GET", action, e);
     }
   },
 
@@ -104,6 +209,12 @@ export const apiClient = {
         return { status: "updated" };
       }
       if (payload.action === "createVenue") {
+        if (!payload.venue_id || !payload.venue_name) {
+          throw diagnose("POST", "createVenue", "venue_id と venue_name は必須です");
+        }
+        if (MOCK_VENUES.some(v => v.venue_id === payload.venue_id)) {
+          throw diagnose("POST", "createVenue", `venue_id "${payload.venue_id}" は already exists`);
+        }
         MOCK_VENUES.push({ ...payload, active: true, created_at: new Date().toISOString() });
         return { status: "created" };
       }
@@ -154,7 +265,7 @@ export const apiClient = {
       return data;
     } catch (e: any) {
       console.error(`API Error (POST ${payload.action}):`, e);
-      throw new Error(`[POST ${payload.action}] ${e.message || "Failed to post data"}`);
+      throw diagnose("POST", payload.action, e);
     }
   },
 };
