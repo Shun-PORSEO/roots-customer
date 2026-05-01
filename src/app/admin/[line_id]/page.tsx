@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiClient } from "@/lib/api";
 import { ITask } from "@/lib/types";
@@ -25,7 +25,7 @@ export default function AdminUserTaskPage({ params }: { params: { line_id: strin
     memo: "",
   });
 
-  const fetchUserTasks = async () => {
+  const fetchUserTasks = useCallback(async () => {
     try {
       const res = await apiClient.post({
         action: "getAdminUserTasks",
@@ -33,18 +33,18 @@ export default function AdminUserTaskPage({ params }: { params: { line_id: strin
         target_line_id: lineId,
       });
       if (res.tasks) {
-        setTasks(res.tasks);
+        setTasks(res.tasks as ITask[]);
       }
     } catch (e) {
       setError(e);
     } finally {
       setLoading(false);
     }
-  };
+  }, [lineId]);
 
   useEffect(() => {
     fetchUserTasks();
-  }, [lineId]);
+  }, [fetchUserTasks]);
 
   const handleToggleVisibility = async (taskId: string, currentVisible: boolean) => {
     setUpdating(true);
