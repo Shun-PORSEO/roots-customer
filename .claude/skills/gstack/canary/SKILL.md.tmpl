@@ -1,18 +1,23 @@
 ---
 name: canary
+preamble-tier: 2
 version: 1.0.0
 description: |
   Post-deploy canary monitoring. Watches the live app for console errors,
   performance regressions, and page failures using the browse daemon. Takes
   periodic screenshots, compares against pre-deploy baselines, and alerts
   on anomalies. Use when: "monitor deploy", "canary", "post-deploy check",
-  "watch production", "verify deploy".
+  "watch production", "verify deploy". (gstack)
 allowed-tools:
   - Bash
   - Read
   - Write
   - Glob
   - AskUserQuestion
+triggers:
+  - monitor after deploy
+  - canary check
+  - watch for errors post-deploy
 ---
 
 {{PREAMBLE}}
@@ -42,7 +47,7 @@ When the user types `/canary`, run this skill.
 ### Phase 1: Setup
 
 ```bash
-eval $(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null || echo "SLUG=unknown")
+eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null || echo "SLUG=unknown")"
 mkdir -p .gstack/canary-reports
 mkdir -p .gstack/canary-reports/baselines
 mkdir -p .gstack/canary-reports/screenshots
@@ -192,7 +197,7 @@ Save report to `.gstack/canary-reports/{date}-canary.md` and `.gstack/canary-rep
 Log the result for the review dashboard:
 
 ```bash
-eval $(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)
+{{SLUG_EVAL}}
 mkdir -p ~/.gstack/projects/$SLUG
 ```
 
