@@ -1,12 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useLiff } from "@/hooks/useLiff";
 import { apiClient } from "@/lib/api";
 import { Spinner } from "@/components/Spinner";
 
+// useSearchParams は <Suspense> の中で呼ばないと
+// Next.js の静的書き出し（Vercel ビルド）で prerender error になるため、
+// ロジックを内側コンポーネントに切り出して外側で Suspense ラップしている。
 export default function LoadingPage() {
+  return (
+    <Suspense fallback={<Spinner fullScreen label="準備しています…" />}>
+      <LoadingPageInner />
+    </Suspense>
+  );
+}
+
+function LoadingPageInner() {
   const { isLiffReady, profile, error } = useLiff();
   const router = useRouter();
   const searchParams = useSearchParams();

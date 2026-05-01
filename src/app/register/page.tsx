@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useLiff } from "@/hooks/useLiff";
 import { apiClient } from "@/lib/api";
@@ -8,7 +8,18 @@ import { IVenue } from "@/lib/types";
 import { Spinner } from "@/components/Spinner";
 import { ErrorMessage } from "@/components/ErrorMessage";
 
+// useSearchParams は <Suspense> の中で呼ばないと
+// Next.js の静的書き出し（Vercel ビルド）で prerender error になるため、
+// 本体を内側コンポーネントに切り出して外側で Suspense ラップしている。
 export default function RegisterPage() {
+  return (
+    <Suspense fallback={<Spinner fullScreen />}>
+      <RegisterPageInner />
+    </Suspense>
+  );
+}
+
+function RegisterPageInner() {
   const { isLiffReady, profile } = useLiff();
   const router = useRouter();
   const searchParams = useSearchParams();
