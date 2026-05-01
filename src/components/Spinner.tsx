@@ -2,23 +2,44 @@ import React from "react";
 
 interface SpinnerProps {
   fullScreen?: boolean;
+  label?: string;
 }
 
-export const Spinner: React.FC<SpinnerProps> = ({ fullScreen }) => {
-  const spinnerContent = (
-    <div className="flex flex-col items-center justify-center space-y-4">
-      <div className="w-8 h-8 border-4 border-[var(--colorSecondary)] border-t-[var(--colorPrimary)] rounded-full animate-spin"></div>
-      <p className="text-[var(--colorPrimary)] font-semibold text-sm">読み込み中...</p>
-    </div>
+export const Spinner: React.FC<SpinnerProps> = ({ fullScreen, label = "読み込み中…" }) => {
+  const dot = (
+    <svg
+      className="w-9 h-9 text-primary-70 animate-spin"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeOpacity="0.18" strokeWidth="3" />
+      <path
+        d="M22 12a10 10 0 0 1-10 10"
+        stroke="currentColor"
+        strokeWidth="3"
+        strokeLinecap="round"
+      />
+    </svg>
   );
 
   if (fullScreen) {
     return (
-      <div className="fixed inset-0 bg-white/80 z-50 flex items-center justify-center">
-        {spinnerContent}
+      <div
+        role="status"
+        aria-live="polite"
+        className="fixed inset-0 flex flex-col items-center justify-center gap-sm bg-surface-page/80 backdrop-blur-[2px] z-40"
+      >
+        {dot}
+        <p className="text-body-sm text-neutral-50 tabular-nums">{label}</p>
       </div>
     );
   }
 
-  return <div className="py-8">{spinnerContent}</div>;
+  return (
+    <div role="status" aria-live="polite" className="flex flex-col items-center gap-sm py-2xl">
+      {dot}
+      <span className="text-body-sm text-neutral-50">{label}</span>
+    </div>
+  );
 };

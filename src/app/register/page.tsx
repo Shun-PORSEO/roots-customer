@@ -44,71 +44,90 @@ export default function RegisterPage() {
   const isFormValid = weddingDate && name1 && name2;
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-[var(--colorBg)]">
-      <div className="w-full max-w-sm bg-white p-6 rounded-2xl shadow-sm border border-[var(--colorBorder)] overflow-hidden">
-        <h1 className="text-xl font-bold text-center mb-2 text-[var(--colorText)]">はじめに登録</h1>
-        <p className="text-sm text-[var(--colorTextLight)] text-center mb-6">
-          お二人の情報を入力してください。
+    <div className="min-h-screen flex flex-col bg-surface-page animate-fade-in">
+      <div
+        className="relative px-lg pt-3xl pb-xl text-center"
+        style={{
+          background:
+            "linear-gradient(160deg, #FBFAF6 0%, #F5F1EA 55%, #FAEFD2 100%)",
+        }}
+      >
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-tertiary-50 to-transparent" />
+        <p className="text-label-caps text-primary-70 mb-2xs">FOR YOUR&nbsp;BIG&nbsp;DAY</p>
+        <h1 className="font-display text-display-lg text-neutral-20">はじめまして</h1>
+        <p className="text-body-md text-neutral-50 mt-xs">
+          おふたりの情報を教えてください。<br />
+          結婚式まで、丁寧にご一緒します。
         </p>
+      </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-          {/* 名前入力 */}
+      <div className="flex-1 px-lg pt-xl pb-2xl">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-lg">
           <div>
-            <label className="text-xs font-semibold text-[var(--colorTextLight)] mb-2 block">
-              お二人のお名前（ひらがな）
-            </label>
-            <div className="flex items-center gap-2">
+            <label className="label-form">お二人のお名前（ひらがな）</label>
+            <div className="flex items-center gap-xs">
               <input
                 type="text"
                 placeholder="さくら"
                 value={name1}
                 onChange={(e) => setName1(e.target.value)}
                 required
-                className="flex-1 min-w-0 w-0 px-3 py-3 border border-[var(--colorBorder)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--colorPrimary)] bg-gray-50 text-[var(--colorText)] text-base"
+                aria-label="お名前 1"
+                className="input-base flex-1 min-w-0 text-center"
               />
-              <span className="text-[var(--colorAccent)] font-bold text-lg shrink-0">＆</span>
+              <span
+                className="font-display text-tertiary-50 text-2xl shrink-0 leading-none"
+                aria-hidden="true"
+              >
+                ＆
+              </span>
               <input
                 type="text"
                 placeholder="たろう"
                 value={name2}
                 onChange={(e) => setName2(e.target.value)}
                 required
-                className="flex-1 min-w-0 w-0 px-3 py-3 border border-[var(--colorBorder)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--colorPrimary)] bg-gray-50 text-[var(--colorText)] text-base"
+                aria-label="お名前 2"
+                className="input-base flex-1 min-w-0 text-center"
               />
             </div>
           </div>
 
-          {/* 挙式日入力 */}
           <div>
-            <label className="text-xs font-semibold text-[var(--colorTextLight)] mb-2 block">
-              挙式日
-            </label>
+            <label className="label-form">挙式日</label>
             <input
               type="date"
               value={weddingDate}
               onChange={(e) => setWeddingDate(e.target.value)}
               required
-              className="block w-full max-w-full min-w-0 px-4 py-3 border border-[var(--colorBorder)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--colorPrimary)] bg-gray-50 text-[var(--colorText)] text-base box-border"
+              aria-label="挙式日"
+              className="input-base"
             />
+            <p className="text-body-sm text-neutral-50 mt-2xs">
+              当日までの日数を画面上部に表示します。
+            </p>
           </div>
 
-          <button
-            type="submit"
-            disabled={!isFormValid || loading}
-            className={`
-              w-full py-3 h-12 rounded-lg font-bold text-base transition-all duration-200
-              ${!isFormValid || loading
-                ? "bg-[#DCDCDC] text-white cursor-not-allowed"
-                : "bg-[var(--colorPrimary)] text-white hover:opacity-90 active:scale-95 shadow-md shadow-[var(--colorPrimary)]/30"}
-            `}
-          >
+          <button type="submit" disabled={!isFormValid || loading} className="btn-primary mt-md">
             {loading ? (
-              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto"></div>
+              <span
+                className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"
+                aria-label="送信中"
+              />
             ) : (
-              "はじめる"
+              <>
+                はじめる
+                <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                  <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </>
             )}
           </button>
         </form>
+
+        <p className="text-body-sm text-neutral-50 text-center mt-xl">
+          登録後、担当プランナーが順次タスクを共有します。
+        </p>
       </div>
 
       {error && <ErrorMessage message={error} />}

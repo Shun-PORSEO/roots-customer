@@ -26,7 +26,6 @@ export default function DashboardPage() {
   const fetchTasks = useCallback(async () => {
     if (!profile) return;
 
-    // 1. Fast Path: Read from LocalStorage cache
     const cacheKey = `roots_dashboard_${profile.userId}`;
     const cachedData = localStorage.getItem(cacheKey);
     if (cachedData) {
@@ -43,7 +42,6 @@ export default function DashboardPage() {
       }
     }
 
-    // 2. Background Revalidation: Fetch from GAS
     try {
       const [resTasks, resUser] = await Promise.all([
         apiClient.get("getTasks", profile.userId),
@@ -115,8 +113,9 @@ export default function DashboardPage() {
   const incompleteTasks = tasks.filter(t => !t.is_done);
   const completedTasks = tasks.filter(t => t.is_done);
   const displayTasks = activeTab === "incomplete" ? incompleteTasks : completedTasks;
+  const totalCount = tasks.length;
+  const progressPercent = totalCount === 0 ? 0 : Math.round((completedTasks.length / totalCount) * 100);
 
-  // ヘッダー用の日付・カウントダウン計算
   const weddingDateObj = weddingDate
     ? (() => { const [y, m, d] = weddingDate.split("-").map(Number); return new Date(y, m - 1, d); })()
     : null;
@@ -126,85 +125,152 @@ export default function DashboardPage() {
   const coupleLabel = name1 && name2 ? `${name1}＆${name2}` : null;
 
   return (
-    <div className="min-h-screen flex flex-col bg-[var(--colorBg)]">
-      {/* Header */}
-      <header className="sticky top-0 z-10 border-b border-[var(--colorBorder)]"
-        style={{ background: "linear-gradient(135deg, #F9EDE8 0%, #FDF8F0 60%, #F5F0E8 100%)" }}
+    <div className="min-h-screen flex flex-col bg-surface-page">
+      {/* === Hero Header === */}
+      <header
+        className="relative sticky top-0 z-20 border-b border-border"
+        style={{
+          background:
+            "linear-gradient(160deg, #FBFAF6 0%, #F5F1EA 55%, #FAEFD2 100%)",
+        }}
       >
+        {/* 装飾的な水引風アクセント線（上端） */}
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-tertiary-50 to-transparent" />
+
         {isAdmin && (
-          <div className="flex justify-end px-4 pt-2">
+          <div className="flex justify-end px-md pt-sm">
             <button
               onClick={() => router.push("/admin")}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--colorPrimary)] text-white text-[11px] font-bold rounded-full shadow-sm hover:opacity-90 active:scale-95 transition-all"
+              className="btn-tertiary-pill"
+              aria-label="管理者画面を開く"
             >
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
               管理者画面
             </button>
           </div>
         )}
-        <div className="px-5 py-4 text-center">
-          <p className="text-[10px] font-bold tracking-[0.25em] text-[var(--colorPrimary)] uppercase mb-1">
-            Wedding Planner
+
+        <div className="px-lg pt-sm pb-md text-center">
+          <p className="text-label-caps text-primary-70 mb-2xs">
+            WEDDING&nbsp;COMPANION
           </p>
-          <h1 className="text-[17px] font-bold text-[var(--colorText)] leading-tight">
-            {coupleLabel ? `${coupleLabel}ペア` : "ウェディングプランナー"}
+          <h1 className="font-display text-display-md text-neutral-20 leading-tight">
+            {coupleLabel || "ようこそ"}
           </h1>
           {coupleLabel && (
-            <p className="text-[12px] text-[var(--colorTextLight)] mt-0.5">結婚式までにやる事リスト</p>
+            <p className="text-body-sm text-neutral-50 mt-2xs">
+              ふたりで進める結婚式準備
+            </p>
           )}
+
           {daysUntil !== null && (
-            <div className="mt-2 flex items-baseline justify-center gap-1">
+            <div className="mt-sm">
               {daysUntil > 0 ? (
-                <>
-                  <span className="text-[13px] text-[var(--colorTextLight)]">結婚式まで あと</span>
-                  <span className="text-[32px] font-bold leading-none" style={{ color: "var(--colorAccent)" }}>
+                <div className="inline-flex items-baseline gap-1.5 px-md py-2xs bg-white/70 backdrop-blur-sm rounded-full border border-tertiary-20">
+                  <span className="text-body-sm text-neutral-50">あと</span>
+                  <span className="font-display text-numeric-display tabular-nums text-tertiary-70 leading-none">
                     {daysUntil}
                   </span>
-                  <span className="text-[13px] text-[var(--colorTextLight)]">日</span>
-                </>
+                  <span className="text-body-sm text-neutral-50">日</span>
+                </div>
               ) : daysUntil === 0 ? (
-                <span className="text-[18px] font-bold" style={{ color: "var(--colorAccent)" }}>
-                  今日が結婚式です！
-                </span>
+                <p className="font-display text-display-md text-tertiary-70">
+                  今日が結婚式です
+                </p>
               ) : (
-                <span className="text-[13px] text-[var(--colorTextLight)]">結婚式が終わりました</span>
+                <p className="text-body-md text-neutral-50">結婚式が終わりました</p>
               )}
             </div>
           )}
+
           {formattedWeddingDate && (
-            <p className="text-[12px] text-[var(--colorTextLight)] mt-0.5">{formattedWeddingDate}</p>
+            <p className="text-body-sm text-neutral-50 mt-2xs tabular-nums">
+              {formattedWeddingDate}
+            </p>
+          )}
+
+          {/* 進捗バー */}
+          {totalCount > 0 && (
+            <div className="mt-md mx-auto max-w-[280px]">
+              <div className="flex items-center justify-between text-body-sm text-neutral-50 mb-2xs">
+                <span>準備の進捗</span>
+                <span className="text-primary-70 font-semibold tabular-nums">
+                  {completedTasks.length} / {totalCount}
+                </span>
+              </div>
+              <div className="h-1.5 rounded-full bg-neutral-90 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-primary-50 to-primary-70 transition-all duration-medium"
+                  style={{ width: `${progressPercent}%` }}
+                  role="progressbar"
+                  aria-valuenow={progressPercent}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                />
+              </div>
+            </div>
           )}
         </div>
       </header>
 
-      {/* Tabs */}
-      <div className="px-4 pt-4 pb-2 bg-white flex border-b border-[var(--colorBorder)] sticky top-[calc(var(--header-h,88px))] z-10" role="tablist">
+      {/* === Tabs === */}
+      <div
+        role="tablist"
+        className="px-lg pt-sm bg-surface flex gap-md border-b border-border sticky top-[calc(var(--header-h,168px))] z-10"
+      >
         <button
           role="tab"
+          aria-selected={activeTab === "incomplete"}
           onClick={() => setActiveTab("incomplete")}
-          className={`flex-1 pb-3 text-[15px] font-semibold transition-colors duration-200 border-b-[3px] ${
+          className={[
+            "flex-1 pb-sm text-[15px] font-semibold transition-colors duration-short border-b-[2px]",
             activeTab === "incomplete"
-              ? "border-[var(--colorPrimary)] text-[var(--colorPrimary)]"
-              : "border-transparent text-[var(--colorTextLight)]"
-          }`}
+              ? "border-primary-70 text-primary-70"
+              : "border-transparent text-neutral-50",
+          ].join(" ")}
         >
-          未完了 ({incompleteTasks.length})
+          未完了
+          <span
+            className={[
+              "ml-1.5 inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 rounded-full text-[11px] font-bold tabular-nums",
+              activeTab === "incomplete"
+                ? "bg-primary-10 text-primary-70"
+                : "bg-neutral-95 text-neutral-50",
+            ].join(" ")}
+          >
+            {incompleteTasks.length}
+          </span>
         </button>
         <button
           role="tab"
+          aria-selected={activeTab === "completed"}
           onClick={() => setActiveTab("completed")}
-          className={`flex-1 pb-3 text-[15px] font-semibold transition-colors duration-200 border-b-[3px] ${
+          className={[
+            "flex-1 pb-sm text-[15px] font-semibold transition-colors duration-short border-b-[2px]",
             activeTab === "completed"
-              ? "border-[var(--colorPrimary)] text-[var(--colorPrimary)]"
-              : "border-transparent text-[var(--colorTextLight)]"
-          }`}
+              ? "border-primary-70 text-primary-70"
+              : "border-transparent text-neutral-50",
+          ].join(" ")}
         >
-          完了済み ({completedTasks.length})
+          完了済み
+          <span
+            className={[
+              "ml-1.5 inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 rounded-full text-[11px] font-bold tabular-nums",
+              activeTab === "completed"
+                ? "bg-primary-10 text-primary-70"
+                : "bg-neutral-95 text-neutral-50",
+            ].join(" ")}
+          >
+            {completedTasks.length}
+          </span>
         </button>
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 px-4 py-4 overflow-y-auto">
+      {/* === Main === */}
+      <div className="flex-1 px-md pt-md pb-3xl overflow-y-auto">
         {loading ? (
           <Spinner />
         ) : displayTasks.length > 0 ? (
@@ -224,25 +290,44 @@ export default function DashboardPage() {
             />
           ))
         ) : (
-          <div className="py-12 flex flex-col items-center justify-center text-center">
+          <div className="py-3xl flex flex-col items-center justify-center text-center">
             {activeTab === "incomplete" ? (
               tasks.length === 0 ? (
                 <>
-                  <div className="w-16 h-16 bg-[var(--colorSecondary)] rounded-full flex items-center justify-center mb-4">
-                    <svg className="w-8 h-8 text-[var(--colorPrimary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+                  <div className="w-20 h-20 bg-primary-10 rounded-full flex items-center justify-center mb-md">
+                    <svg className="w-9 h-9 text-primary-70" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
                   </div>
-                  <p className="text-[var(--colorTextLight)] font-medium">タスクがまだ登録されていません。<br/>プランナーにご連絡ください。</p>
+                  <p className="font-display text-display-md text-neutral-30 mb-2xs">準備中です</p>
+                  <p className="text-body-md text-neutral-50">
+                    タスクがまだ登録されていません。<br />
+                    担当のプランナーにご連絡ください。
+                  </p>
                 </>
               ) : (
                 <>
-                  <div className="w-16 h-16 bg-[#ebf7eb] rounded-full flex items-center justify-center mb-4">
-                    <svg className="w-8 h-8 text-[var(--colorSuccess)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                  <div className="w-20 h-20 bg-tertiary-10 rounded-full flex items-center justify-center mb-md">
+                    <svg className="w-9 h-9 text-tertiary-70" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
                   </div>
-                  <p className="text-[var(--colorTextLight)] font-medium">すべてのタスクが完了しています！<br/>お疲れ様でした。</p>
+                  <p className="font-display text-display-md text-neutral-30 mb-2xs">完璧です</p>
+                  <p className="text-body-md text-neutral-50">
+                    すべてのタスクが完了しています。<br />
+                    お疲れ様でした。
+                  </p>
                 </>
               )
             ) : (
-              <p className="text-[var(--colorTextLight)] font-medium">完了済みのタスクはありません。</p>
+              <>
+                <div className="w-16 h-16 bg-neutral-95 rounded-full flex items-center justify-center mb-md">
+                  <svg className="w-8 h-8 text-neutral-60" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <p className="text-body-md text-neutral-50">まだ完了したタスクはありません。</p>
+              </>
             )}
           </div>
         )}

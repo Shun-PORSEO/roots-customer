@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useLiff } from "@/hooks/useLiff";
 import { apiClient } from "@/lib/api";
 import { Spinner } from "@/components/Spinner";
-import { ErrorMessage } from "@/components/ErrorMessage";
 
 export default function LoadingPage() {
   const { isLiffReady, profile, error } = useLiff();
@@ -32,16 +31,26 @@ export default function LoadingPage() {
 
   if (error || apiError) {
     return (
-      <div className="flex items-center justify-center min-h-screen text-center p-4">
-        <div className="w-full">
-          <p className="text-[var(--colorError)] font-bold mb-4">{error || "通信エラーが発生しました。"}</p>
+      <div className="flex items-center justify-center min-h-screen p-md bg-surface-page">
+        <div className="card-base p-xl w-full text-center animate-fade-in">
+          <div className="w-14 h-14 mx-auto mb-md bg-error/10 rounded-full flex items-center justify-center">
+            <svg className="w-7 h-7 text-error" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path fillRule="evenodd" d="M18 10A8 8 0 11 2 10a8 8 0 0116 0zM10 5a1 1 0 011 1v4a1 1 0 11-2 0V6a1 1 0 011-1zm0 8a1 1 0 100 2 1 1 0 000-2z" clipRule="evenodd" />
+            </svg>
+          </div>
+          <h2 className="font-display text-display-md text-neutral-20 mb-xs">通信エラー</h2>
+          <p className="text-body-md text-neutral-50 mb-md">
+            {error || "通信エラーが発生しました。"}
+          </p>
           {apiError && (
-            <div className="bg-red-50 text-red-800 text-xs text-left p-4 rounded mt-4 max-h-40 overflow-auto whitespace-pre-wrap flex-col break-all">
-              <span className="font-bold block mb-1">=== API Error Debug ===</span>
-              {apiError}
-            </div>
+            <details className="text-left text-body-sm text-neutral-30 bg-neutral-95 rounded-md p-sm mb-md">
+              <summary className="font-semibold cursor-pointer">技術的な詳細</summary>
+              <pre className="mt-xs whitespace-pre-wrap break-all text-[11px] text-neutral-50 max-h-40 overflow-auto">
+                {apiError}
+              </pre>
+            </details>
           )}
-          <button onClick={() => window.location.reload()} className="mt-8 px-4 py-2 border rounded shadow-sm text-sm">
+          <button onClick={() => window.location.reload()} className="btn-primary w-full">
             再読み込み
           </button>
         </div>
@@ -49,5 +58,5 @@ export default function LoadingPage() {
     );
   }
 
-  return <Spinner fullScreen />;
+  return <Spinner fullScreen label="準備しています…" />;
 }

@@ -6,9 +6,21 @@ interface ErrorMessageProps {
 
 export const ErrorMessage: React.FC<ErrorMessageProps> = ({ message }) => {
   return (
-    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 w-11/12 max-w-[400px] z-50">
-      <div className="bg-[var(--colorError)] text-white px-4 py-3 rounded-lg shadow-lg flex items-center justify-center animate-[slideUp_0.2s_ease-out]">
-        <span className="text-sm font-semibold">{message}</span>
+    <div role="alert" aria-live="assertive" className="toast animate-slide-up">
+      <div className="flex items-center gap-xs">
+        <svg
+          className="w-4 h-4 text-error shrink-0"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+          aria-hidden="true"
+        >
+          <path
+            fillRule="evenodd"
+            d="M18 10A8 8 0 11 2 10a8 8 0 0116 0zM10 5a1 1 0 011 1v4a1 1 0 11-2 0V6a1 1 0 011-1zm0 8a1 1 0 100 2 1 1 0 000-2z"
+            clipRule="evenodd"
+          />
+        </svg>
+        <span className="text-body-md text-white font-medium">{message}</span>
       </div>
     </div>
   );

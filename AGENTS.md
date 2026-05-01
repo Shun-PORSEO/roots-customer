@@ -57,6 +57,20 @@ roots-customer/
 
 ---
 
+## デザインシステム（DESIGN.md alpha 仕様）
+
+- **UIに関する変更を加える前に、必ずプロジェクト直下の `DESIGN.md` を読むこと**
+- すべての色・タイポグラフィ・スペーシング・角丸・コンポーネントトークンは `DESIGN.md` に定義されている
+- 単一ソースは `DESIGN.md`。`src/tailwind.config.ts` と `src/app/globals.css` はそこから派生
+- 新しい色やフォントウェイトを追加する場合は、まず `DESIGN.md` を更新してから他ファイルに反映する
+- 既存の `docs/design.md` は人間向けの説明書（Decisions Log の補足）。トークンの正は `DESIGN.md`
+- QA AI は、UIコードが `DESIGN.md` から逸脱していないかをチェックすること
+  - 例: ハードコードされた hex 値（`#XXXXXX`）の利用禁止 → トークン名（`bg-primary-70`, `text-tertiary-50` など）を使う
+  - 例: 1画面で複数のフォントウェイトが混在していないか
+- 詳細は `DESIGN.md` の "Do's and Don'ts" を参照
+
+---
+
 ## ミス防止注意事項（ここに追記していくこと）
 
 <!-- Builder AI / QA AI: ミスが発生したら以下に追記する -->

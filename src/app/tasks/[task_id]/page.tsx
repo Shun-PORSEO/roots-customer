@@ -12,7 +12,7 @@ import { ErrorMessage } from "@/components/ErrorMessage";
 export default function TaskDetailPage({ params }: { params: { task_id: string } }) {
   const { isLiffReady, profile } = useLiff();
   const router = useRouter();
-  
+
   const [task, setTask] = useState<ITask | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
@@ -21,7 +21,7 @@ export default function TaskDetailPage({ params }: { params: { task_id: string }
   useEffect(() => {
     const fetchTask = async () => {
       if (!profile) return;
-      
+
       const cacheKey = `roots_dashboard_${profile.userId}`;
       const cachedData = localStorage.getItem(cacheKey);
       let parsedCache: any = null;
@@ -31,7 +31,7 @@ export default function TaskDetailPage({ params }: { params: { task_id: string }
           const found = parsedCache?.tasks?.find((t: ITask) => t.task_id === params.task_id);
           if (found) {
             setTask(found);
-            setLoading(false); // Instantly dismiss
+            setLoading(false);
           }
         } catch (e) {}
       }
@@ -41,10 +41,9 @@ export default function TaskDetailPage({ params }: { params: { task_id: string }
         const found = res.tasks?.find((t) => t.task_id === params.task_id);
         if (found) {
           setTask(found);
-          // Also update the global cache so it's fresh for dashboard
-          localStorage.setItem(cacheKey, JSON.stringify({ 
-            tasks: res.tasks, 
-            weddingDate: parsedCache?.weddingDate || "" 
+          localStorage.setItem(cacheKey, JSON.stringify({
+            tasks: res.tasks,
+            weddingDate: parsedCache?.weddingDate || "",
           }));
         } else if (!cachedData) {
           setError("タスクが見つかりませんでした。");
@@ -62,11 +61,9 @@ export default function TaskDetailPage({ params }: { params: { task_id: string }
 
   const handleToggle = async (isDone: boolean) => {
     if (!profile || !task) return;
-    
-    // Optimistic UI
     setTask({ ...task, is_done: isDone });
     setUpdating(true);
-    
+
     try {
       await apiClient.post({
         action: "updateTask",
@@ -75,7 +72,7 @@ export default function TaskDetailPage({ params }: { params: { task_id: string }
         is_done: isDone,
       });
     } catch (err: any) {
-      setTask({ ...task, is_done: !isDone }); // Revert
+      setTask({ ...task, is_done: !isDone });
       setError("更新に失敗しました。");
       setTimeout(() => setError(null), 3000);
     } finally {
@@ -89,66 +86,88 @@ export default function TaskDetailPage({ params }: { params: { task_id: string }
 
   if (!task) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-[var(--colorBg)]">
-        <p className="text-[var(--colorError)] mb-6 font-semibold">{error || "エラーが発生しました"}</p>
-        <button onClick={() => router.push("/dashboard")} className="px-6 py-3 bg-white text-[var(--colorText)] font-semibold rounded-lg shadow-sm w-full border border-[var(--colorBorder)] active:bg-gray-50">
-          ダッシュボードに戻る
-        </button>
+      <div className="flex flex-col items-center justify-center min-h-screen p-md bg-surface-page">
+        <div className="card-base p-xl w-full text-center animate-fade-in">
+          <p className="text-error font-semibold mb-md">{error || "エラーが発生しました"}</p>
+          <button onClick={() => router.push("/dashboard")} className="btn-secondary w-full">
+            ダッシュボードに戻る
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[var(--colorBg)] flex flex-col">
-      {/* Navigation Header */}
-      <header className="bg-white px-4 py-4 border-b border-[var(--colorBorder)] sticky top-0 flex items-center gap-3">
-        <button 
+    <div className="min-h-screen bg-surface-page flex flex-col">
+      {/* Header */}
+      <header className="bg-surface px-md py-sm border-b border-border sticky top-0 z-10 flex items-center gap-sm">
+        <button
           onClick={() => router.push("/dashboard")}
-          className="p-2 -ml-2 text-[var(--colorTextLight)] hover:bg-[#f0f0f0] rounded-full active:bg-[#e0e0e0] transition-colors"
+          className="w-10 h-10 -ml-xs flex items-center justify-center text-neutral-50 hover:bg-neutral-95 rounded-full active:bg-neutral-90 transition-colors"
+          aria-label="戻る"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.4} d="M15 19l-7-7 7-7" />
           </svg>
         </button>
-        <span className="font-semibold text-[var(--colorText)] text-lg">タスク詳細</span>
+        <h1 className="text-headline-md text-on-surface">タスク詳細</h1>
       </header>
 
-      {/* Content */}
-      <main className="flex-1 p-6 flex flex-col gap-6">
-        <div className="bg-white p-6 rounded-2xl border border-[var(--colorBorder)] shadow-sm flex flex-col gap-6">
-          <div className="flex items-start gap-4">
-            <div className="pt-1">
-              <Checkbox 
-                checked={task.is_done} 
-                onChange={handleToggle} 
-                disabled={updating}
-              />
-            </div>
-            <div>
-              <h1 className={`text-[20px] font-bold leading-tight mb-2 ${task.is_done ? 'text-[var(--colorTextLight)] line-through' : 'text-[var(--colorText)]'}`}>
-                <span className="text-sm font-bold text-[var(--colorPrimary)] bg-[var(--colorSecondary)] px-2 py-0.5 rounded mr-2 uppercase tracking-wider inline-block mb-1 align-middle">
-                  {task.category}
-                </span>
-                <br/>
+      <main className="flex-1 p-lg flex flex-col gap-md animate-fade-in">
+        <div className="card-base p-lg flex flex-col gap-lg">
+          <div>
+            <span className="chip-category mb-sm">{task.category}</span>
+            <div className="flex items-start gap-sm mt-sm">
+              <div className="pt-1">
+                <Checkbox checked={task.is_done} onChange={handleToggle} disabled={updating} />
+              </div>
+              <h2
+                className={[
+                  "font-display text-display-md leading-tight flex-1",
+                  task.is_done ? "text-neutral-50 line-through" : "text-on-surface",
+                ].join(" ")}
+              >
                 {task.task_content}
-              </h1>
-              <p className="text-[14px] text-[var(--colorPrimary)] font-semibold mt-2">
-                ⏳ 期限目安: {task.due_estimate}
-              </p>
+              </h2>
             </div>
           </div>
 
-          <div className="h-[1px] bg-[var(--colorBorder)] w-full"></div>
+          <div className="flex items-center gap-xs px-sm py-xs bg-primary-5 rounded-md border border-primary-10">
+            <svg className="w-4 h-4 text-primary-70" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v5c0 .2.08.39.22.53l3 3a.75.75 0 101.06-1.06L10.75 9.69V5z" clipRule="evenodd" />
+            </svg>
+            <span className="text-body-md text-primary-80 font-medium">
+              期限目安: <span className="font-semibold">{task.due_estimate}</span>
+            </span>
+          </div>
+
+          <div className="h-px bg-border w-full" />
 
           <div>
-            <h2 className="text-[13px] text-[var(--colorTextLight)] mb-2 font-semibold uppercase tracking-wider">メモ / 詳細</h2>
-            <p className="text-[15px] leading-relaxed text-[var(--colorText)] whitespace-pre-wrap bg-gray-50 p-4 rounded-xl border border-gray-100 min-h-[4rem]">
+            <h3 className="text-label-caps text-neutral-50 mb-xs">メモ / 詳細</h3>
+            <p className="text-body-lg text-on-surface whitespace-pre-wrap bg-neutral-98 p-md rounded-md border border-border min-h-[4rem]">
               {task.memo || "特になし"}
             </p>
           </div>
 
-
-
+          <button
+            onClick={() => handleToggle(!task.is_done)}
+            disabled={updating}
+            className={task.is_done ? "btn-secondary" : "btn-primary"}
+          >
+            {updating ? (
+              <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : task.is_done ? (
+              "未完了に戻す"
+            ) : (
+              <>
+                <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                  <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" />
+                </svg>
+                完了にする
+              </>
+            )}
+          </button>
         </div>
       </main>
 
