@@ -7,10 +7,13 @@ import { IVenue, IUserProgress, ITaskMaster } from "@/lib/types";
 import { getDaysFromToday } from "@/lib/utils";
 import { Spinner } from "@/components/Spinner";
 import { ErrorMessage, InlineApiError } from "@/components/ErrorMessage";
+import { useAdminGate } from "@/hooks/useAdminGate";
+import { AdminAccessDenied } from "@/components/AdminAccessDenied";
 
 export default function VenueDetailPage({ params }: { params: { venue_id: string } }) {
   const router = useRouter();
   const venueId = params.venue_id;
+  const { authorized, authChecked } = useAdminGate();
 
   const [venue, setVenue] = useState<IVenue | null>(null);
   const [users, setUsers] = useState<IUserProgress[]>([]);
@@ -25,6 +28,7 @@ export default function VenueDetailPage({ params }: { params: { venue_id: string
   const [manualError, setManualError] = useState<unknown>(null);
 
   useEffect(() => {
+    if (!authorized) return;
     Promise.all([
       apiClient.post({ action: "getVenueDetail", line_id: "admin", venue_id: venueId }),
       apiClient.post({ action: "getVenueTasks", line_id: "admin", venue_id: venueId }),
@@ -43,7 +47,7 @@ export default function VenueDetailPage({ params }: { params: { venue_id: string
       })
       .catch((e) => setError(e))
       .finally(() => setLoading(false));
-  }, [venueId]);
+  }, [venueId, authorized]);
 
   const handleSaveManualUrl = async (taskId: string) => {
     setManualError(null);
@@ -68,7 +72,8 @@ export default function VenueDetailPage({ params }: { params: { venue_id: string
     }
   };
 
-  if (loading) return <Spinner fullScreen />;
+  if (!authChecked || (authorized && loading)) return <Spinner fullScreen />;
+  if (!authorized) return <AdminAccessDenied />;
   if (error) return <div className="p-md"><InlineApiError error={error} /></div>;
   if (!venue) return <ErrorMessage message="式場が見つかりません" />;
 

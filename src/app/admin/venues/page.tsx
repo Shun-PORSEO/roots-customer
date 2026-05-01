@@ -2,32 +2,18 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useLiff } from "@/hooks/useLiff";
+import { useAdminGate } from "@/hooks/useAdminGate";
 import { apiClient } from "@/lib/api";
 import { IVenue } from "@/lib/types";
 import { Spinner } from "@/components/Spinner";
+import { AdminAccessDenied } from "@/components/AdminAccessDenied";
 
 export default function VenuesPage() {
-  const { isLiffReady, profile } = useLiff();
   const router = useRouter();
+  const { authorized, authChecked } = useAdminGate();
 
   const [venues, setVenues] = useState<IVenue[]>([]);
   const [loading, setLoading] = useState(true);
-  const [authorized, setAuthorized] = useState(false);
-  const [authChecked, setAuthChecked] = useState(false);
-
-  useEffect(() => {
-    if (!isLiffReady) return;
-
-    const adminIds = (process.env.NEXT_PUBLIC_ADMIN_LINE_USER_IDS || "")
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-    if (profile && adminIds.includes(profile.userId)) {
-      setAuthorized(true);
-    }
-    setAuthChecked(true);
-  }, [isLiffReady, profile]);
 
   useEffect(() => {
     if (!authorized) return;
@@ -52,18 +38,7 @@ export default function VenuesPage() {
   };
 
   if (!authChecked || (authorized && loading)) return <Spinner fullScreen />;
-
-  if (!authorized) {
-    return (
-      <div className="pb-2xl animate-fade-in p-lg text-center">
-        <h2 className="font-display text-display-md text-on-surface mb-sm">アクセス権がありません</h2>
-        <p className="text-body-md text-neutral-50">
-          式場管理は管理者のみ利用できます。<br />
-          管理者権限が必要な場合は担当者にお問い合わせください。
-        </p>
-      </div>
-    );
-  }
+  if (!authorized) return <AdminAccessDenied />;
 
   const activeCount = venues.filter((v) => v.active).length;
 

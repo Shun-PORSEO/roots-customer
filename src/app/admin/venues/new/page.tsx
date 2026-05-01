@@ -4,9 +4,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiClient } from "@/lib/api";
 import { InlineApiError } from "@/components/ErrorMessage";
+import { useAdminGate } from "@/hooks/useAdminGate";
+import { Spinner } from "@/components/Spinner";
+import { AdminAccessDenied } from "@/components/AdminAccessDenied";
 
 export default function NewVenuePage() {
   const router = useRouter();
+  const { authorized, authChecked } = useAdminGate();
   const [form, setForm] = useState({
     venue_id: "",
     venue_name: "",
@@ -34,6 +38,9 @@ export default function NewVenuePage() {
       setSaving(false);
     }
   };
+
+  if (!authChecked) return <Spinner fullScreen />;
+  if (!authorized) return <AdminAccessDenied />;
 
   return (
     <div className="pb-2xl animate-fade-in">
