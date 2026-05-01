@@ -40,7 +40,7 @@ export default function TaskDetailPage({ params }: { params: { task_id: string }
         const res = await apiClient.get("getTasks", profile.userId);
         const found = res.tasks?.find((t) => t.task_id === params.task_id);
         if (found) {
-          setTask(found);
+          setTask(found as ITask);
           localStorage.setItem(cacheKey, JSON.stringify({
             tasks: res.tasks,
             weddingDate: parsedCache?.weddingDate || "",
