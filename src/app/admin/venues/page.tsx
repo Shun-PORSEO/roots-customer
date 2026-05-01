@@ -69,57 +69,74 @@ export default function VenuesPage() {
 
   return (
     <div className="pb-2xl animate-fade-in">
-      <div className="flex items-center gap-sm mb-lg">
-        <button
-          onClick={() => router.push("/admin")}
-          className="w-10 h-10 -ml-xs flex items-center justify-center text-neutral-50 hover:bg-neutral-95 rounded-full active:bg-neutral-90 transition-colors"
-          aria-label="管理画面へ戻る"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2.4} viewBox="0 0 24 24" aria-hidden="true">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
-        <h2 className="font-display text-display-md text-on-surface">式場管理</h2>
-      </div>
-
-      <div className="grid grid-cols-2 gap-sm mb-lg">
-        <div className="card-base p-md text-center">
-          <p className="font-display text-[32px] tabular-nums leading-none text-primary-70">
-            {venues.length}
-          </p>
-          <p className="text-body-sm text-neutral-50 mt-2xs">登録式場数</p>
+      <div className="flex flex-wrap items-center justify-between gap-md mb-xl">
+        <div className="flex items-center gap-sm">
+          <button
+            onClick={() => router.push("/admin")}
+            className="w-10 h-10 -ml-xs flex items-center justify-center text-neutral-50 hover:bg-neutral-95 rounded-full active:bg-neutral-90 transition-colors"
+            aria-label="管理画面へ戻る"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2.4} viewBox="0 0 24 24" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <div>
+            <p className="text-label-caps text-tertiary-70">VENUES</p>
+            <h2 className="font-display text-display-lg text-on-surface mt-2xs">式場管理</h2>
+          </div>
         </div>
-        <div className="card-base p-md text-center">
-          <p className="font-display text-[32px] tabular-nums leading-none text-success">
-            {activeCount}
-          </p>
-          <p className="text-body-sm text-neutral-50 mt-2xs">契約中</p>
-        </div>
-      </div>
-
-      <div className="flex justify-end mb-md">
         <button
           onClick={() => router.push("/admin/venues/new")}
-          className="btn-primary !h-10 !px-md text-body-md"
+          className="btn-primary md:px-lg"
         >
-          <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
             <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
           </svg>
           新規式場登録
         </button>
       </div>
 
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-sm md:gap-md mb-xl">
+        <div className="card-base p-md md:p-lg text-center">
+          <p className="font-display text-[32px] tabular-nums leading-none text-primary-70">
+            {venues.length}
+          </p>
+          <p className="text-body-sm text-neutral-50 mt-2xs">登録式場数</p>
+        </div>
+        <div className="card-base p-md md:p-lg text-center">
+          <p className="font-display text-[32px] tabular-nums leading-none text-success">
+            {activeCount}
+          </p>
+          <p className="text-body-sm text-neutral-50 mt-2xs">契約中</p>
+        </div>
+        <div className="card-base p-md md:p-lg text-center">
+          <p className="font-display text-[32px] tabular-nums leading-none text-neutral-60">
+            {venues.length - activeCount}
+          </p>
+          <p className="text-body-sm text-neutral-50 mt-2xs">停止中</p>
+        </div>
+        <div className="card-base p-md md:p-lg text-center hidden md:block">
+          <p className="font-display text-[32px] tabular-nums leading-none text-tertiary-60">
+            {venues.length > 0 ? Math.round((activeCount / venues.length) * 100) : 0}%
+          </p>
+          <p className="text-body-sm text-neutral-50 mt-2xs">稼働率</p>
+        </div>
+      </div>
+
       {venues.length === 0 ? (
-        <div className="card-base p-xl text-center text-body-md text-neutral-50">
+        <div className="card-base p-2xl text-center text-body-md text-neutral-50">
           式場が登録されていません
         </div>
       ) : (
-        <div className="flex flex-col gap-md">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-md">
           {venues.map((venue) => (
-            <div key={venue.venue_id} className="card-base p-lg">
+            <div
+              key={venue.venue_id}
+              className="card-base p-lg flex flex-col"
+            >
               <div className="flex items-start justify-between gap-sm">
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-xs mb-2xs flex-wrap">
+                  <div className="flex items-center gap-xs mb-xs flex-wrap">
                     <span
                       className={[
                         "text-[10px] font-bold px-2 py-0.5 rounded-full tabular-nums",
@@ -150,7 +167,7 @@ export default function VenuesPage() {
                   <div className="w-11 h-6 bg-neutral-90 rounded-full peer peer-checked:bg-primary-70 transition-colors duration-short after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:border-neutral-80 after:rounded-full after:h-5 after:w-5 after:shadow-sm after:transition-all peer-checked:after:translate-x-full peer-checked:after:border-primary-70" />
                 </label>
               </div>
-              <div className="mt-md flex justify-end">
+              <div className="mt-auto pt-md flex justify-end">
                 <button
                   onClick={() => router.push(`/admin/venues/${venue.venue_id}`)}
                   className="btn-ghost"

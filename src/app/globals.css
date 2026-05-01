@@ -56,6 +56,14 @@ main {
   flex-direction: column;
 }
 
+/* 管理画面（プランナー向け）は PC 表示を前提に、LIFF 用 440px 制約を解除する。
+   .admin-shell を含む場合のみ、外側の <main> をフル幅にして温かいページ背景を見せる。 */
+main:has(.admin-shell) {
+  max-width: none;
+  background-color: var(--colorBg);
+  box-shadow: none;
+}
+
 @media (min-width: 600px) {
   body {
     background:

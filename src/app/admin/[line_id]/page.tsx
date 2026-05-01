@@ -116,8 +116,8 @@ export default function AdminUserTaskPage({ params }: { params: { line_id: strin
   const customTasks = tasks.filter((t) => t.is_custom);
 
   return (
-    <div className="pb-2xl animate-fade-in">
-      <div className="flex items-center gap-sm mb-lg">
+    <div className="pb-2xl animate-fade-in max-w-4xl">
+      <div className="flex items-center gap-sm mb-xl">
         <button
           onClick={() => router.push("/admin")}
           className="w-10 h-10 -ml-xs flex items-center justify-center text-neutral-50 hover:bg-neutral-95 rounded-full active:bg-neutral-90 transition-colors"
@@ -127,10 +127,13 @@ export default function AdminUserTaskPage({ params }: { params: { line_id: strin
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
         </button>
-        <h2 className="font-display text-display-md text-on-surface">個別タスク設定</h2>
+        <div>
+          <p className="text-label-caps text-tertiary-70">COUPLE&nbsp;TASKS</p>
+          <h2 className="font-display text-display-lg text-on-surface mt-2xs">個別タスク設定</h2>
+        </div>
       </div>
 
-      <div className="card-base bg-primary-5 border-primary-20 p-md mb-lg">
+      <div className="card-base bg-primary-5 border-primary-20 p-md mb-xl">
         <p className="text-label-caps text-primary-70 mb-2xs">対象の LINE ID</p>
         <p className="text-body-md text-primary-80 font-mono break-all tabular-nums">{lineId}</p>
       </div>

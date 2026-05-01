@@ -193,12 +193,15 @@ export default function AdminDashboard() {
 
   return (
     <div className="pb-2xl animate-fade-in">
-      <div className="flex items-center justify-between mb-md">
-        <h2 className="font-display text-display-md text-on-surface">ダッシュボード</h2>
+      <div className="flex flex-wrap items-center justify-between gap-md mb-xl">
+        <div>
+          <p className="text-label-caps text-tertiary-70">DASHBOARD</p>
+          <h2 className="font-display text-display-lg text-on-surface mt-2xs">ダッシュボード</h2>
+        </div>
         {isAdmin && (
           <button
             onClick={() => router.push("/admin/venues")}
-            className="btn-ghost"
+            className="btn-secondary md:px-lg"
             aria-label="式場管理を開く"
           >
             式場管理
@@ -215,13 +218,16 @@ export default function AdminDashboard() {
 
       {/* 管理者は複数式場をまたいで見れるので、フィルタとして式場切替を提供 */}
       {isAdmin && venues.length > 0 && (
-        <div className="mb-lg">
-          <label className="label-form">表示する式場</label>
+        <div className="card-base p-md mb-lg flex flex-col md:flex-row md:items-center gap-sm md:gap-md">
+          <label className="text-label-md text-neutral-50 md:shrink-0" htmlFor="venue-filter">
+            表示する式場
+          </label>
           <select
+            id="venue-filter"
             value={venueId}
             onChange={(e) => setVenueId(e.target.value)}
             aria-label="表示する式場を選択"
-            className="input-base"
+            className="input-base md:max-w-md"
           >
             <option value="">全式場をまとめて表示</option>
             {venues.map((v) => (
@@ -234,24 +240,24 @@ export default function AdminDashboard() {
       )}
 
       {/* サマリカード */}
-      <div className="grid grid-cols-3 gap-sm mb-lg">
-        <div className="card-base p-md text-center">
-          <p className="font-display text-[28px] tabular-nums leading-none text-primary-70">
+      <div className="grid grid-cols-3 gap-sm md:gap-md mb-xl">
+        <div className="card-base p-md md:p-lg text-center">
+          <p className="font-display text-[32px] md:text-[36px] tabular-nums leading-none text-primary-70">
             {couples.length}
           </p>
-          <p className="text-body-sm text-neutral-50 mt-2xs">登録ペア数</p>
+          <p className="text-body-sm text-neutral-50 mt-xs">登録ペア数</p>
         </div>
-        <div className="card-base p-md text-center">
-          <p className="font-display text-[28px] tabular-nums leading-none text-tertiary-70">
+        <div className="card-base p-md md:p-lg text-center">
+          <p className="font-display text-[32px] md:text-[36px] tabular-nums leading-none text-tertiary-70">
             {avgPercent}%
           </p>
-          <p className="text-body-sm text-neutral-50 mt-2xs">平均完了率</p>
+          <p className="text-body-sm text-neutral-50 mt-xs">平均完了率</p>
         </div>
         <button
           type="button"
           onClick={() => setActiveTab("drafts")}
           className={[
-            "card-base p-md text-center cursor-pointer transition-all",
+            "card-base p-md md:p-lg text-center cursor-pointer transition-all",
             "active:scale-[0.98]",
             drafts.length > 0
               ? "border-warning/40 hover:border-warning"
@@ -260,13 +266,13 @@ export default function AdminDashboard() {
         >
           <p
             className={[
-              "font-display text-[28px] tabular-nums leading-none",
+              "font-display text-[32px] md:text-[36px] tabular-nums leading-none",
               drafts.length > 0 ? "text-warning" : "text-neutral-60",
             ].join(" ")}
           >
             {drafts.length}
           </p>
-          <p className="text-body-sm text-neutral-50 mt-2xs">承認待ち</p>
+          <p className="text-body-sm text-neutral-50 mt-xs">承認待ち</p>
         </button>
       </div>
 
@@ -309,11 +315,11 @@ export default function AdminDashboard() {
       {activeTab === "couples" && (
         <>
           {couples.length === 0 ? (
-            <div className="card-base p-xl text-center text-body-md text-neutral-50">
+            <div className="card-base p-2xl text-center text-body-md text-neutral-50">
               登録されているお客様がいません
             </div>
           ) : (
-            <div className="flex flex-col gap-md">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-md">
               {couples
                 .slice()
                 .sort((a, b) => (a.wedding_date > b.wedding_date ? 1 : -1))
@@ -446,7 +452,7 @@ function DraftsPanel({
 
   if (drafts.length === 0) {
     return (
-      <div className="card-base p-xl text-center text-body-md text-neutral-50">
+      <div className="card-base p-2xl text-center text-body-md text-neutral-50">
         承認待ちのメッセージはありません
       </div>
     );
@@ -473,7 +479,7 @@ function DraftsPanel({
   };
 
   return (
-    <div className="flex flex-col gap-md">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-md">
       {drafts.map((draft) => (
         <div
           key={draft.draft_id}
