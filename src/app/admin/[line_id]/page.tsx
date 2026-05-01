@@ -33,7 +33,7 @@ export default function AdminUserTaskPage({ params }: { params: { line_id: strin
         target_line_id: lineId,
       });
       if (res.tasks) {
-        setTasks(res.tasks);
+        setTasks(res.tasks as ITask[]);
       }
     } catch (e) {
       setError(e);

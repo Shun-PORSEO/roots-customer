@@ -47,7 +47,7 @@ export default function DashboardPage() {
         apiClient.get("getTasks", profile.userId),
         apiClient.post({ action: "getUser", line_id: profile.userId }),
       ]);
-      const newTasks = resTasks.tasks || [];
+      const newTasks = (resTasks.tasks || []) as ITask[];
       const newWeddingDate = resUser.wedding_date || null;
       const newName1 = resUser.name1_kana || "";
       const newName2 = resUser.name2_kana || "";
