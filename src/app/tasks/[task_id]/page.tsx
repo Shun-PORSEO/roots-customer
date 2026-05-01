@@ -38,7 +38,7 @@ export default function TaskDetailPage({ params }: { params: { task_id: string }
 
       try {
         const res = await apiClient.get("getTasks", profile.userId);
-        const found = res.tasks?.find((t) => t.task_id === params.task_id);
+        const found = (res.tasks as ITask[] | undefined)?.find((t) => t.task_id === params.task_id);
         if (found) {
           setTask(found);
           localStorage.setItem(cacheKey, JSON.stringify({
