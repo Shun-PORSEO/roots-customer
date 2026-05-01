@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useLiff } from "@/hooks/useLiff";
 import { apiClient } from "@/lib/api";
@@ -8,7 +8,7 @@ import { IVenue } from "@/lib/types";
 import { Spinner } from "@/components/Spinner";
 import { ErrorMessage } from "@/components/ErrorMessage";
 
-export default function RegisterPage() {
+function RegisterPageInner() {
   const { isLiffReady, profile } = useLiff();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -172,5 +172,13 @@ export default function RegisterPage() {
 
       {error && <ErrorMessage message={error} />}
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<Spinner fullScreen />}>
+      <RegisterPageInner />
+    </Suspense>
   );
 }

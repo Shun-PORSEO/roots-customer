@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useLiff } from "@/hooks/useLiff";
 import { apiClient } from "@/lib/api";
 import { Spinner } from "@/components/Spinner";
 
-export default function LoadingPage() {
+function LoadingPageInner() {
   const { isLiffReady, profile, error } = useLiff();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -63,4 +63,12 @@ export default function LoadingPage() {
   }
 
   return <Spinner fullScreen label="準備しています…" />;
+}
+
+export default function LoadingPage() {
+  return (
+    <Suspense fallback={<Spinner fullScreen label="準備しています…" />}>
+      <LoadingPageInner />
+    </Suspense>
+  );
 }
