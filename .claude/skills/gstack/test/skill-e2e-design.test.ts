@@ -560,7 +560,7 @@ describeIfSelected('Design Review E2E', ['design-review-fix'], () => {
     try { fs.rmSync(qaDesignDir, { recursive: true, force: true }); } catch {}
   });
 
-  testConcurrentIfSelected('design-review-fix', async () => {
+  test('Test 7: /design-review audits and fixes design issues', async () => {
     const serverUrl = `http://localhost:${(qaDesignServer as any)?.port}`;
 
     const result = await runSkillTest({

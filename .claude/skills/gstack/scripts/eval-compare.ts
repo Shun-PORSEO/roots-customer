@@ -15,11 +15,10 @@ import {
   findPreviousRun,
   compareEvalResults,
   formatComparison,
-  getProjectEvalDir,
 } from '../test/helpers/eval-store';
 import type { EvalResult } from '../test/helpers/eval-store';
 
-const EVAL_DIR = getProjectEvalDir();
+const EVAL_DIR = path.join(os.homedir(), '.gstack-dev', 'evals');
 
 function loadResult(filepath: string): EvalResult {
   // Resolve relative to EVAL_DIR if not absolute

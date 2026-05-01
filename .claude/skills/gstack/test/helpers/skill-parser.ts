@@ -15,11 +15,6 @@ import { parseSnapshotArgs } from '../../browse/src/snapshot';
 import * as fs from 'fs';
 import * as path from 'path';
 
-/** CLI-only commands: valid $B invocations that are handled by the CLI, not the server */
-const CLI_COMMANDS = new Set([
-  'status', 'pair-agent', 'tunnel',
-]);
-
 export interface BrowseCommand {
   command: string;
   args: string[];
@@ -117,7 +112,7 @@ export function validateSkill(skillPath: string): ValidationResult {
   }
 
   for (const cmd of commands) {
-    if (!ALL_COMMANDS.has(cmd.command) && !CLI_COMMANDS.has(cmd.command)) {
+    if (!ALL_COMMANDS.has(cmd.command)) {
       result.invalid.push(cmd);
       continue;
     }

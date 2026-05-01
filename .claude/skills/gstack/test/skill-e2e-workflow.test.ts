@@ -60,7 +60,7 @@ describeIfSelected('Document-Release skill E2E', ['document-release'], () => {
     try { fs.rmSync(docReleaseDir, { recursive: true, force: true }); } catch {}
   });
 
-  testConcurrentIfSelected('document-release', async () => {
+  test('/document-release updates docs without clobbering CHANGELOG', async () => {
     const result = await runSkillTest({
       prompt: `Read the file document-release/SKILL.md for the document-release workflow instructions.
 
@@ -161,13 +161,36 @@ describeIfSelected('Ship workflow E2E', ['ship-local-workflow'], () => {
 
   testConcurrentIfSelected('ship-local-workflow', async () => {
     const result = await runSkillTest({
-      prompt: `You are in a git repo on branch feature/ship-test. Do these steps in order:
-1. Read VERSION file and bump the last digit by 1 (e.g. 0.1.0.0 → 0.1.0.1). Write the new version back.
-2. Add a CHANGELOG.md entry: "## [NEW_VERSION] - TODAY" with a bullet "- Ship test feature".
-3. Stage all changes, commit with message "ship: vNEW_VERSION".
-4. Push to origin: git push origin feature/ship-test`,
+      prompt: `You are running a ship workflow. This is fully automated — do NOT ask for confirmation at any step. Run straight through.
+
+Step 0 — Detect base branch:
+Try: gh pr view --json baseRefName -q .baseRefName
+If that fails, try: gh repo view --json defaultBranchRef -q .defaultBranchRef.name
+If both fail, fall back to "main". Use the detected branch as <base> in all subsequent steps.
+
+Step 2 — Merge base branch:
+git fetch origin <base> && git merge origin/<base> --no-edit
+If already up to date, continue silently.
+
+Step 4 — Version bump:
+Read the VERSION file (4-digit format: MAJOR.MINOR.PATCH.MICRO).
+Auto-pick MICRO bump (increment the 4th digit). Write the new version to VERSION.
+
+Step 5 — CHANGELOG:
+Read CHANGELOG.md. Auto-generate an entry from the branch commits:
+- git log <base>..HEAD --oneline
+- git diff <base>...HEAD
+Format: ## [X.Y.Z.W] - YYYY-MM-DD with bullet points. Prepend after the header.
+
+Step 6 — Commit:
+Stage all changes. Commit with message: "chore: bump version and changelog (vX.Y.Z.W)"
+
+Step 7 — Push:
+git push -u origin <branch-name>
+
+Finally, write ship-summary.md with the version and branch.`,
       workingDirectory: shipWorkDir,
-      maxTurns: 8,
+      maxTurns: 15,
       timeout: 120_000,
       testName: 'ship-local-workflow',
       runId,
@@ -175,30 +198,76 @@ describeIfSelected('Ship workflow E2E', ['ship-local-workflow'], () => {
 
     logCost('/ship local workflow', result);
 
-    // Check push succeeded — verify the feature branch exists on the bare remote
-    const branchCheck = spawnSync('git', ['branch', '--list', 'feature/ship-test'], { cwd: shipRemoteDir, stdio: 'pipe' });
-    const branchExists = branchCheck.stdout.toString().trim().length > 0;
+    // Check push succeeded
+    const remoteLog = spawnSync('git', ['log', '--oneline'], { cwd: shipRemoteDir, stdio: 'pipe' });
+    const remoteCommits = remoteLog.stdout.toString().trim().split('\n').length;
 
-    // Check VERSION was bumped locally (even if push failed, this shows the LLM did the work)
+    // Check VERSION was bumped
     const versionContent = fs.existsSync(path.join(shipWorkDir, 'VERSION'))
       ? fs.readFileSync(path.join(shipWorkDir, 'VERSION'), 'utf-8').trim() : '';
     const versionBumped = versionContent !== '0.1.0.0';
 
     recordE2E(evalCollector, '/ship local workflow', 'Ship workflow E2E', result, {
-      passed: branchExists && versionBumped && ['success', 'error_max_turns'].includes(result.exitReason),
+      passed: remoteCommits > 1 && ['success', 'error_max_turns'].includes(result.exitReason),
     });
 
     expect(['success', 'error_max_turns']).toContain(result.exitReason);
-    expect(branchExists).toBe(true);
-    expect(versionBumped).toBe(true);
-    console.log(`Branch pushed: ${branchExists}, VERSION: ${versionContent}, bumped: ${versionBumped}`);
+    expect(remoteCommits).toBeGreaterThan(1);
+    console.log(`Remote commits: ${remoteCommits}, VERSION: ${versionContent}, bumped: ${versionBumped}`);
   }, 150_000);
 });
 
-// setup-cookies-detect REMOVED: The cookie-import-browser module has 30+ thorough
-// unit tests in browse/test/cookie-import-browser.test.ts (decryption, profile
-// detection, error handling, path traversal). The E2E just tested LLM instruction-
-// following ("write a file saying no browsers") on a CI box with no browsers.
+// --- Browser cookie detection smoke test ---
+
+describeIfSelected('Setup Browser Cookies E2E', ['setup-cookies-detect'], () => {
+  let cookieDir: string;
+
+  beforeAll(() => {
+    cookieDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-e2e-cookies-'));
+    // Copy skill files
+    fs.mkdirSync(path.join(cookieDir, 'setup-browser-cookies'), { recursive: true });
+    fs.copyFileSync(
+      path.join(ROOT, 'setup-browser-cookies', 'SKILL.md'),
+      path.join(cookieDir, 'setup-browser-cookies', 'SKILL.md'),
+    );
+  });
+
+  afterAll(() => {
+    try { fs.rmSync(cookieDir, { recursive: true, force: true }); } catch {}
+  });
+
+  testConcurrentIfSelected('setup-cookies-detect', async () => {
+    const result = await runSkillTest({
+      prompt: `Read setup-browser-cookies/SKILL.md for the cookie import workflow.
+
+This is a test environment. List which browsers you can detect on this system by checking for their cookie database files.
+Write the detected browsers to ${cookieDir}/detected-browsers.md.
+Do NOT launch the cookie picker UI — just detect and report.`,
+      workingDirectory: cookieDir,
+      maxTurns: 5,
+      timeout: 45_000,
+      testName: 'setup-cookies-detect',
+      runId,
+    });
+
+    logCost('/setup-browser-cookies detect', result);
+
+    const detectPath = path.join(cookieDir, 'detected-browsers.md');
+    const detectExists = fs.existsSync(detectPath);
+    const detectContent = detectExists ? fs.readFileSync(detectPath, 'utf-8') : '';
+    const hasBrowserName = /chrome|arc|brave|edge|comet|safari|firefox/i.test(detectContent);
+
+    recordE2E(evalCollector, '/setup-browser-cookies detect', 'Setup Browser Cookies E2E', result, {
+      passed: detectExists && hasBrowserName && ['success', 'error_max_turns'].includes(result.exitReason),
+    });
+
+    expect(['success', 'error_max_turns']).toContain(result.exitReason);
+    expect(detectExists).toBe(true);
+    if (detectExists) {
+      expect(hasBrowserName).toBe(true);
+    }
+  }, 60_000);
+});
 
 // --- gstack-upgrade E2E ---
 
@@ -392,7 +461,7 @@ describe('processPayment', () => {
     try { fs.rmSync(coverageDir, { recursive: true, force: true }); } catch {}
   });
 
-  testConcurrentIfSelected('ship-coverage-audit', async () => {
+  test('/ship Step 3.4 produces coverage diagram', async () => {
     const result = await runSkillTest({
       prompt: `Read the file ship/SKILL.md for the ship workflow instructions.
 
@@ -467,25 +536,15 @@ describeIfSelected('Codex skill E2E', ['codex-review'], () => {
     run('git', ['add', 'user_controller.rb']);
     run('git', ['commit', '-m', 'add vulnerable controller']);
 
-    // Extract only the review-relevant section from codex SKILL.md (~120 lines vs 1075).
-    // Full SKILL.md is 55KB / ~14K tokens — takes 8 Read calls to consume, exhausting turns.
-    const full = fs.readFileSync(path.join(ROOT, 'codex', 'SKILL.md'), 'utf-8');
-    const startMarker = '# /codex — Multi-AI Second Opinion';
-    const endMarker = '## Plan File Review Report';
-    const start = full.indexOf(startMarker);
-    const end = full.indexOf(endMarker, start);
-    const reviewSection = full.slice(
-      start >= 0 ? start : 0,
-      end > start ? end : undefined,
-    );
-    fs.writeFileSync(path.join(codexDir, 'codex-SKILL.md'), reviewSection);
+    // Copy the codex skill file
+    fs.copyFileSync(path.join(ROOT, 'codex', 'SKILL.md'), path.join(codexDir, 'codex-SKILL.md'));
   });
 
   afterAll(() => {
     try { fs.rmSync(codexDir, { recursive: true, force: true }); } catch {}
   });
 
-  testConcurrentIfSelected('codex-review', async () => {
+  test('/codex review produces findings and GATE verdict', async () => {
     // Check codex is available — skip if not installed
     const codexCheck = spawnSync('which', ['codex'], { stdio: 'pipe', timeout: 3000 });
     if (codexCheck.status !== 0) {
@@ -495,11 +554,11 @@ describeIfSelected('Codex skill E2E', ['codex-review'], () => {
 
     const result = await runSkillTest({
       prompt: `You are in a git repo on branch feature/add-vuln with changes against main.
-Read codex-SKILL.md for the /codex review instructions (it's short — ~120 lines).
-Follow those instructions to run codex review against the diff on this branch.
+Read codex-SKILL.md for the /codex skill instructions.
+Run /codex review to review the current diff against main.
 Write the full output (including the GATE verdict) to ${codexDir}/codex-output.md`,
       workingDirectory: codexDir,
-      maxTurns: 25,
+      maxTurns: 15,
       timeout: 300_000,
       testName: 'codex-review',
       runId,
