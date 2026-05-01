@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useLiff } from "@/hooks/useLiff";
 import { apiClient } from "@/lib/api";
 import { Spinner } from "@/components/Spinner";
@@ -9,6 +9,7 @@ import { Spinner } from "@/components/Spinner";
 export default function LoadingPage() {
   const { isLiffReady, profile, error } = useLiff();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [apiError, setApiError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -19,7 +20,10 @@ export default function LoadingPage() {
           if (res.status === "exists" && res.name1_kana && res.name2_kana) {
             router.push("/dashboard");
           } else {
-            router.push("/register");
+            // QRコード経由で式場ID（venue）が URL に乗ってくる場合は登録画面に引き継ぐ
+            const venueParam = searchParams.get("venue");
+            const target = venueParam ? `/register?venue=${encodeURIComponent(venueParam)}` : "/register";
+            router.push(target);
           }
         } catch (err: any) {
           setApiError(err.message || "予期せぬエラーが発生しました");
@@ -27,7 +31,7 @@ export default function LoadingPage() {
       }
     };
     checkUser();
-  }, [isLiffReady, profile, router]);
+  }, [isLiffReady, profile, router, searchParams]);
 
   if (error || apiError) {
     return (

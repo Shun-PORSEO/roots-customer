@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLiff } from "@/hooks/useLiff";
 import { apiClient } from "@/lib/api";
-import { IUserProgress, IMessageDraft } from "@/lib/types";
+import { IUserProgress, IMessageDraft, IVenue } from "@/lib/types";
 import { getDaysFromToday } from "@/lib/utils";
 import { Spinner } from "@/components/Spinner";
 
@@ -12,21 +12,33 @@ const ProgressRing = ({ percent }: { percent: number }) => {
   const radius = 18;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (percent / 100) * circumference;
-  const color =
-    percent >= 80 ? "#4CAF50" : percent >= 50 ? "#F59E0B" : "var(--colorPrimary)";
+  // success / warning / primary を段階で
+  const color = percent >= 80 ? "#2F8A4E" : percent >= 50 ? "#D88B2C" : "#2F5A40";
   return (
-    <svg width="48" height="48" viewBox="0 0 48 48" className="shrink-0">
-      <circle cx="24" cy="24" r={radius} fill="none" stroke="#F0EBE0" strokeWidth="4" />
+    <svg width="48" height="48" viewBox="0 0 48 48" className="shrink-0" aria-hidden="true">
+      <circle cx="24" cy="24" r={radius} fill="none" stroke="#EFE8DC" strokeWidth="4" />
       <circle
-        cx="24" cy="24" r={radius} fill="none"
-        stroke={color} strokeWidth="4"
+        cx="24"
+        cy="24"
+        r={radius}
+        fill="none"
+        stroke={color}
+        strokeWidth="4"
         strokeDasharray={circumference}
         strokeDashoffset={offset}
         strokeLinecap="round"
         transform="rotate(-90 24 24)"
         style={{ transition: "stroke-dashoffset 0.5s ease" }}
       />
-      <text x="24" y="28" textAnchor="middle" fontSize="10" fontWeight="bold" fill={color}>
+      <text
+        x="24"
+        y="28"
+        textAnchor="middle"
+        fontSize="10"
+        fontWeight="bold"
+        fill={color}
+        fontVariant="tabular-nums"
+      >
         {percent}%
       </text>
     </svg>
@@ -41,15 +53,16 @@ export default function AdminDashboard() {
 
   const [users, setUsers] = useState<IUserProgress[]>([]);
   const [drafts, setDrafts] = useState<IMessageDraft[]>([]);
+  const [venues, setVenues] = useState<IVenue[]>([]);
   const [loading, setLoading] = useState(false);
   const [authed, setAuthed] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
   const [password, setPassword] = useState("");
   const [activeTab, setActiveTab] = useState<TabType>("couples");
+  // venueId が空文字の場合は「全式場まとめて表示」、特定の値なら式場で絞り込み
   const [venueId, setVenueId] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
 
-  // LIFF 認証
   useEffect(() => {
     if (!isLiffReady || !profile) return;
     const check = async () => {
@@ -75,16 +88,29 @@ export default function AdminDashboard() {
     if (isLiffReady && !profile) setAuthChecked(true);
   }, [isLiffReady, profile]);
 
+  // 管理者ログイン時のみ、式場フィルタ用の式場一覧を取得しておく
+  useEffect(() => {
+    if (!isAdmin) return;
+    apiClient
+      .get("getVenues", "admin")
+      .then((res) => {
+        if (res.venues) setVenues(res.venues as IVenue[]);
+      })
+      .catch(() => {});
+  }, [isAdmin]);
+
   useEffect(() => {
     if (!authed) return;
     setLoading(true);
     Promise.all([
       apiClient.post({ action: "getUsersWithProgress", line_id: "admin", venue_id: venueId }),
       apiClient.post({ action: "getMessageDrafts", line_id: "admin", venue_id: venueId, status: "pending" }),
-    ]).then(([usersRes, draftsRes]) => {
-      if (usersRes.users) setUsers(usersRes.users as IUserProgress[]);
-      if (draftsRes.drafts) setDrafts(draftsRes.drafts as IMessageDraft[]);
-    }).finally(() => setLoading(false));
+    ])
+      .then(([usersRes, draftsRes]) => {
+        if (usersRes.users) setUsers(usersRes.users as IUserProgress[]);
+        if (draftsRes.drafts) setDrafts(draftsRes.drafts as IMessageDraft[]);
+      })
+      .finally(() => setLoading(false));
   }, [authed, venueId]);
 
   const handlePasswordLogin = (e: React.FormEvent) => {
@@ -98,43 +124,52 @@ export default function AdminDashboard() {
   };
 
   const handleDraftAction = async (draftId: string, action: "approved" | "rejected") => {
-    await apiClient.post({ action: "updateDraftStatus", line_id: "admin", venue_id: venueId, draft_id: draftId, draft_status: action });
-    setDrafts(prev => prev.filter(d => d.draft_id !== draftId));
+    await apiClient.post({
+      action: "updateDraftStatus",
+      line_id: "admin",
+      venue_id: venueId,
+      draft_id: draftId,
+      draft_status: action,
+    });
+    setDrafts((prev) => prev.filter((d) => d.draft_id !== draftId));
   };
 
   const handleEditDraft = async (draftId: string, message: string) => {
-    await apiClient.post({ action: "updateDraftMessage", line_id: "admin", venue_id: venueId, draft_id: draftId, message });
-    setDrafts(prev => prev.map(d => d.draft_id === draftId ? { ...d, draft_message: message } : d));
+    await apiClient.post({
+      action: "updateDraftMessage",
+      line_id: "admin",
+      venue_id: venueId,
+      draft_id: draftId,
+      message,
+    });
+    setDrafts((prev) =>
+      prev.map((d) => (d.draft_id === draftId ? { ...d, draft_message: message } : d))
+    );
   };
 
   if (!authChecked && !isLiffReady) return <Spinner fullScreen />;
 
   if (!authed) {
     return (
-      <div className="flex flex-col items-center justify-center py-20">
-        <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-200 w-full max-w-sm">
-          <p className="text-[10px] font-bold tracking-[0.2em] text-[var(--colorPrimary)] uppercase text-center mb-2">
-            Planner Login
-          </p>
-          <h2 className="text-xl font-bold mb-6 text-center text-[var(--colorText)]">
+      <div className="flex flex-col items-center justify-center py-3xl animate-fade-in">
+        <div className="card-base p-xl w-full max-w-sm">
+          <p className="text-label-caps text-primary-70 text-center mb-2xs">PLANNER&nbsp;LOGIN</p>
+          <h2 className="font-display text-display-md text-on-surface text-center mb-lg">
             管理者ログイン
           </h2>
-          <form onSubmit={handlePasswordLogin} className="flex flex-col gap-4">
+          <form onSubmit={handlePasswordLogin} className="flex flex-col gap-sm">
             <input
               type="password"
               placeholder="パスワードを入力"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="px-4 py-3 border border-gray-200 rounded-xl outline-none focus:border-[var(--colorPrimary)] bg-gray-50"
+              className="input-base"
             />
-            <button
-              type="submit"
-              className="px-6 py-3 bg-[var(--colorPrimary)] text-white font-bold rounded-xl hover:opacity-90 active:scale-95 transition-all"
-            >
+            <button type="submit" className="btn-primary mt-xs">
               ログイン
             </button>
           </form>
-          <p className="text-[11px] text-gray-400 text-center mt-4">
+          <p className="text-body-sm text-neutral-50 text-center mt-md">
             LINEログインでも自動認証されます
           </p>
         </div>
@@ -150,130 +185,235 @@ export default function AdminDashboard() {
       ? 0
       : Math.round(
           couples.reduce(
-            (sum, u) => sum + (u.total_tasks > 0 ? (u.done_tasks / u.total_tasks) * 100 : 0),
+            (sum, u) =>
+              sum + (u.total_tasks > 0 ? (u.done_tasks / u.total_tasks) * 100 : 0),
             0
           ) / couples.length
         );
 
   return (
-    <div className="pb-16">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-[var(--colorText)]">ダッシュボード</h2>
+    <div className="pb-2xl animate-fade-in">
+      <div className="flex items-center justify-between mb-md">
+        <h2 className="font-display text-display-md text-on-surface">ダッシュボード</h2>
         {isAdmin && (
           <button
             onClick={() => router.push("/admin/venues")}
-            className="px-4 py-2 text-sm bg-[var(--colorSecondary)] text-[var(--colorPrimary)] font-bold rounded-xl hover:opacity-80 transition-all"
+            className="btn-ghost"
+            aria-label="式場管理を開く"
           >
             式場管理
+            <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path
+                fillRule="evenodd"
+                d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+                clipRule="evenodd"
+              />
+            </svg>
           </button>
         )}
       </div>
 
+      {/* 管理者は複数式場をまたいで見れるので、フィルタとして式場切替を提供 */}
+      {isAdmin && venues.length > 0 && (
+        <div className="mb-lg">
+          <label className="label-form">表示する式場</label>
+          <select
+            value={venueId}
+            onChange={(e) => setVenueId(e.target.value)}
+            aria-label="表示する式場を選択"
+            className="input-base"
+          >
+            <option value="">全式場をまとめて表示</option>
+            {venues.map((v) => (
+              <option key={v.venue_id} value={v.venue_id}>
+                {v.venue_name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {/* サマリカード */}
-      <div className="grid grid-cols-3 gap-3 mb-6">
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
-          <p className="text-[28px] font-bold leading-none text-[var(--colorPrimary)]">{couples.length}</p>
-          <p className="text-[11px] text-gray-500 mt-1">登録ペア数</p>
+      <div className="grid grid-cols-3 gap-sm mb-lg">
+        <div className="card-base p-md text-center">
+          <p className="font-display text-[28px] tabular-nums leading-none text-primary-70">
+            {couples.length}
+          </p>
+          <p className="text-body-sm text-neutral-50 mt-2xs">登録ペア数</p>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
-          <p className="text-[28px] font-bold leading-none" style={{ color: "var(--colorAccent)" }}>{avgPercent}%</p>
-          <p className="text-[11px] text-gray-500 mt-1">平均完了率</p>
+        <div className="card-base p-md text-center">
+          <p className="font-display text-[28px] tabular-nums leading-none text-tertiary-70">
+            {avgPercent}%
+          </p>
+          <p className="text-body-sm text-neutral-50 mt-2xs">平均完了率</p>
         </div>
-        <div
-          className="bg-white rounded-2xl border shadow-sm p-4 text-center cursor-pointer hover:opacity-80 transition-all"
-          style={{ borderColor: drafts.length > 0 ? "#f59e0b" : "#f3f4f6" }}
+        <button
+          type="button"
           onClick={() => setActiveTab("drafts")}
+          className={[
+            "card-base p-md text-center cursor-pointer transition-all",
+            "active:scale-[0.98]",
+            drafts.length > 0
+              ? "border-warning/40 hover:border-warning"
+              : "hover:border-neutral-80",
+          ].join(" ")}
         >
-          <p className="text-[28px] font-bold leading-none" style={{ color: drafts.length > 0 ? "#f59e0b" : "#9ca3af" }}>{drafts.length}</p>
-          <p className="text-[11px] text-gray-500 mt-1">承認待ち</p>
-        </div>
+          <p
+            className={[
+              "font-display text-[28px] tabular-nums leading-none",
+              drafts.length > 0 ? "text-warning" : "text-neutral-60",
+            ].join(" ")}
+          >
+            {drafts.length}
+          </p>
+          <p className="text-body-sm text-neutral-50 mt-2xs">承認待ち</p>
+        </button>
       </div>
 
-      {/* タブ切り替え */}
-      <div className="flex border-b border-gray-200 mb-6">
+      {/* タブ */}
+      <div role="tablist" className="flex border-b border-border mb-lg">
         <button
+          role="tab"
+          aria-selected={activeTab === "couples"}
           onClick={() => setActiveTab("couples")}
-          className={`flex-1 py-3 text-sm font-bold transition-colors ${activeTab === "couples" ? "border-b-2 border-[var(--colorPrimary)] text-[var(--colorPrimary)]" : "text-gray-500"}`}
+          className={[
+            "flex-1 py-sm text-headline-sm transition-colors duration-short border-b-[2px]",
+            activeTab === "couples"
+              ? "border-primary-70 text-primary-70"
+              : "border-transparent text-neutral-50",
+          ].join(" ")}
         >
           カップル一覧
         </button>
         <button
+          role="tab"
+          aria-selected={activeTab === "drafts"}
           onClick={() => setActiveTab("drafts")}
-          className={`flex-1 py-3 text-sm font-bold transition-colors relative ${activeTab === "drafts" ? "border-b-2 border-[var(--colorPrimary)] text-[var(--colorPrimary)]" : "text-gray-500"}`}
+          className={[
+            "flex-1 py-sm text-headline-sm transition-colors duration-short border-b-[2px] relative",
+            activeTab === "drafts"
+              ? "border-primary-70 text-primary-70"
+              : "border-transparent text-neutral-50",
+          ].join(" ")}
         >
           承認待ちメッセージ
           {drafts.length > 0 && (
-            <span className="absolute -top-1 right-4 w-5 h-5 bg-amber-400 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+            <span className="absolute -top-1 right-2 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1.5 bg-warning text-white text-[10px] font-bold rounded-full tabular-nums">
               {drafts.length}
             </span>
           )}
         </button>
       </div>
 
-      {/* カップル一覧タブ */}
+      {/* カップル一覧 */}
       {activeTab === "couples" && (
         <>
           {couples.length === 0 ? (
-            <div className="bg-white p-8 rounded-2xl text-center text-gray-400 border border-gray-100">
+            <div className="card-base p-xl text-center text-body-md text-neutral-50">
               登録されているお客様がいません
             </div>
           ) : (
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-md">
               {couples
                 .slice()
                 .sort((a, b) => (a.wedding_date > b.wedding_date ? 1 : -1))
                 .map((user) => {
-                  const percent = user.total_tasks > 0 ? Math.round((user.done_tasks / user.total_tasks) * 100) : 0;
+                  const percent =
+                    user.total_tasks > 0
+                      ? Math.round((user.done_tasks / user.total_tasks) * 100)
+                      : 0;
                   const parts = user.wedding_date?.split("-").map(Number);
                   const weddingObj = parts && parts[0] ? new Date(parts[0], parts[1] - 1, parts[2]) : null;
                   const daysLeft = weddingObj ? getDaysFromToday(weddingObj) : null;
-                  const coupleName = user.name1_kana && user.name2_kana ? `${user.name1_kana}＆${user.name2_kana}` : "（未登録）";
-                  const initials = user.name1_kana && user.name2_kana ? `${user.name1_kana[0]}＆${user.name2_kana[0]}` : "?";
-                  const barColor = percent >= 80 ? "#4CAF50" : percent >= 50 ? "#F59E0B" : "var(--colorPrimary)";
+                  const coupleName =
+                    user.name1_kana && user.name2_kana
+                      ? `${user.name1_kana}＆${user.name2_kana}`
+                      : "（未登録）";
+                  const initials =
+                    user.name1_kana && user.name2_kana
+                      ? `${user.name1_kana[0]}＆${user.name2_kana[0]}`
+                      : "?";
+
+                  const dueChip =
+                    daysLeft === null
+                      ? null
+                      : daysLeft > 30
+                      ? { color: "text-primary-70", bg: "bg-primary-10" }
+                      : daysLeft > 0
+                      ? { color: "text-warning", bg: "bg-tertiary-10" }
+                      : { color: "text-error", bg: "bg-error/10" };
+
+                  const barColor =
+                    percent >= 80 ? "bg-success" : percent >= 50 ? "bg-warning" : "bg-primary-70";
 
                   return (
-                    <div key={user.line_id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                      <div className="flex items-start gap-3">
+                    <div key={user.line_id} className="card-base p-lg">
+                      <div className="flex items-start gap-sm">
                         <div
-                          className="w-11 h-11 rounded-full flex items-center justify-center text-white text-[11px] font-bold shrink-0"
-                          style={{ background: "linear-gradient(135deg, var(--colorPrimary), var(--colorAccent))" }}
+                          className="w-11 h-11 rounded-full flex items-center justify-center text-white font-display text-[12px] font-semibold shrink-0"
+                          style={{
+                            background:
+                              "linear-gradient(135deg, #2F5A40 0%, #5A8E6E 50%, #D4A853 100%)",
+                          }}
+                          aria-hidden="true"
                         >
                           {initials}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-[16px] font-bold text-[var(--colorText)] truncate">{coupleName}ペア</p>
-                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                            <span className="text-[12px] text-gray-500">{user.wedding_date || "日程未定"}</span>
-                            {daysLeft !== null && (
+                          <p className="text-headline-md text-on-surface truncate">
+                            {coupleName}
+                            <span className="text-neutral-50 text-body-md ml-1">ペア</span>
+                          </p>
+                          <div className="flex items-center gap-xs mt-2xs flex-wrap">
+                            <span className="text-body-sm text-neutral-50 tabular-nums">
+                              {user.wedding_date || "日程未定"}
+                            </span>
+                            {dueChip && daysLeft !== null && (
                               <span
-                                className="text-[11px] font-bold px-2 py-0.5 rounded-full"
-                                style={{
-                                  color: daysLeft > 30 ? "var(--colorPrimary)" : daysLeft > 0 ? "#F59E0B" : "#EF4444",
-                                  background: daysLeft > 30 ? "var(--colorSecondary)" : daysLeft > 0 ? "#FEF3C7" : "#FEE2E2",
-                                }}
+                                className={`text-[11px] font-bold px-2 py-0.5 rounded-full tabular-nums ${dueChip.color} ${dueChip.bg}`}
                               >
-                                {daysLeft > 0 ? `あと${daysLeft}日` : daysLeft === 0 ? "本日！" : `${Math.abs(daysLeft)}日経過`}
+                                {daysLeft > 0
+                                  ? `あと${daysLeft}日`
+                                  : daysLeft === 0
+                                  ? "本日！"
+                                  : `${Math.abs(daysLeft)}日経過`}
                               </span>
                             )}
                           </div>
                         </div>
                         <ProgressRing percent={percent} />
                       </div>
-                      <div className="mt-4">
-                        <div className="flex justify-between items-center mb-1.5">
-                          <span className="text-[11px] text-gray-400 font-medium">タスク進捗</span>
-                          <span className="text-[12px] font-bold text-gray-600">{user.done_tasks} / {user.total_tasks} 完了</span>
+                      <div className="mt-md">
+                        <div className="flex justify-between items-center mb-2xs">
+                          <span className="text-body-sm text-neutral-50">タスク進捗</span>
+                          <span className="text-body-sm font-semibold text-on-surface tabular-nums">
+                            {user.done_tasks} / {user.total_tasks} 完了
+                          </span>
                         </div>
-                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                          <div className="h-full rounded-full" style={{ width: `${percent}%`, backgroundColor: barColor, transition: "width 0.5s ease" }} />
+                        <div className="h-1.5 bg-neutral-90 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all duration-medium ${barColor}`}
+                            style={{ width: `${percent}%` }}
+                            role="progressbar"
+                            aria-valuenow={percent}
+                            aria-valuemin={0}
+                            aria-valuemax={100}
+                          />
                         </div>
                       </div>
-                      <div className="mt-4 flex justify-end">
+                      <div className="mt-md flex justify-end">
                         <button
                           onClick={() => router.push(`/admin/${user.line_id}`)}
-                          className="px-4 py-2 bg-[var(--colorSecondary)] text-[var(--colorPrimary)] text-[13px] font-bold rounded-xl hover:opacity-80 active:scale-95 transition-all"
+                          className="btn-ghost"
                         >
-                          タスクを管理 →
+                          タスクを管理
+                          <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                            <path
+                              fillRule="evenodd"
+                              d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
                         </button>
                       </div>
                     </div>
@@ -284,7 +424,6 @@ export default function AdminDashboard() {
         </>
       )}
 
-      {/* 承認待ちメッセージタブ */}
       {activeTab === "drafts" && (
         <DraftsPanel drafts={drafts} onAction={handleDraftAction} onEdit={handleEditDraft} />
       )}
@@ -307,7 +446,7 @@ function DraftsPanel({
 
   if (drafts.length === 0) {
     return (
-      <div className="bg-white p-8 rounded-2xl text-center text-gray-400 border border-gray-100">
+      <div className="card-base p-xl text-center text-body-md text-neutral-50">
         承認待ちのメッセージはありません
       </div>
     );
@@ -334,50 +473,59 @@ function DraftsPanel({
   };
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-md">
       {drafts.map((draft) => (
-        <div key={draft.draft_id} className="bg-white rounded-2xl border border-amber-200 shadow-sm p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
-            <span className="text-[11px] font-bold text-amber-600 uppercase tracking-wider">承認待ち</span>
-            <span className="ml-auto text-[11px] text-gray-400">{draft.couple_id.slice(0, 12)}...</span>
+        <div
+          key={draft.draft_id}
+          className="bg-white rounded-lg border border-warning/30 shadow-card p-lg"
+        >
+          <div className="flex items-center gap-xs mb-sm">
+            <span className="w-2 h-2 rounded-full bg-warning shrink-0" aria-hidden="true" />
+            <span className="text-label-caps text-warning">承認待ち</span>
+            <span className="ml-auto text-body-sm text-neutral-60 tabular-nums">
+              {draft.couple_id.slice(0, 12)}…
+            </span>
           </div>
 
           {editingId === draft.draft_id ? (
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-xs">
               <textarea
                 value={editText}
                 onChange={(e) => setEditText(e.target.value)}
                 rows={5}
-                className="w-full border border-gray-200 rounded-xl p-3 text-sm resize-none outline-none focus:border-[var(--colorPrimary)]"
+                className="input-base !h-auto py-sm resize-none"
+                style={{ minHeight: "8rem" }}
               />
-              <div className="flex gap-2 justify-end">
+              <div className="flex gap-xs justify-end">
                 <button
                   onClick={() => setEditingId(null)}
-                  className="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700"
+                  className="px-sm h-9 text-body-md text-neutral-50 hover:text-on-surface rounded-md transition-colors"
                 >
                   キャンセル
                 </button>
                 <button
                   onClick={() => handleSaveEdit(draft.draft_id)}
                   disabled={saving === draft.draft_id}
-                  className="px-4 py-1.5 bg-[var(--colorPrimary)] text-white text-sm font-bold rounded-lg disabled:opacity-50"
+                  className="btn-primary !h-9 !px-md text-body-md"
                 >
                   保存
                 </button>
               </div>
             </div>
           ) : (
-            <div className="bg-gray-50 rounded-xl p-4 text-sm text-gray-700 leading-relaxed whitespace-pre-wrap mb-3">
+            <div className="bg-neutral-98 border border-border rounded-md p-md text-body-md text-on-surface leading-relaxed whitespace-pre-wrap mb-sm">
               {draft.draft_message}
             </div>
           )}
 
-          <div className="flex gap-2 mt-2">
+          <div className="flex gap-xs mt-xs">
             {editingId !== draft.draft_id && (
               <button
-                onClick={() => { setEditingId(draft.draft_id); setEditText(draft.draft_message); }}
-                className="flex-1 px-3 py-2 border border-gray-200 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-50 transition-all"
+                onClick={() => {
+                  setEditingId(draft.draft_id);
+                  setEditText(draft.draft_message);
+                }}
+                className="flex-1 h-10 px-sm border border-border text-neutral-30 text-body-md font-semibold rounded-md hover:bg-neutral-95 transition-all"
               >
                 編集
               </button>
@@ -385,14 +533,14 @@ function DraftsPanel({
             <button
               onClick={() => handleReject(draft.draft_id)}
               disabled={saving === draft.draft_id}
-              className="flex-1 px-3 py-2 border border-red-200 text-red-500 text-sm font-bold rounded-xl hover:bg-red-50 disabled:opacity-50 transition-all"
+              className="flex-1 h-10 px-sm border border-error/30 text-error text-body-md font-semibold rounded-md hover:bg-error/5 disabled:opacity-50 transition-all"
             >
               却下
             </button>
             <button
               onClick={() => handleApprove(draft.draft_id)}
               disabled={saving === draft.draft_id}
-              className="flex-1 px-3 py-2 bg-[var(--colorPrimary)] text-white text-sm font-bold rounded-xl hover:opacity-90 disabled:opacity-50 transition-all"
+              className="flex-1 h-10 px-sm bg-primary-70 text-white text-body-md font-semibold rounded-md hover:bg-primary-80 disabled:opacity-50 transition-all"
             >
               承認して送信
             </button>

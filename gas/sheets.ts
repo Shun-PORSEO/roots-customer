@@ -258,11 +258,12 @@ function getActiveTasks(venueId?: string): ITaskMaster[] {
   if (!sheet) return [];
   const data = sheet.getDataRange().getValues();
   const tasks: ITaskMaster[] = [];
+  // Newest schema: A=task_id, B=venue_id, C=category, D=task_content, E=due_formula, F=due_estimate, G=memo, H=is_active, I=target_line_id, J=manual_url
+  // Legacy schema (no venue_id col): A=task_id, B=category, C=task_content, D=due_formula, E=due_estimate, F=memo, G=is_active, H=target_line_id
+  const hasVenueCol = data[0].length >= 9;
+  const colOffset = hasVenueCol ? 1 : 0;
+  const hasManualUrlCol = hasVenueCol && data[0].length >= 10;
   for (let i = 1; i < data.length; i++) {
-    // New schema: A=task_id, B=venue_id, C=category, D=task_content, E=due_formula, F=due_estimate, G=memo, H=is_active, I=target_line_id
-    // Legacy schema (no venue_id col): A=task_id, B=category, C=task_content, D=due_formula, E=due_estimate, F=memo, G=is_active, H=target_line_id
-    const hasVenueCol = data[0].length >= 9;
-    const colOffset = hasVenueCol ? 1 : 0;
     const taskVenueId = hasVenueCol ? String(data[i][1] || "") : "";
     if (venueId && taskVenueId && taskVenueId !== venueId) continue;
 
@@ -277,6 +278,7 @@ function getActiveTasks(venueId?: string): ITaskMaster[] {
         memo: String(data[i][5 + colOffset]),
         is_active: true,
         target_line_id: String(data[i][7 + colOffset] || ""),
+        manual_url: hasManualUrlCol ? String(data[i][8 + colOffset] || "") : "",
       });
     }
   }
@@ -372,9 +374,11 @@ function toggleHiddenTask(lineId: string, taskId: string, isHidden: boolean): vo
 function addCustomTask(task: ITaskMaster & { venue_id?: string }): void {
   const sheet = getSheet("task_master");
   if (!sheet) return;
-  const hasVenueCol = sheet.getLastColumn() >= 9;
+  const lastCol = sheet.getLastColumn();
+  const hasVenueCol = lastCol >= 9;
+  const hasManualUrlCol = lastCol >= 10;
   if (hasVenueCol) {
-    sheet.appendRow([
+    const row: any[] = [
       task.task_id,
       task.venue_id || "",
       task.category,
@@ -384,7 +388,9 @@ function addCustomTask(task: ITaskMaster & { venue_id?: string }): void {
       task.memo,
       task.is_active,
       task.target_line_id || ""
-    ]);
+    ];
+    if (hasManualUrlCol) row.push(task.manual_url || "");
+    sheet.appendRow(row);
   } else {
     sheet.appendRow([
       task.task_id,
@@ -399,6 +405,30 @@ function addCustomTask(task: ITaskMaster & { venue_id?: string }): void {
   }
   CacheService.getScriptCache().remove("activeTasks");
   if (task.venue_id) CacheService.getScriptCache().remove(`activeTasks_${task.venue_id}`);
+};
+
+function updateTaskManualUrl(taskId: string, manualUrl: string): boolean {
+  const sheet = getSheet("task_master");
+  if (!sheet) return false;
+  const data = sheet.getDataRange().getValues();
+  const hasVenueCol = data[0].length >= 9;
+  if (!hasVenueCol) return false; // legacy 形式は manual_url 非対応
+  const manualUrlCol = 10; // J列
+  // ヘッダーが10列に届いていなければ "manual_url" を補う
+  if (data[0].length < manualUrlCol) {
+    sheet.getRange(1, manualUrlCol).setValue("manual_url");
+  }
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === taskId) {
+      sheet.getRange(i + 1, manualUrlCol).setValue(manualUrl || "");
+      const venueId = String(data[i][1] || "");
+      const cache = CacheService.getScriptCache();
+      cache.remove("activeTasks");
+      if (venueId) cache.remove(`activeTasks_${venueId}`);
+      return true;
+    }
+  }
+  return false;
 };
 
 function deleteCustomTask(taskId: string): void {

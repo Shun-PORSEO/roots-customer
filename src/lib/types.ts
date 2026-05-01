@@ -29,6 +29,19 @@ export interface ITask {
   is_done: boolean;
   is_visible: boolean;
   is_custom?: boolean;
+  manual_url?: string;
+}
+
+export interface ITaskMaster {
+  task_id: string;
+  category: string;
+  task_content: string;
+  due_formula: string;
+  due_estimate: string;
+  memo: string;
+  is_active: boolean;
+  target_line_id?: string;
+  manual_url?: string;
 }
 
 export interface ICustomer {
@@ -55,7 +68,7 @@ export interface IApiResponse {
   name1_kana?: string;
   name2_kana?: string;
   is_admin?: boolean;
-  tasks?: ITask[];
+  tasks?: ITask[] | ITaskMaster[];
   users?: ICustomer[] | IUserProgress[];
   venues?: IVenue[];
   venue?: IVenue;

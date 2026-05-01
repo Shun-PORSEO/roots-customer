@@ -3,7 +3,7 @@ import { IApiResponse, IMessageDraft, IVenue, IUserProgress } from "./types";
 const GAS_ENDPOINT = process.env.NEXT_PUBLIC_GAS_ENDPOINT || "";
 
 let MOCK_TASKS: any[] = [
-  { task_id: "T001", category: "会場決定", task_content: "・会場、日程の決定・お申込書、お内金振り込み", due_formula: "挙式日 - 180日", due_estimate: "挙式6ヶ月前", memo: "", is_done: false, is_visible: true }
+  { task_id: "T001", category: "会場決定", task_content: "・会場、日程の決定・お申込書、お内金振り込み", due_formula: "挙式日 - 180日", due_estimate: "挙式6ヶ月前", memo: "", is_done: false, is_visible: true, manual_url: "" }
 ];
 
 const MOCK_VENUES: IVenue[] = [
@@ -116,6 +116,30 @@ export const apiClient = {
         const venue = MOCK_VENUES.find(v => v.venue_id === payload.venue_id);
         if (!venue) return { status: "error", message: "Venue not found" };
         return { status: "ok", venue, users: [], pending_drafts_count: 1 };
+      }
+      if (payload.action === "getVenueTasks") {
+        const tasks = MOCK_TASKS
+          .filter(t => !t.target_line_id)
+          .map(t => ({
+            task_id: t.task_id,
+            category: t.category,
+            task_content: t.task_content,
+            due_formula: t.due_formula,
+            due_estimate: t.due_estimate,
+            memo: t.memo,
+            is_active: true,
+            target_line_id: t.target_line_id || "",
+            manual_url: t.manual_url || "",
+          }));
+        return { status: "ok", tasks };
+      }
+      if (payload.action === "updateTaskManualUrl") {
+        const url = String(payload.manual_url || "");
+        if (url && !/^https?:\/\//.test(url)) {
+          return { status: "error", message: "URLは http(s):// で始めてください" };
+        }
+        MOCK_TASKS = MOCK_TASKS.map(t => t.task_id === payload.task_id ? { ...t, manual_url: url } : t);
+        return { status: "updated" };
       }
       return { status: "ok" };
     }

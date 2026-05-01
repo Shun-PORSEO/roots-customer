@@ -10,25 +10,28 @@ import { ErrorMessage } from "@/components/ErrorMessage";
 export default function AdminUserTaskPage({ params }: { params: { line_id: string } }) {
   const router = useRouter();
   const lineId = params.line_id;
-  
+
   const [tasks, setTasks] = useState<ITask[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Form State for Custom Task
   const [showForm, setShowForm] = useState(false);
   const [newTask, setNewTask] = useState({
     category: "追加タスク",
     task_content: "",
     due_estimate: "",
     due_formula: "挙式日 - 0日",
-    memo: ""
+    memo: "",
   });
 
   const fetchUserTasks = async () => {
     try {
-      const res = await apiClient.post({ action: "getAdminUserTasks", line_id: "admin", target_line_id: lineId });
+      const res = await apiClient.post({
+        action: "getAdminUserTasks",
+        line_id: "admin",
+        target_line_id: lineId,
+      });
       if (res.tasks) {
         setTasks(res.tasks);
       }
@@ -51,10 +54,9 @@ export default function AdminUserTaskPage({ params }: { params: { line_id: strin
         line_id: "admin",
         target_line_id: lineId,
         task_id: taskId,
-        is_visible: !currentVisible
+        is_visible: !currentVisible,
       });
-      // Optimistic upate
-      setTasks(tasks.map(t => t.task_id === taskId ? { ...t, is_visible: !currentVisible } : t));
+      setTasks(tasks.map((t) => (t.task_id === taskId ? { ...t, is_visible: !currentVisible } : t)));
     } catch (e: any) {
       alert("更新に失敗しました: " + e.message);
     } finally {
@@ -65,18 +67,24 @@ export default function AdminUserTaskPage({ params }: { params: { line_id: strin
   const handleAddCustomTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTask.task_content) return alert("タスク内容を入力してください");
-    
+
     setUpdating(true);
     try {
       await apiClient.post({
         action: "addCustomTask",
         line_id: "admin",
         target_line_id: lineId,
-        task: newTask
+        task: newTask,
       });
       setShowForm(false);
-      setNewTask({ category: "追加タスク", task_content: "", due_estimate: "", due_formula: "挙式日 - 0日", memo: "" });
-      fetchUserTasks(); // Refresh list to get real ID
+      setNewTask({
+        category: "追加タスク",
+        task_content: "",
+        due_estimate: "",
+        due_formula: "挙式日 - 0日",
+        memo: "",
+      });
+      fetchUserTasks();
     } catch (e: any) {
       alert("追加に失敗しました: " + e.message);
     } finally {
@@ -91,9 +99,9 @@ export default function AdminUserTaskPage({ params }: { params: { line_id: strin
       await apiClient.post({
         action: "deleteCustomTask",
         line_id: "admin",
-        task_id: taskId
+        task_id: taskId,
       });
-      setTasks(tasks.filter(t => t.task_id !== taskId));
+      setTasks(tasks.filter((t) => t.task_id !== taskId));
     } catch (e: any) {
       alert("削除に失敗しました: " + e.message);
     } finally {
@@ -104,121 +112,191 @@ export default function AdminUserTaskPage({ params }: { params: { line_id: strin
   if (loading) return <Spinner fullScreen />;
   if (error) return <ErrorMessage message={error} />;
 
-  const globalTasks = tasks.filter(t => !t.is_custom);
-  const customTasks = tasks.filter(t => t.is_custom);
+  const globalTasks = tasks.filter((t) => !t.is_custom);
+  const customTasks = tasks.filter((t) => t.is_custom);
 
   return (
-    <div className="pb-16">
-      <div className="flex items-center gap-4 mb-8">
-        <button 
+    <div className="pb-2xl animate-fade-in">
+      <div className="flex items-center gap-sm mb-lg">
+        <button
           onClick={() => router.push("/admin")}
-          className="text-gray-500 hover:text-gray-800"
+          className="w-10 h-10 -ml-xs flex items-center justify-center text-neutral-50 hover:bg-neutral-95 rounded-full active:bg-neutral-90 transition-colors"
+          aria-label="一覧へ戻る"
         >
-          &larr; 一覧へ戻る
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2.4} viewBox="0 0 24 24" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
         </button>
-        <h2 className="text-2xl font-bold text-[var(--colorText)]">個別タスク設定</h2>
+        <h2 className="font-display text-display-md text-on-surface">個別タスク設定</h2>
       </div>
 
-      <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-8">
-        <p className="text-blue-800 font-semibold mb-1">対象のLINE ID</p>
-        <p className="text-blue-600 font-mono text-sm">{lineId}</p>
+      <div className="card-base bg-primary-5 border-primary-20 p-md mb-lg">
+        <p className="text-label-caps text-primary-70 mb-2xs">対象の LINE ID</p>
+        <p className="text-body-md text-primary-80 font-mono break-all tabular-nums">{lineId}</p>
       </div>
 
-      {/* Custom Tasks Section */}
-      <div className="mb-10">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xl font-bold">追加された個別タスク</h3>
-          <button 
+      {/* === Custom Tasks === */}
+      <section className="mb-2xl">
+        <div className="flex items-center justify-between mb-md">
+          <h3 className="text-headline-lg text-on-surface">追加された個別タスク</h3>
+          <button
             onClick={() => setShowForm(!showForm)}
-            className="px-4 py-2 bg-[var(--colorPrimary)] text-white text-sm font-bold rounded-lg shadow hover:opacity-90 transition"
+            className="btn-primary !h-10 !px-md text-body-md"
           >
-            ＋ 個別タスクを追加
+            <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
+            </svg>
+            個別タスクを追加
           </button>
         </div>
 
         {showForm && (
-          <form onSubmit={handleAddCustomTask} className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm mb-6">
-            <h4 className="font-bold mb-4">新しいタスクの作成</h4>
-            <div className="flex flex-col gap-4">
+          <form onSubmit={handleAddCustomTask} className="card-base p-lg mb-md">
+            <h4 className="text-headline-md text-on-surface mb-md">新しいタスクの作成</h4>
+            <div className="flex flex-col gap-sm">
               <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1">カテゴリ名</label>
-                <input value={newTask.category} onChange={e => setNewTask({...newTask, category: e.target.value})} className="w-full border p-2 rounded" />
+                <label className="label-form">カテゴリ名</label>
+                <input
+                  value={newTask.category}
+                  onChange={(e) => setNewTask({ ...newTask, category: e.target.value })}
+                  className="input-base"
+                />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1">タスク内容</label>
-                <input value={newTask.task_content} onChange={e => setNewTask({...newTask, task_content: e.target.value})} className="w-full border p-2 rounded" placeholder="例: リングドッグの手配" />
+                <label className="label-form">タスク内容</label>
+                <input
+                  value={newTask.task_content}
+                  onChange={(e) => setNewTask({ ...newTask, task_content: e.target.value })}
+                  className="input-base"
+                  placeholder="例: リングドッグの手配"
+                />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1">期日目安</label>
-                <input value={newTask.due_estimate} onChange={e => setNewTask({...newTask, due_estimate: e.target.value})} className="w-full border p-2 rounded" placeholder="例: 挙式1ヶ月前" />
+                <label className="label-form">期日目安</label>
+                <input
+                  value={newTask.due_estimate}
+                  onChange={(e) => setNewTask({ ...newTask, due_estimate: e.target.value })}
+                  className="input-base"
+                  placeholder="例: 挙式1ヶ月前"
+                />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1">メモ</label>
-                <textarea value={newTask.memo} onChange={e => setNewTask({...newTask, memo: e.target.value})} className="w-full border p-2 rounded h-20" placeholder="詳細なメモ..." />
+                <label className="label-form">メモ</label>
+                <textarea
+                  value={newTask.memo}
+                  onChange={(e) => setNewTask({ ...newTask, memo: e.target.value })}
+                  className="input-base !h-auto py-sm resize-none"
+                  style={{ minHeight: "5rem" }}
+                  placeholder="詳細なメモ..."
+                />
               </div>
-              <div className="flex justify-end gap-2 mt-2">
-                <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 text-gray-500">キャンセル</button>
-                <button type="submit" disabled={updating} className="px-6 py-2 bg-[var(--colorPrimary)] text-white rounded font-bold disabled:opacity-50">保存する</button>
+              <div className="flex justify-end gap-xs mt-xs">
+                <button
+                  type="button"
+                  onClick={() => setShowForm(false)}
+                  className="btn-ghost"
+                >
+                  キャンセル
+                </button>
+                <button type="submit" disabled={updating} className="btn-primary !w-auto">
+                  保存する
+                </button>
               </div>
             </div>
           </form>
         )}
 
         {customTasks.length === 0 ? (
-          <p className="text-gray-400 text-sm italic">個別タスクはありません</p>
+          <p className="text-body-md text-neutral-50 italic px-2xs">個別タスクはありません</p>
         ) : (
-          <div className="flex flex-col gap-3">
-            {customTasks.map(task => (
-              <div key={task.task_id} className="bg-yellow-50 border border-yellow-200 p-4 rounded-xl flex items-center justify-between">
-                <div>
-                  <span className="text-xs bg-yellow-200 text-yellow-800 px-2 py-0.5 rounded font-bold mr-2">{task.category}</span>
-                  <p className="font-semibold">{task.task_content}</p>
+          <div className="flex flex-col gap-sm">
+            {customTasks.map((task) => (
+              <div
+                key={task.task_id}
+                className="bg-tertiary-10 border border-tertiary-20 rounded-md p-md flex items-center justify-between"
+              >
+                <div className="flex-1 min-w-0">
+                  <span className="inline-block bg-tertiary-50 text-neutral-10 text-label-caps px-2 py-0.5 rounded-xs mb-xs">
+                    {task.category}
+                  </span>
+                  <p className="text-headline-sm text-on-surface mt-2xs">{task.task_content}</p>
                 </div>
-                <button onClick={() => handleDeleteCustomTask(task.task_id)} disabled={updating} className="text-red-500 text-sm font-bold hover:underline disabled:opacity-50">
+                <button
+                  onClick={() => handleDeleteCustomTask(task.task_id)}
+                  disabled={updating}
+                  className="text-error text-body-md font-semibold hover:underline disabled:opacity-50 ml-sm"
+                >
                   削除
                 </button>
               </div>
             ))}
           </div>
         )}
-      </div>
+      </section>
 
-      {/* Global Tasks Section */}
-      <div>
-        <h3 className="text-xl font-bold mb-4">基本タスク表示設定</h3>
-        <p className="text-sm text-gray-500 mb-4">
-          お客様の画面に表示させるタスクのON/OFFを切り替えます。
+      {/* === Global Tasks (visibility) === */}
+      <section>
+        <h3 className="text-headline-lg text-on-surface mb-2xs">基本タスク表示設定</h3>
+        <p className="text-body-md text-neutral-50 mb-md">
+          お客様の画面に表示させるタスクの表示/非表示を切り替えます。
         </p>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="card-base overflow-hidden">
           {globalTasks.map((task, idx) => (
-            <div key={task.task_id} className={`flex items-center justify-between p-4 ${idx !== globalTasks.length - 1 ? 'border-b border-gray-100' : ''} ${!task.is_visible ? 'bg-gray-50' : ''}`}>
-              <div className="flex items-start gap-4">
-                <div className={`mt-1 font-mono text-xs px-2 py-1 rounded ${task.is_visible ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>
-                  {task.is_visible ? '表示中' : '非表示'}
-                </div>
-                <div>
-                  <span className={`text-xs px-2 py-0.5 rounded font-bold mr-2 ${task.is_visible ? 'bg-[var(--colorSecondary)] text-[var(--colorPrimary)]' : 'bg-gray-200 text-gray-500'}`}>{task.category}</span>
-                  <p className={`font-semibold mt-1 ${task.is_visible ? 'text-gray-800' : 'text-gray-400 line-through'}`}>{task.task_content}</p>
+            <div
+              key={task.task_id}
+              className={[
+                "flex items-center justify-between p-md transition-colors",
+                idx !== globalTasks.length - 1 ? "border-b border-border" : "",
+                !task.is_visible ? "bg-neutral-98" : "",
+              ].join(" ")}
+            >
+              <div className="flex items-start gap-sm flex-1 min-w-0">
+                <span
+                  className={[
+                    "shrink-0 mt-0.5 inline-flex items-center justify-center text-[10px] font-bold tracking-wider px-2 py-0.5 rounded-xs",
+                    task.is_visible
+                      ? "bg-primary-10 text-primary-70"
+                      : "bg-neutral-90 text-neutral-50",
+                  ].join(" ")}
+                >
+                  {task.is_visible ? "表示中" : "非表示"}
+                </span>
+                <div className="min-w-0">
+                  <span
+                    className={[
+                      "inline-block text-label-caps px-2 py-0.5 rounded-xs mr-xs",
+                      task.is_visible
+                        ? "bg-primary-10 text-primary-70"
+                        : "bg-neutral-95 text-neutral-50",
+                    ].join(" ")}
+                  >
+                    {task.category}
+                  </span>
+                  <p
+                    className={[
+                      "text-headline-sm mt-2xs",
+                      task.is_visible ? "text-on-surface" : "text-neutral-50 line-through",
+                    ].join(" ")}
+                  >
+                    {task.task_content}
+                  </p>
                 </div>
               </div>
-              <div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    className="sr-only peer" 
-                    checked={task.is_visible}
-                    onChange={() => handleToggleVisibility(task.task_id, task.is_visible)}
-                    disabled={updating}
-                  />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--colorPrimary)]"></div>
-                </label>
-              </div>
+              <label className="relative inline-flex items-center cursor-pointer shrink-0 ml-sm">
+                <input
+                  type="checkbox"
+                  className="sr-only peer"
+                  checked={task.is_visible}
+                  onChange={() => handleToggleVisibility(task.task_id, task.is_visible)}
+                  disabled={updating}
+                />
+                <div className="w-11 h-6 bg-neutral-90 rounded-full peer peer-checked:bg-primary-70 transition-colors duration-short after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:border-neutral-80 after:rounded-full after:h-5 after:w-5 after:shadow-sm after:transition-all peer-checked:after:translate-x-full peer-checked:after:border-primary-70" />
+              </label>
             </div>
           ))}
         </div>
-      </div>
-
+      </section>
     </div>
   );
 }

@@ -35,89 +35,116 @@ export default function NewVenuePage() {
   };
 
   return (
-    <div className="pb-16">
-      <div className="flex items-center gap-4 mb-8">
-        <button onClick={() => router.push("/admin/venues")} className="text-gray-500 hover:text-gray-800">
-          &larr; 式場一覧へ
+    <div className="pb-2xl animate-fade-in">
+      <div className="flex items-center gap-sm mb-lg">
+        <button
+          onClick={() => router.push("/admin/venues")}
+          className="w-10 h-10 -ml-xs flex items-center justify-center text-neutral-50 hover:bg-neutral-95 rounded-full active:bg-neutral-90 transition-colors"
+          aria-label="式場一覧へ戻る"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2.4} viewBox="0 0 24 24" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
         </button>
-        <h2 className="text-2xl font-bold text-[var(--colorText)]">新規式場登録</h2>
+        <h2 className="font-display text-display-md text-on-surface">新規式場登録</h2>
       </div>
 
-      <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-6 text-sm text-blue-800">
-        登録すると、RC仕様のデフォルトタスクが自動でセットアップされます。
+      <div className="bg-primary-5 border border-primary-20 rounded-md p-md mb-lg">
+        <div className="flex items-start gap-xs">
+          <svg className="w-4 h-4 text-primary-70 mt-0.5 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <path fillRule="evenodd" d="M18 10A8 8 0 11 2 10a8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+          </svg>
+          <p className="text-body-md text-primary-80">
+            登録すると、RC仕様のデフォルトタスクが自動でセットアップされます。
+          </p>
+        </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex flex-col gap-5">
+      <form
+        onSubmit={handleSubmit}
+        className="card-base p-lg flex flex-col gap-md"
+      >
         <div>
-          <label className="block text-xs font-bold text-gray-500 mb-1.5">式場ID <span className="text-red-500">*</span></label>
+          <label className="label-form">
+            式場ID <span className="text-error">*</span>
+          </label>
           <input
             value={form.venue_id}
-            onChange={e => setForm({ ...form, venue_id: e.target.value })}
+            onChange={(e) => setForm({ ...form, venue_id: e.target.value })}
             placeholder="例: RC003"
-            className="w-full px-4 py-3 border border-gray-200 rounded-xl outline-none focus:border-[var(--colorPrimary)] bg-gray-50 font-mono text-sm"
+            className="input-base font-mono"
           />
-          <p className="text-[11px] text-gray-400 mt-1">半角英数字（RC001 形式を推奨）</p>
+          <p className="text-body-sm text-neutral-50 mt-2xs">
+            半角英数字（RC001 形式を推奨）
+          </p>
         </div>
 
         <div>
-          <label className="block text-xs font-bold text-gray-500 mb-1.5">式場名 <span className="text-red-500">*</span></label>
+          <label className="label-form">
+            式場名 <span className="text-error">*</span>
+          </label>
           <input
             value={form.venue_name}
-            onChange={e => setForm({ ...form, venue_name: e.target.value })}
+            onChange={(e) => setForm({ ...form, venue_name: e.target.value })}
             placeholder="例: グランドホテル〇〇"
-            className="w-full px-4 py-3 border border-gray-200 rounded-xl outline-none focus:border-[var(--colorPrimary)] bg-gray-50"
+            className="input-base"
           />
         </div>
 
         <div>
-          <label className="block text-xs font-bold text-gray-500 mb-1.5">プランナー LINE USER ID</label>
+          <label className="label-form">プランナー LINE USER ID</label>
           <input
             value={form.planner_line_user_id}
-            onChange={e => setForm({ ...form, planner_line_user_id: e.target.value })}
+            onChange={(e) => setForm({ ...form, planner_line_user_id: e.target.value })}
             placeholder="Uxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-            className="w-full px-4 py-3 border border-gray-200 rounded-xl outline-none focus:border-[var(--colorPrimary)] bg-gray-50 font-mono text-sm"
+            className="input-base font-mono text-body-sm"
           />
-          <p className="text-[11px] text-gray-400 mt-1">承認通知の送信先</p>
+          <p className="text-body-sm text-neutral-50 mt-2xs">承認通知の送信先</p>
         </div>
 
         <div>
-          <label className="block text-xs font-bold text-gray-500 mb-1.5">LINE チャネルアクセストークン</label>
+          <label className="label-form">LINE チャネルアクセストークン</label>
           <input
             value={form.line_channel_access_token}
-            onChange={e => setForm({ ...form, line_channel_access_token: e.target.value })}
+            onChange={(e) => setForm({ ...form, line_channel_access_token: e.target.value })}
             placeholder="LINE Messaging API のトークン"
-            className="w-full px-4 py-3 border border-gray-200 rounded-xl outline-none focus:border-[var(--colorPrimary)] bg-gray-50 font-mono text-xs"
+            className="input-base font-mono text-body-sm"
           />
         </div>
 
         <div>
-          <label className="block text-xs font-bold text-gray-500 mb-1.5">LIFF ID</label>
+          <label className="label-form">LIFF ID</label>
           <input
             value={form.line_liff_id}
-            onChange={e => setForm({ ...form, line_liff_id: e.target.value })}
+            onChange={(e) => setForm({ ...form, line_liff_id: e.target.value })}
             placeholder="1234567890-xxxxxxxx"
-            className="w-full px-4 py-3 border border-gray-200 rounded-xl outline-none focus:border-[var(--colorPrimary)] bg-gray-50 font-mono text-sm"
+            className="input-base font-mono text-body-sm"
           />
         </div>
 
         {error && (
-          <p className="text-red-500 text-sm font-medium">{error}</p>
+          <p className="text-error text-body-md font-semibold flex items-center gap-xs">
+            <svg className="w-4 h-4 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path fillRule="evenodd" d="M18 10A8 8 0 11 2 10a8 8 0 0116 0zM10 5a1 1 0 011 1v4a1 1 0 11-2 0V6a1 1 0 011-1zm0 8a1 1 0 100 2 1 1 0 000-2z" clipRule="evenodd" />
+            </svg>
+            {error}
+          </p>
         )}
 
-        <div className="flex gap-3 pt-2">
+        <div className="flex gap-sm pt-xs">
           <button
             type="button"
             onClick={() => router.push("/admin/venues")}
-            className="flex-1 px-4 py-3 border border-gray-200 text-gray-600 font-bold rounded-xl hover:bg-gray-50 transition-all"
+            className="btn-secondary flex-1"
           >
             キャンセル
           </button>
-          <button
-            type="submit"
-            disabled={saving}
-            className="flex-1 px-4 py-3 bg-[var(--colorPrimary)] text-white font-bold rounded-xl hover:opacity-90 disabled:opacity-50 transition-all"
-          >
-            {saving ? "登録中..." : "式場を登録する"}
+          <button type="submit" disabled={saving} className="btn-primary flex-1">
+            {saving ? (
+              <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              "式場を登録する"
+            )}
           </button>
         </div>
       </form>

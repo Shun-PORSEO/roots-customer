@@ -108,7 +108,7 @@ function setupEnvironment() {
   if (!taskMasterSheet) {
     taskMasterSheet = ss.insertSheet("task_master");
   }
-  taskMasterSheet.getRange("A1:I1").setValues([["task_id", "venue_id", "category", "task_content", "due_formula", "due_estimate", "memo", "is_active", "target_line_id"]]);
+  taskMasterSheet.getRange("A1:J1").setValues([["task_id", "venue_id", "category", "task_content", "due_formula", "due_estimate", "memo", "is_active", "target_line_id", "manual_url"]]);
 
   // 4. task_progress シートの作成とヘッダー
   let taskProgressSheet = ss.getSheetByName("task_progress");
@@ -143,16 +143,16 @@ function setupDefaultTaskMaster(venueId: string): void {
   if (!sheet) return;
 
   const DEFAULT_TASKS = [
-    [`${venueId}-T001`, venueId, "general", "ご挨拶・初回ご連絡", "挙式日 - 180日", "挙式6ヶ月前", "", true, ""],
-    [`${venueId}-T002`, venueId, "dress", "ドレス試着のご案内", "挙式日 - 150日", "挙式5ヶ月前", "", true, ""],
-    [`${venueId}-T003`, venueId, "catering", "お料理試食のご案内", "挙式日 - 120日", "挙式4ヶ月前", "", true, ""],
-    [`${venueId}-T004`, venueId, "general", "招待状発送確認", "挙式日 - 90日", "挙式3ヶ月前", "", true, ""],
-    [`${venueId}-T005`, venueId, "dress", "ドレス最終確認", "挙式日 - 60日", "挙式2ヶ月前", "", true, ""],
-    [`${venueId}-T006`, venueId, "general", "席次表・引き出物確認", "挙式日 - 45日", "挙式1ヶ月半前", "", true, ""],
-    [`${venueId}-T007`, venueId, "ceremony", "最終打ち合わせ", "挙式日 - 30日", "挙式1ヶ月前", "", true, ""],
-    [`${venueId}-T008`, venueId, "general", "2週間前ご確認", "挙式日 - 14日", "挙式2週間前", "", true, ""],
-    [`${venueId}-T009`, venueId, "ceremony", "1週間前リマインド", "挙式日 - 7日", "挙式1週間前", "", true, ""],
-    [`${venueId}-T010`, venueId, "ceremony", "前日ご確認", "挙式日 - 1日", "挙式前日", "", true, ""],
+    [`${venueId}-T001`, venueId, "general", "ご挨拶・初回ご連絡", "挙式日 - 180日", "挙式6ヶ月前", "", true, "", ""],
+    [`${venueId}-T002`, venueId, "dress", "ドレス試着のご案内", "挙式日 - 150日", "挙式5ヶ月前", "", true, "", ""],
+    [`${venueId}-T003`, venueId, "catering", "お料理試食のご案内", "挙式日 - 120日", "挙式4ヶ月前", "", true, "", ""],
+    [`${venueId}-T004`, venueId, "general", "招待状発送確認", "挙式日 - 90日", "挙式3ヶ月前", "", true, "", ""],
+    [`${venueId}-T005`, venueId, "dress", "ドレス最終確認", "挙式日 - 60日", "挙式2ヶ月前", "", true, "", ""],
+    [`${venueId}-T006`, venueId, "general", "席次表・引き出物確認", "挙式日 - 45日", "挙式1ヶ月半前", "", true, "", ""],
+    [`${venueId}-T007`, venueId, "ceremony", "最終打ち合わせ", "挙式日 - 30日", "挙式1ヶ月前", "", true, "", ""],
+    [`${venueId}-T008`, venueId, "general", "2週間前ご確認", "挙式日 - 14日", "挙式2週間前", "", true, "", ""],
+    [`${venueId}-T009`, venueId, "ceremony", "1週間前リマインド", "挙式日 - 7日", "挙式1週間前", "", true, "", ""],
+    [`${venueId}-T010`, venueId, "ceremony", "前日ご確認", "挙式日 - 1日", "挙式前日", "", true, "", ""],
   ];
 
   sheet.getRange(sheet.getLastRow() + 1, 1, DEFAULT_TASKS.length, DEFAULT_TASKS[0].length).setValues(DEFAULT_TASKS);

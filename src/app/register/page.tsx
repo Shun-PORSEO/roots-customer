@@ -1,20 +1,37 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useLiff } from "@/hooks/useLiff";
 import { apiClient } from "@/lib/api";
+import { IVenue } from "@/lib/types";
 import { Spinner } from "@/components/Spinner";
 import { ErrorMessage } from "@/components/ErrorMessage";
 
 export default function RegisterPage() {
   const { isLiffReady, profile } = useLiff();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const urlVenueId = searchParams.get("venue") || "";
+
   const [weddingDate, setWeddingDate] = useState("");
   const [name1, setName1] = useState("");
   const [name2, setName2] = useState("");
+  const [venueId, setVenueId] = useState(urlVenueId);
+  const [venues, setVenues] = useState<IVenue[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // URL クエリで式場が指定されていない場合のみ、ドロップダウン用に式場一覧を取得する
+  useEffect(() => {
+    if (urlVenueId) return;
+    apiClient
+      .get("getVenues", "guest")
+      .then((res) => {
+        if (res.venues) setVenues((res.venues as IVenue[]).filter((v) => v.active));
+      })
+      .catch(() => {});
+  }, [urlVenueId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,6 +43,7 @@ export default function RegisterPage() {
       await apiClient.post({
         action: "register",
         line_id: profile.userId,
+        venue_id: venueId,
         wedding_date: weddingDate,
         name1_kana: name1,
         name2_kana: name2,
@@ -41,7 +59,9 @@ export default function RegisterPage() {
     return <Spinner fullScreen />;
   }
 
-  const isFormValid = weddingDate && name1 && name2;
+  // URLでvenueが指定されていない場合はドロップダウンで必ず1つ選んでもらう
+  const needsVenueSelection = !urlVenueId && venues.length > 0;
+  const isFormValid = weddingDate && name1 && name2 && (!needsVenueSelection || venueId);
 
   return (
     <div className="min-h-screen flex flex-col bg-surface-page animate-fade-in">
@@ -63,6 +83,26 @@ export default function RegisterPage() {
 
       <div className="flex-1 px-lg pt-xl pb-2xl">
         <form onSubmit={handleSubmit} className="flex flex-col gap-lg">
+          {needsVenueSelection && (
+            <div>
+              <label className="label-form">ご利用の式場</label>
+              <select
+                value={venueId}
+                onChange={(e) => setVenueId(e.target.value)}
+                required
+                aria-label="ご利用の式場"
+                className="input-base"
+              >
+                <option value="">式場をお選びください</option>
+                {venues.map((v) => (
+                  <option key={v.venue_id} value={v.venue_id}>
+                    {v.venue_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div>
             <label className="label-form">お二人のお名前（ひらがな）</label>
             <div className="flex items-center gap-xs">

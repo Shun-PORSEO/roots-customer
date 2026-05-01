@@ -43,6 +43,7 @@ interface ITaskMaster {
   memo: string;
   is_active: boolean;
   target_line_id?: string;
+  manual_url?: string;
 }
 
 interface ITaskProgress {
@@ -64,4 +65,5 @@ interface ITaskResponse {
   is_visible: boolean;
   is_custom?: boolean;
   venue_id?: string;
+  manual_url?: string;
 }

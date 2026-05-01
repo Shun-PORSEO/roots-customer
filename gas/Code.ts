@@ -44,6 +44,7 @@ function doGet(e: any) {
             is_done: isDone,
             is_visible: isVisible,
             is_custom: !!task.target_line_id,
+            manual_url: task.manual_url || "",
           };
         }).filter(t => t.is_visible);
 
@@ -230,6 +231,26 @@ function doPost(e: any) {
       const users = getUsersWithProgress(postData.venue_id);
       const pendingDrafts = getMessageDrafts(postData.venue_id, "pending");
       return responseJSON({ status: "ok", venue, users, pending_drafts_count: pendingDrafts.length });
+    }
+
+    if (action === "getVenueTasks") {
+      // 式場に属する基本タスク一覧（特定ユーザー向けカスタムタスクは除外）
+      const allTasks = getActiveTasks(venueId || undefined);
+      const tasks = allTasks.filter(t => !t.target_line_id);
+      return responseJSON({ status: "ok", tasks });
+    }
+
+    if (action === "updateTaskManualUrl") {
+      const taskId = String(postData.task_id || "");
+      const manualUrl = String(postData.manual_url || "");
+      if (!taskId) return responseJSON({ status: "error", message: "task_id is required" });
+      // URL 形式の軽い検証（空 or http(s)://）
+      if (manualUrl && !/^https?:\/\//.test(manualUrl)) {
+        return responseJSON({ status: "error", message: "URLは http(s):// で始めてください" });
+      }
+      const ok = updateTaskManualUrl(taskId, manualUrl);
+      if (!ok) return responseJSON({ status: "error", message: "Task not found" });
+      return responseJSON({ status: "updated" });
     }
 
     return responseJSON({ status: "error", message: "Invalid action" });
