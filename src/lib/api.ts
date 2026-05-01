@@ -111,10 +111,44 @@ let MOCK_TASKS: any[] = [
   { task_id: "T001", category: "会場決定", task_content: "・会場、日程の決定・お申込書、お内金振り込み", due_formula: "挙式日 - 180日", due_estimate: "挙式6ヶ月前", memo: "", is_done: false, is_visible: true, manual_url: "" }
 ];
 
-const MOCK_VENUES: IVenue[] = [
+// Mockモードでは MOCK_VENUES がページリロードで消えてしまい
+// 「登録したのに保存されない」と見える事故が起きるため、localStorage に永続化する。
+// 実GAS接続時（NEXT_PUBLIC_GAS_ENDPOINT 設定済み）はこの分岐に来ないので影響なし。
+const MOCK_VENUES_STORAGE_KEY = "roots_mock_venues_v1";
+const DEFAULT_MOCK_VENUES: IVenue[] = [
   { venue_id: "RC001", venue_name: "サンプル式場A", planner_line_user_id: "planner_001", line_channel_access_token: "", line_liff_id: "", active: true, created_at: "2026-01-01" },
   { venue_id: "RC002", venue_name: "サンプル式場B", planner_line_user_id: "planner_002", line_channel_access_token: "", line_liff_id: "", active: true, created_at: "2026-02-01" },
 ];
+
+function loadMockVenues(): IVenue[] {
+  if (typeof localStorage === "undefined") return [...DEFAULT_MOCK_VENUES];
+  const raw = localStorage.getItem(MOCK_VENUES_STORAGE_KEY);
+  if (!raw) return [...DEFAULT_MOCK_VENUES];
+  try {
+    const parsed = JSON.parse(raw) as IVenue[];
+    return Array.isArray(parsed) ? parsed : [...DEFAULT_MOCK_VENUES];
+  } catch {
+    return [...DEFAULT_MOCK_VENUES];
+  }
+}
+
+function saveMockVenues(venues: IVenue[]): void {
+  if (typeof localStorage === "undefined") return;
+  localStorage.setItem(MOCK_VENUES_STORAGE_KEY, JSON.stringify(venues));
+}
+
+// Mockモードに入っていることを開発者に1回だけ通知（同じセッション内では重複出力しない）
+let mockBannerShown = false;
+function notifyMockMode(): void {
+  if (mockBannerShown) return;
+  mockBannerShown = true;
+  if (typeof console !== "undefined") {
+    console.warn(
+      "[apiClient] Mockモードで動作しています。NEXT_PUBLIC_GAS_ENDPOINT が未設定のため実データは保存されません。" +
+        "実環境で動かすには src/.env.local に GAS Web App URL を設定してください。",
+    );
+  }
+}
 
 const MOCK_DRAFTS: IMessageDraft[] = [
   { draft_id: "draft-001", venue_id: "RC001", couple_id: "mock_user1", task_id: "T001", draft_message: "さくら＆たろう様、招待状発送確認の期限まであと3日です。ご確認をお願いします💍", status: "pending", created_at: new Date().toISOString(), sent_at: "" },
@@ -123,11 +157,12 @@ const MOCK_DRAFTS: IMessageDraft[] = [
 export const apiClient = {
   get: async (action: string, lineId: string, venueId?: string): Promise<IApiResponse> => {
     if (!GAS_ENDPOINT || GAS_ENDPOINT === "YOUR_GAS_WEB_APP_URL_HERE") {
+      notifyMockMode();
       if (action === "getTasks") {
         return { status: "ok", tasks: MOCK_TASKS };
       }
       if (action === "getVenues") {
-        return { status: "ok", venues: MOCK_VENUES };
+        return { status: "ok", venues: loadMockVenues() };
       }
       return { status: "ok" };
     }
@@ -147,6 +182,7 @@ export const apiClient = {
 
   post: async (payload: any): Promise<IApiResponse> => {
     if (!GAS_ENDPOINT || GAS_ENDPOINT === "YOUR_GAS_WEB_APP_URL_HERE") {
+      notifyMockMode();
       if (payload.action === "updateTask") {
         MOCK_TASKS = MOCK_TASKS.map(t => t.task_id === payload.task_id ? { ...t, is_done: payload.is_done } : t);
         return { status: "updated" };
@@ -212,19 +248,25 @@ export const apiClient = {
         if (!payload.venue_id || !payload.venue_name) {
           throw diagnose("POST", "createVenue", "venue_id と venue_name は必須です");
         }
-        if (MOCK_VENUES.some(v => v.venue_id === payload.venue_id)) {
+        const venues = loadMockVenues();
+        if (venues.some((v) => v.venue_id === payload.venue_id)) {
           throw diagnose("POST", "createVenue", `venue_id "${payload.venue_id}" は already exists`);
         }
-        MOCK_VENUES.push({ ...payload, active: true, created_at: new Date().toISOString() });
+        venues.push({ ...payload, active: true, created_at: new Date().toISOString() });
+        saveMockVenues(venues);
         return { status: "created" };
       }
       if (payload.action === "updateVenueStatus") {
-        const idx = MOCK_VENUES.findIndex(v => v.venue_id === payload.venue_id);
-        if (idx !== -1) MOCK_VENUES[idx].active = payload.active;
+        const venues = loadMockVenues();
+        const idx = venues.findIndex((v) => v.venue_id === payload.venue_id);
+        if (idx !== -1) {
+          venues[idx].active = payload.active;
+          saveMockVenues(venues);
+        }
         return { status: "updated" };
       }
       if (payload.action === "getVenueDetail") {
-        const venue = MOCK_VENUES.find(v => v.venue_id === payload.venue_id);
+        const venue = loadMockVenues().find((v) => v.venue_id === payload.venue_id);
         if (!venue) return { status: "error", message: "Venue not found" };
         return { status: "ok", venue, users: [], pending_drafts_count: 1 };
       }

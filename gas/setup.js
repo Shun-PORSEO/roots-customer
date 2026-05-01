@@ -41,7 +41,7 @@ function generateDummyData() {
         const isAdmin = i === 0; // 先頭の1件だけ管理者
         const createdAt = new Date(weddingDate);
         createdAt.setMonth(createdAt.getMonth() - 8);
-        customerRows.push([lineId, weddingStr, createdAt.toISOString(), name1, name2, isAdmin]);
+        customerRows.push([lineId, "", weddingStr, createdAt.toISOString(), name1, name2, isAdmin]);
         // タスク進捗：挙式までの残り日数に応じて完了率を決める
         const daysUntil = Math.round((weddingDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
         const allTaskIds = ["T001", "T002", "T003", "T004", "T005", "T006", "T007", "T008", "T009", "T010", "T011", "T012", "T013", "T014", "T015", "T016"];
