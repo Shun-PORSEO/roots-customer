@@ -2,7 +2,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   return (
     <div className="admin-shell min-h-screen bg-surface-page flex flex-col">
       <header className="bg-surface border-b border-border sticky top-0 z-20 shadow-card">
-        <div className="max-w-6xl mx-auto px-lg md:px-xl py-md flex items-center gap-sm">
+        <div className="px-lg md:px-xl py-md flex items-center gap-sm">
           <span className="font-display text-display-md text-primary-70 leading-none">
             Roots
           </span>
@@ -11,9 +11,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </span>
         </div>
       </header>
-      <main className="flex-1 px-lg md:px-xl py-lg md:py-xl">
-        <div className="max-w-6xl mx-auto">{children}</div>
-      </main>
+      <main className="flex-1 px-lg md:px-xl py-lg md:py-xl">{children}</main>
     </div>
   );
 }

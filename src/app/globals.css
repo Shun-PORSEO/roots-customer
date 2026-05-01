@@ -169,10 +169,14 @@ main:has(.admin-shell) {
   animation: fadeIn 200ms ease-out forwards;
 }
 
-/* ===== iOS Safari date input ハック ===== */
+/* ===== iOS Safari date input ハック =====
+   iOS WebKit では値テキストが入力欄の上端に寄ってしまうため、
+   flex で垂直中央寄せにして高さ h-12 の中で見栄えを整える。 */
 input[type="date"] {
   -webkit-appearance: none;
   appearance: none;
+  display: flex;
+  align-items: center;
 }
 input[type="date"]::-webkit-date-and-time-value {
   text-align: left;
