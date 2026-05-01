@@ -1,17 +1,18 @@
 /**
  * リマインド通知モジュール (GAS用)
  *
- * setupRemindTrigger() を一度GASエディタから実行すると、
- * 毎朝 9:00 に sendReminders() が自動実行される。
+ * 【フロー】
+ * 1. sendReminders()      — 毎朝9時に実行。Claude APIでドラフト生成 → message_drafts に保存 → プランナーに通知
+ * 2. sendApprovedMessages() — approved なドラフトをカップルにLINE送信して sent に更新
  *
  * 必要なスクリプトプロパティ:
- *   LINE_CHANNEL_ACCESS_TOKEN  : LINE チャネルアクセストークン
+ *   LINE_CHANNEL_ACCESS_TOKEN  : デフォルトのLINEチャネルアクセストークン（式場固有トークンの fallback）
  *   LIFF_URL                   : アプリURL (例: https://liff.line.me/xxxx)
+ *   CLAUDE_API_KEY             : Claude API キー
  */
 
 // ─── 日付ユーティリティ ────────────────────────────────────────────
 
-/** "挙式日 - 180日" / "挙式日 - 6ヶ月" を解析して Date を返す */
 function calcDueDate(formula: string, weddingDateStr: string): Date | null {
   if (!formula || !weddingDateStr) return null;
   const parts = weddingDateStr.split("-");
@@ -40,7 +41,6 @@ function calcDueDate(formula: string, weddingDateStr: string): Date | null {
   return null;
 }
 
-/** 今日から targetDate までの日数（当日=0、過去は負値） */
 function daysUntil(targetDate: Date): number {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -49,7 +49,6 @@ function daysUntil(targetDate: Date): number {
   return Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 }
 
-/** Date → "YYYY年M月D日（曜）" */
 function formatDateJP(date: Date): string {
   const DOWS = ["日", "月", "火", "水", "木", "金", "土"];
   return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日（${DOWS[date.getDay()]}）`;
@@ -57,10 +56,9 @@ function formatDateJP(date: Date): string {
 
 // ─── LINE Push API ────────────────────────────────────────────────
 
-function pushLineMessage(userId: string, text: string): void {
-  const token = PropertiesService.getScriptProperties()
-    .getProperty("LINE_CHANNEL_ACCESS_TOKEN") || "";
-  if (!token) {
+function pushLineMessage(userId: string, text: string, token?: string): void {
+  const useToken = token || PropertiesService.getScriptProperties().getProperty("LINE_CHANNEL_ACCESS_TOKEN") || "";
+  if (!useToken) {
     console.error("LINE_CHANNEL_ACCESS_TOKEN が未設定です");
     return;
   }
@@ -68,7 +66,7 @@ function pushLineMessage(userId: string, text: string): void {
   const options: GoogleAppsScript.URL_Fetch.URLFetchRequestOptions = {
     method: "post",
     contentType: "application/json",
-    headers: { Authorization: `Bearer ${token}` },
+    headers: { Authorization: `Bearer ${useToken}` },
     payload: JSON.stringify({
       to: userId,
       messages: [{ type: "text", text }],
@@ -86,115 +84,132 @@ function pushLineMessage(userId: string, text: string): void {
   }
 }
 
-// ─── メイン処理 ────────────────────────────────────────────────────
+// ─── メイン処理: ドラフト生成 ─────────────────────────────────────
 
 /**
- * 毎日定時に呼び出されるリマインド送信関数。
- * 期限の 3日前・2日前・1日前・当日 に未完了タスクを通知する。
+ * 毎朝9時に実行。
+ * 期限3日前タスクを持つカップルを抽出し、Claude APIでメッセージドラフトを生成して
+ * message_drafts に保存。プランナーに承認依頼通知を送る。
  */
 function sendReminders(): void {
-  const liffUrl = PropertiesService.getScriptProperties()
-    .getProperty("LIFF_URL") || "";
+  const liffUrl = PropertiesService.getScriptProperties().getProperty("LIFF_URL") || "";
+  const venues = getVenues().filter(v => v.active);
+  let totalDrafts = 0;
 
-  const customers = getUsers();
-  const allTasks = getActiveTasks();
-  let sentCount = 0;
+  for (const venue of venues) {
+    const customers = getUsers(venue.venue_id);
+    const pendingByVenue: string[] = [];
 
-  for (const customer of customers) {
-    if (!customer.wedding_date) continue;
+    for (const customer of customers) {
+      if (!customer.wedding_date) continue;
 
-    const progressData = getTaskProgress(customer.line_id);
-    const doneTasks = new Set(
-      progressData.filter(p => p.is_done).map(p => p.task_id)
-    );
+      const progressData = getTaskProgress(customer.line_id);
+      const doneTasks = new Set(progressData.filter(p => p.is_done).map(p => p.task_id));
 
-    // 該当ユーザーのタスク（共通 + 個別）
-    const customerTasks = allTasks.filter(
-      t => !t.target_line_id || t.target_line_id === customer.line_id
-    );
+      const customerTasks = getActiveTasks(venue.venue_id).filter(
+        t => !t.target_line_id || t.target_line_id === customer.line_id
+      );
 
-    // 期限 0〜3日以内の未完了タスクを収集
-    const remindItems: { task: ITaskMaster; days: number; dueDate: Date }[] = [];
-    for (const task of customerTasks) {
-      if (doneTasks.has(task.task_id)) continue;
-      const dueDate = calcDueDate(task.due_formula, customer.wedding_date);
-      if (!dueDate) continue;
-      const days = daysUntil(dueDate);
-      if (days >= 0 && days <= 3) {
-        remindItems.push({ task, days, dueDate });
+      for (const task of customerTasks) {
+        if (doneTasks.has(task.task_id)) continue;
+        const dueDate = calcDueDate(task.due_formula, customer.wedding_date);
+        if (!dueDate) continue;
+        const days = daysUntil(dueDate);
+        if (days < 0 || days > 3) continue;
+
+        const coupleName = customer.name1_kana && customer.name2_kana
+          ? `${customer.name1_kana}＆${customer.name2_kana}`
+          : "お二人";
+
+        const draftMessage = generateReminderMessage(coupleName, task.task_content, days, venue.venue_name);
+        const draftId = Utilities.getUuid();
+
+        createMessageDraft({
+          draft_id: draftId,
+          venue_id: venue.venue_id,
+          couple_id: customer.line_id,
+          task_id: task.task_id,
+          draft_message: draftMessage,
+          status: "pending",
+        });
+
+        pendingByVenue.push(`・${coupleName}様「${task.task_content}」（あと${days}日）`);
+        totalDrafts++;
+
+        Utilities.sleep(500);
       }
     }
 
-    if (remindItems.length === 0) continue;
+    // プランナーへ承認依頼通知
+    if (pendingByVenue.length > 0 && venue.planner_line_user_id) {
+      const plannerMsg = [
+        `【承認待ち ${pendingByVenue.length}件】`,
+        ...pendingByVenue,
+        "",
+        "管理画面から確認・承認をお願いします。",
+        liffUrl ? `▶ 管理画面: ${liffUrl}/admin` : "",
+      ].filter(l => l !== "").join("\n");
 
-    // メッセージ組み立て
-    const name1 = customer.name1_kana || "";
-    const name2 = customer.name2_kana || "";
-    const coupleLabel = name1 && name2 ? `${name1}＆${name2}` : "お二人";
-
-    const lines: string[] = [
-      `${coupleLabel}さん、結婚式準備のリマインドです💍`,
-      "",
-    ];
-
-    for (const { task, days, dueDate } of remindItems) {
-      const daysLabel =
-        days === 0 ? "今日が期限です！" : `あと${days}日`;
-      lines.push(`📌 【${task.category}】`);
-      lines.push(`${task.task_content}`);
-      lines.push(`⏰ ${formatDateJP(dueDate)}（${daysLabel}）`);
-      lines.push("");
-    }
-
-    if (liffUrl) {
-      lines.push("▶ タスクを確認する");
-      lines.push(liffUrl);
-    }
-
-    const message = lines.join("\n").trim();
-    pushLineMessage(customer.line_id, message);
-    sentCount++;
-
-    // LINE API レート制限対策（1秒待機）
-    if (customers.indexOf(customer) < customers.length - 1) {
+      pushLineMessage(venue.planner_line_user_id, plannerMsg, venue.line_channel_access_token);
       Utilities.sleep(1000);
     }
   }
 
-  console.log(`sendReminders 完了: ${customers.length}人中 ${sentCount}人に送信`);
+  console.log(`sendReminders 完了: ${totalDrafts} 件のドラフトを生成`);
+}
+
+// ─── 承認済みメッセージ送信 ──────────────────────────────────────
+
+/**
+ * status=approved のドラフトをカップルにLINE送信して sent に更新する。
+ * 承認後に即時実行、またはトリガーで定期実行。
+ */
+function sendApprovedMessages(): void {
+  const venues = getVenues().filter(v => v.active);
+  let sentCount = 0;
+
+  for (const venue of venues) {
+    const approvedDrafts = getMessageDrafts(venue.venue_id, "approved");
+
+    for (const draft of approvedDrafts) {
+      pushLineMessage(draft.couple_id, draft.draft_message, venue.line_channel_access_token);
+      updateDraftStatus(draft.draft_id, "sent");
+      sentCount++;
+      Utilities.sleep(1000);
+    }
+  }
+
+  console.log(`sendApprovedMessages 完了: ${sentCount} 件を送信`);
 }
 
 // ─── トリガー管理 ────────────────────────────────────────────────
 
-/**
- * 毎朝9時に sendReminders() を実行するトリガーを登録する。
- * GASエディタから一度だけ手動実行すること。
- * 既存のトリガーがあれば削除してから再登録する。
- */
 function setupRemindTrigger(): void {
-  // 既存の sendReminders トリガーを全削除
   const existing = ScriptApp.getProjectTriggers();
   for (const trigger of existing) {
-    if (trigger.getHandlerFunction() === "sendReminders") {
+    if (trigger.getHandlerFunction() === "sendReminders" ||
+        trigger.getHandlerFunction() === "sendApprovedMessages") {
       ScriptApp.deleteTrigger(trigger);
-      console.log("既存トリガーを削除しました");
     }
   }
 
-  // 毎朝 9:00〜10:00 に実行（GASは1時間幅で指定）
+  // 毎朝 9:00 にドラフト生成
   ScriptApp.newTrigger("sendReminders")
     .timeBased()
     .everyDays(1)
     .atHour(9)
     .create();
 
-  console.log("リマインドトリガーを設定しました（毎日 9:00 実行）");
+  // 毎朝 10:00 に承認済みを送信（プランナーが9〜10時に確認する想定）
+  ScriptApp.newTrigger("sendApprovedMessages")
+    .timeBased()
+    .everyDays(1)
+    .atHour(10)
+    .create();
+
+  console.log("リマインドトリガーを設定しました（毎日 9:00 ドラフト生成 / 10:00 送信）");
 }
 
-/**
- * テスト用: sendReminders() を即時実行して動作確認する。
- * 実際には送信されるので注意。
- */
 function testSendReminders(): void {
   console.log("=== テスト実行開始 ===");
   sendReminders();

@@ -1,21 +1,34 @@
-import { IApiResponse } from "./types";
+import { IApiResponse, IMessageDraft, IVenue, IUserProgress } from "./types";
 
 const GAS_ENDPOINT = process.env.NEXT_PUBLIC_GAS_ENDPOINT || "";
 
-// Mock data list
 let MOCK_TASKS: any[] = [
   { task_id: "T001", category: "会場決定", task_content: "・会場、日程の決定・お申込書、お内金振り込み", due_formula: "挙式日 - 180日", due_estimate: "挙式6ヶ月前", memo: "", is_done: false, is_visible: true }
 ];
 
+const MOCK_VENUES: IVenue[] = [
+  { venue_id: "RC001", venue_name: "サンプル式場A", planner_line_user_id: "planner_001", line_channel_access_token: "", line_liff_id: "", active: true, created_at: "2026-01-01" },
+  { venue_id: "RC002", venue_name: "サンプル式場B", planner_line_user_id: "planner_002", line_channel_access_token: "", line_liff_id: "", active: true, created_at: "2026-02-01" },
+];
+
+const MOCK_DRAFTS: IMessageDraft[] = [
+  { draft_id: "draft-001", venue_id: "RC001", couple_id: "mock_user1", task_id: "T001", draft_message: "さくら＆たろう様、招待状発送確認の期限まであと3日です。ご確認をお願いします💍", status: "pending", created_at: new Date().toISOString(), sent_at: "" },
+];
+
 export const apiClient = {
-  get: async (action: string, lineId: string): Promise<IApiResponse> => {
+  get: async (action: string, lineId: string, venueId?: string): Promise<IApiResponse> => {
     if (!GAS_ENDPOINT || GAS_ENDPOINT === "YOUR_GAS_WEB_APP_URL_HERE") {
       if (action === "getTasks") {
-        return { status: "ok", tasks: MOCK_TASKS }; 
+        return { status: "ok", tasks: MOCK_TASKS };
+      }
+      if (action === "getVenues") {
+        return { status: "ok", venues: MOCK_VENUES };
       }
       return { status: "ok" };
     }
-    const url = `${GAS_ENDPOINT}?action=${action}&line_id=${lineId}`;
+    const params = new URLSearchParams({ action, line_id: lineId });
+    if (venueId) params.set("venue_id", venueId);
+    const url = `${GAS_ENDPOINT}?${params.toString()}`;
     try {
       const res = await fetch(url, { method: "GET" });
       const data = await res.json();
@@ -34,9 +47,10 @@ export const apiClient = {
         return { status: "updated" };
       }
       if (payload.action === "getUser") {
-        const date = localStorage.getItem("mock_wedding_date");
+        const date = typeof localStorage !== "undefined" ? localStorage.getItem("mock_wedding_date") : null;
         if (date) return {
           status: "exists",
+          venue_id: localStorage.getItem("mock_venue_id") || "RC001",
           wedding_date: date,
           name1_kana: localStorage.getItem("mock_name1") || "",
           name2_kana: localStorage.getItem("mock_name2") || "",
@@ -48,19 +62,20 @@ export const apiClient = {
         localStorage.setItem("mock_wedding_date", payload.wedding_date);
         localStorage.setItem("mock_name1", payload.name1_kana || "");
         localStorage.setItem("mock_name2", payload.name2_kana || "");
-        return { status: "created", wedding_date: payload.wedding_date };
+        if (payload.venue_id) localStorage.setItem("mock_venue_id", payload.venue_id);
+        return { status: "created", venue_id: payload.venue_id || "RC001", wedding_date: payload.wedding_date };
       }
       if (payload.action === "getUsers") {
-        return { status: "ok", users: [{ line_id: "mock_user1", wedding_date: "2026-10-10", name1_kana: "さくら", name2_kana: "たろう", created_at: "2026-04-10" }] };
+        return { status: "ok", users: [{ line_id: "mock_user1", venue_id: "RC001", wedding_date: "2026-10-10", name1_kana: "さくら", name2_kana: "たろう", created_at: "2026-04-10" }] };
       }
       if (payload.action === "getUsersWithProgress") {
         return { status: "ok", users: [
-          { line_id: "mock_user1", wedding_date: "2026-10-10", name1_kana: "さくら", name2_kana: "たろう", is_admin: false, total_tasks: 20, done_tasks: 8 },
-          { line_id: "mock_user2", wedding_date: "2026-08-15", name1_kana: "はな", name2_kana: "けんた", is_admin: false, total_tasks: 18, done_tasks: 15 },
-        ]};
+          { line_id: "mock_user1", venue_id: "RC001", wedding_date: "2026-10-10", name1_kana: "さくら", name2_kana: "たろう", is_admin: false, total_tasks: 20, done_tasks: 8 },
+          { line_id: "mock_user2", venue_id: "RC001", wedding_date: "2026-08-15", name1_kana: "はな", name2_kana: "けんた", is_admin: false, total_tasks: 18, done_tasks: 15 },
+        ] as IUserProgress[] };
       }
       if (payload.action === "getAdminUserTasks") {
-        return { status: "ok", tasks: MOCK_TASKS }; 
+        return { status: "ok", tasks: MOCK_TASKS };
       }
       if (payload.action === "toggleTaskVisibility") {
         MOCK_TASKS = MOCK_TASKS.map(t => t.task_id === payload.task_id ? { ...t, is_visible: payload.is_visible } : t);
@@ -73,6 +88,34 @@ export const apiClient = {
       if (payload.action === "deleteCustomTask") {
         MOCK_TASKS = MOCK_TASKS.filter(t => t.task_id !== payload.task_id);
         return { status: "deleted" };
+      }
+      if (payload.action === "getMessageDrafts") {
+        const filtered = payload.status ? MOCK_DRAFTS.filter(d => d.status === payload.status) : MOCK_DRAFTS;
+        return { status: "ok", drafts: filtered };
+      }
+      if (payload.action === "updateDraftStatus") {
+        const idx = MOCK_DRAFTS.findIndex(d => d.draft_id === payload.draft_id);
+        if (idx !== -1) MOCK_DRAFTS[idx].status = payload.draft_status;
+        return { status: "updated" };
+      }
+      if (payload.action === "updateDraftMessage") {
+        const idx = MOCK_DRAFTS.findIndex(d => d.draft_id === payload.draft_id);
+        if (idx !== -1) MOCK_DRAFTS[idx].draft_message = payload.message;
+        return { status: "updated" };
+      }
+      if (payload.action === "createVenue") {
+        MOCK_VENUES.push({ ...payload, active: true, created_at: new Date().toISOString() });
+        return { status: "created" };
+      }
+      if (payload.action === "updateVenueStatus") {
+        const idx = MOCK_VENUES.findIndex(v => v.venue_id === payload.venue_id);
+        if (idx !== -1) MOCK_VENUES[idx].active = payload.active;
+        return { status: "updated" };
+      }
+      if (payload.action === "getVenueDetail") {
+        const venue = MOCK_VENUES.find(v => v.venue_id === payload.venue_id);
+        if (!venue) return { status: "error", message: "Venue not found" };
+        return { status: "ok", venue, users: [], pending_drafts_count: 1 };
       }
       return { status: "ok" };
     }
@@ -91,4 +134,3 @@ export const apiClient = {
     }
   },
 };
-
