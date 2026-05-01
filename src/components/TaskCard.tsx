@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { Checkbox } from "./Checkbox";
 import { parseDueDate, formatJapaneseDate, getDaysFromToday } from "@/lib/utils";
 
@@ -27,10 +27,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   onToggle,
   onClick,
 }) => {
-  const [internalDone, setInternalDone] = useState(isDone);
-
   const handleToggle = (checked: boolean) => {
-    setInternalDone(checked);
     onToggle(taskId, checked);
   };
 
@@ -70,18 +67,18 @@ export const TaskCard: React.FC<TaskCardProps> = ({
       className={[
         "card-base mb-sm w-full p-md flex items-start gap-sm cursor-pointer",
         "transition-colors duration-short",
-        internalDone ? "bg-neutral-98" : "bg-white active:bg-primary-5",
+        isDone ? "bg-neutral-98" : "bg-white active:bg-primary-5",
       ].join(" ")}
     >
       <div className="pt-0.5">
-        <Checkbox checked={internalDone} onChange={handleToggle} label={taskContent} />
+        <Checkbox checked={isDone} onChange={handleToggle} label={taskContent} />
       </div>
       <div className="flex-1 min-w-0">
         <span className="chip-category mb-xs">{category}</span>
         <h3
           className={[
             "text-headline-sm mt-1 transition-colors duration-short",
-            internalDone ? "text-neutral-50 line-through" : "text-on-surface",
+            isDone ? "text-neutral-50 line-through" : "text-on-surface",
           ].join(" ")}
         >
           {taskContent}

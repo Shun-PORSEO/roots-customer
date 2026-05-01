@@ -85,10 +85,28 @@ export default function DashboardPage() {
   const handleToggleTask = async (taskId: string, isDone: boolean) => {
     if (!profile) return;
 
-    const originalTasks = [...tasks];
-    setTasks(prev => prev.map(t => t.task_id === taskId ? { ...t, is_done: isDone } : t));
+    // 1. 画面上のリストを即時更新（楽観更新）。スプシは遅いので待たずに先に反映。
+    const originalTasks = tasks;
+    const updatedTasks = tasks.map(t => t.task_id === taskId ? { ...t, is_done: isDone } : t);
+    setTasks(updatedTasks);
+
+    // 2. localStorage キャッシュも同時に更新する。
+    //    ここを更新しないと、詳細ページから戻った時やリロード時に
+    //    古いキャッシュが復元され「完了したのに未完了に戻る」現象が起きる。
+    const cacheKey = `roots_dashboard_${profile.userId}`;
+    const writeCache = (newTasks: ITask[]) => {
+      try {
+        const cached = localStorage.getItem(cacheKey);
+        const parsed = cached ? JSON.parse(cached) : {};
+        localStorage.setItem(cacheKey, JSON.stringify({ ...parsed, tasks: newTasks }));
+      } catch {
+        // キャッシュ書き込み失敗は致命的ではないので握りつぶす
+      }
+    };
+    writeCache(updatedTasks);
 
     try {
+      // 3. GAS（スプシ）に書き込み。レスポンスは待つが UI はすでに更新済み。
       await apiClient.post({
         action: "updateTask",
         line_id: profile.userId,
@@ -96,7 +114,9 @@ export default function DashboardPage() {
         is_done: isDone,
       });
     } catch (err: any) {
+      // 4. 失敗したら state とキャッシュ両方をロールバックする。
       setTasks(originalTasks);
+      writeCache(originalTasks);
       setError("更新に失敗しました。");
       setTimeout(() => setError(null), 3000);
     }

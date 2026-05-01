@@ -61,10 +61,31 @@ export default function TaskDetailPage({ params }: { params: { task_id: string }
 
   const handleToggle = async (isDone: boolean) => {
     if (!profile || !task) return;
+    // 1. 画面上は即時切り替え（楽観更新）。
     setTask({ ...task, is_done: isDone });
     setUpdating(true);
 
+    // 2. ダッシュボードと共有している localStorage キャッシュも更新する。
+    //    これをしないと、戻る → ダッシュボードが古いキャッシュを表示し
+    //    「詳細で完了にしたのに一覧に反映されない」現象が起きる。
+    const cacheKey = `roots_dashboard_${profile.userId}`;
+    const patchCache = (done: boolean) => {
+      try {
+        const cached = localStorage.getItem(cacheKey);
+        if (!cached) return;
+        const parsed = JSON.parse(cached);
+        const tasks = (parsed.tasks || []).map((t: ITask) =>
+          t.task_id === task.task_id ? { ...t, is_done: done } : t
+        );
+        localStorage.setItem(cacheKey, JSON.stringify({ ...parsed, tasks }));
+      } catch {
+        // キャッシュ書き込み失敗は致命的ではないので握りつぶす
+      }
+    };
+    patchCache(isDone);
+
     try {
+      // 3. GAS（スプシ）に書き込み。
       await apiClient.post({
         action: "updateTask",
         line_id: profile.userId,
@@ -72,7 +93,9 @@ export default function TaskDetailPage({ params }: { params: { task_id: string }
         is_done: isDone,
       });
     } catch (err: any) {
+      // 4. 失敗時は画面とキャッシュ両方を元に戻す。
       setTask({ ...task, is_done: !isDone });
+      patchCache(!isDone);
       setError("更新に失敗しました。");
       setTimeout(() => setError(null), 3000);
     } finally {
