@@ -47,7 +47,7 @@ function generateDummyData() {
     const createdAt = new Date(weddingDate);
     createdAt.setMonth(createdAt.getMonth() - 8);
 
-    customerRows.push([lineId, weddingStr, createdAt.toISOString(), name1, name2, isAdmin]);
+    customerRows.push([lineId, "", weddingStr, createdAt.toISOString(), name1, name2, isAdmin]);
 
     // タスク進捗：挙式までの残り日数に応じて完了率を決める
     const daysUntil = Math.round((weddingDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
