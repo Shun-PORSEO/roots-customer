@@ -422,7 +422,10 @@ function cleanupDuplicateTaskProgress(): { scanned: number; removed: number } {
     const cache = CacheService.getScriptCache();
     affectedLineIds.forEach(id => cache.remove("progress_" + id));
 
-    return { scanned: data.length - 1, removed: rowsToDelete.length };
+    const result = { scanned: data.length - 1, removed: rowsToDelete.length };
+    // GAS エディタの「実行ログ」に結果を出すため。戻り値だけだと表示されない。
+    console.log("[cleanupDuplicateTaskProgress] " + JSON.stringify(result));
+    return result;
   } finally {
     lock.releaseLock();
   }
