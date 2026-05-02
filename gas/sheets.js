@@ -261,11 +261,12 @@ function getActiveTasks(venueId) {
         return [];
     const data = sheet.getDataRange().getValues();
     const tasks = [];
-    // Newest schema: A=task_id, B=venue_id, C=category, D=task_content, E=due_formula, F=due_estimate, G=memo, H=is_active, I=target_line_id, J=manual_url
+    // Newest schema: A=task_id, B=venue_id, C=category, D=task_content, E=due_formula, F=due_estimate, G=memo, H=is_active, I=target_line_id, J=manual_url, K=reminder_message
     // Legacy schema (no venue_id col): A=task_id, B=category, C=task_content, D=due_formula, E=due_estimate, F=memo, G=is_active, H=target_line_id
     const hasVenueCol = data[0].length >= 9;
     const colOffset = hasVenueCol ? 1 : 0;
     const hasManualUrlCol = hasVenueCol && data[0].length >= 10;
+    const hasReminderMsgCol = hasVenueCol && data[0].length >= 11;
     for (let i = 1; i < data.length; i++) {
         const taskVenueId = hasVenueCol ? String(data[i][1] || "") : "";
         if (venueId && taskVenueId && taskVenueId !== venueId)
@@ -282,11 +283,77 @@ function getActiveTasks(venueId) {
                 is_active: true,
                 target_line_id: String(data[i][7 + colOffset] || ""),
                 manual_url: hasManualUrlCol ? String(data[i][8 + colOffset] || "") : "",
+                reminder_message: hasReminderMsgCol ? String(data[i][9 + colOffset] || "") : "",
             });
         }
     }
     cache.put(cacheKey, JSON.stringify(tasks), 900);
     return tasks;
+}
+;
+// task_master シートに reminder_message 列(K列)を用意し、
+// 各タスクの空セルにデフォルトの通知文面を流し込む初期化関数。
+// プランナーがスプシで自由に文面を書き換えられるようにし、書き換え済みのものは尊重する(上書きしない)。
+// GAS エディタから1度実行する想定。
+function setupReminderMessages() {
+    const sheet = getSheet("task_master");
+    if (!sheet) {
+        console.log("[setupReminderMessages] task_master シートが見つかりません");
+        return { added: 0, skipped: 0 };
+    }
+    // ヘッダーが10列以下なら K 列に "reminder_message" を補う(後方互換)。
+    const lastCol = sheet.getLastColumn();
+    if (lastCol < 11) {
+        sheet.getRange(1, 11).setValue("reminder_message");
+    }
+    const data = sheet.getDataRange().getValues();
+    const hasVenueCol = data[0].length >= 9;
+    if (!hasVenueCol) {
+        console.log("[setupReminderMessages] レガシースキーマ(venue_id列無し)はサポート対象外です");
+        return { added: 0, skipped: 0 };
+    }
+    let added = 0;
+    let skipped = 0;
+    for (let i = 1; i < data.length; i++) {
+        const taskId = String(data[i][0] || "");
+        const taskContent = String(data[i][3] || ""); // D列
+        const dueEstimate = String(data[i][5] || ""); // F列
+        const isActive = data[i][7] === true || String(data[i][7]).toLowerCase() === "true";
+        const existing = String(data[i][10] || ""); // K列
+        if (!taskId || !taskContent)
+            continue;
+        if (!isActive)
+            continue;
+        if (existing.trim() !== "") {
+            // 既に文面が入っていれば上書きしない
+            skipped++;
+            continue;
+        }
+        const defaultMsg = buildDefaultReminderMessage(taskContent, dueEstimate);
+        sheet.getRange(i + 1, 11).setValue(defaultMsg);
+        added++;
+    }
+    // task_master キャッシュを全クリア(venueId 別キーがあるので簡易に全部消す)
+    const cache = CacheService.getScriptCache();
+    cache.remove("activeTasks");
+    // venue 別キャッシュも消す
+    const venues = getVenues();
+    for (const v of venues)
+        cache.remove(`activeTasks_${v.venue_id}`);
+    const result = { added, skipped };
+    console.log("[setupReminderMessages] " + JSON.stringify(result));
+    return result;
+}
+;
+// reminder_message のデフォルト雛形。
+// プランナーが書き換える前提なので、丁寧かつ無難な定型文にする。
+// メニューからタスク管理表への導線(CTA)を必ず含める。
+function buildDefaultReminderMessage(taskContent, dueEstimate) {
+    const tail = "\n\n📋 メニューからタスク管理表をご確認いただけます。";
+    if (dueEstimate) {
+        return `「${taskContent}」のご案内です（${dueEstimate}）。\nお手隙の際にご確認・ご対応をお願いいたします🙇` + tail;
+    }
+    return `「${taskContent}」のご案内です。\nお手隙の際にご確認・ご対応をお願いいたします🙇` + tail;
 }
 ;
 function getTaskProgress(lineId) {

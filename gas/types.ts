@@ -44,6 +44,7 @@ interface ITaskMaster {
   is_active: boolean;
   target_line_id?: string;
   manual_url?: string;
+  reminder_message?: string; // 期限前/当日にカップルへ送るLINE通知の本文。task_master の K 列。
 }
 
 interface ITaskProgress {
