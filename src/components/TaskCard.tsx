@@ -70,7 +70,19 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         isDone ? "bg-neutral-98" : "bg-white active:bg-primary-5",
       ].join(" ")}
     >
-      <div className="pt-0.5">
+      {/*
+        チェックボックスのタップ領域を 44x44px 程度まで広げる（指のタップ範囲の標準サイズ）。
+        さらに onClick / onPointerDown で stopPropagation し、
+        親カードの onClick（詳細ページへの画面遷移）が誤発火しないようにする。
+        ── これがないと、チェックボックスの隅をタップした時に
+        親divの onClick が発火 → 詳細ページに飛ぶ → 戻ると変化なし
+        という「チェックがつかない」現象が起きる。
+      */}
+      <div
+        className="-m-xs p-xs flex items-start"
+        onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
+      >
         <Checkbox checked={isDone} onChange={handleToggle} label={taskContent} />
       </div>
       <div className="flex-1 min-w-0">
