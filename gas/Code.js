@@ -98,6 +98,10 @@ function doPost(e) {
                     name2_kana: name2Kana || existing.name2_kana || "",
                 });
             }
+            // 新規 customer 作成時、同じ line_id の過去の進捗が残っていれば一掃する。
+            // テストや LINE 再ログインで「新ペアなのに完了済みタスクが見える」という事象の原因なので、
+            // ここで履歴をリセットして真っさらな状態から始められるようにする。
+            deleteAllTaskProgress(lineId);
             createCustomer(lineId, weddingDate, name1Kana, name2Kana, venueId);
             return responseJSON({ status: "created", venue_id: venueId, wedding_date: weddingDate });
         }
@@ -185,7 +189,7 @@ function doPost(e) {
             if (!getSheet("venues") || !getSheet("task_master")) {
                 return responseJSON({
                     status: "error",
-                    message: "venues / task_master シートが見つかりません。setupEnvironment を実行してください。"
+                    message: "venues / task_master シートが見つかりません。setupEnvironment を実行してください。",
                 });
             }
             const newVenue = {

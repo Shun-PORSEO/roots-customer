@@ -42,9 +42,12 @@ export default function TaskDetailPage({ params }: { params: { task_id: string }
         const found = tasks.find((t) => t.task_id === params.task_id);
         if (found) {
           setTask(found);
+          // ダッシュボードと同じキャッシュキーを共有しているので、
+          // tasks だけ上書きして name1/name2/isAdmin/weddingDate などは維持する。
+          // ここでフィールドを書き落とすと、戻った時にカップル名や管理者ボタンが消える。
           localStorage.setItem(cacheKey, JSON.stringify({
+            ...(parsedCache || {}),
             tasks: res.tasks,
-            weddingDate: parsedCache?.weddingDate || "",
           }));
         } else if (!cachedData) {
           setError("タスクが見つかりませんでした。");
@@ -62,6 +65,11 @@ export default function TaskDetailPage({ params }: { params: { task_id: string }
 
   const handleToggle = async (isDone: boolean) => {
     if (!profile || !task) return;
+    // クロージャに閉じ込められた task 参照に依存しないよう、必要な値はここで切り出す。
+    // route 切り替え直前にトグルされても、別タスクの行を書き換えてしまう事故を防ぐ。
+    const targetTaskId = task.task_id;
+    const previousTask = task;
+
     // 1. 画面上は即時切り替え（楽観更新）。
     setTask({ ...task, is_done: isDone });
     setUpdating(true);
@@ -76,7 +84,7 @@ export default function TaskDetailPage({ params }: { params: { task_id: string }
         if (!cached) return;
         const parsed = JSON.parse(cached);
         const tasks = (parsed.tasks || []).map((t: ITask) =>
-          t.task_id === task.task_id ? { ...t, is_done: done } : t
+          t.task_id === targetTaskId ? { ...t, is_done: done } : t
         );
         localStorage.setItem(cacheKey, JSON.stringify({ ...parsed, tasks }));
       } catch {
@@ -90,12 +98,12 @@ export default function TaskDetailPage({ params }: { params: { task_id: string }
       await apiClient.post({
         action: "updateTask",
         line_id: profile.userId,
-        task_id: task.task_id,
+        task_id: targetTaskId,
         is_done: isDone,
       });
     } catch (err: any) {
       // 4. 失敗時は画面とキャッシュ両方を元に戻す。
-      setTask({ ...task, is_done: !isDone });
+      setTask(previousTask);
       patchCache(!isDone);
       setError("更新に失敗しました。");
       setTimeout(() => setError(null), 3000);
