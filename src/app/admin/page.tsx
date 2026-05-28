@@ -1,70 +1,99 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useLiff } from "@/hooks/useLiff";
 import { apiClient } from "@/lib/api";
 import { IUserProgress } from "@/lib/types";
 import { getDaysFromToday } from "@/lib/utils";
 import { Spinner } from "@/components/Spinner";
+import Link from "next/link";
+import {
+  Table,
+  THead,
+  TBody,
+  TR,
+  TH,
+  TD,
+} from "@/components/admin/Table";
 
-// 進捗リング（SVG）
-const ProgressRing = ({ percent }: { percent: number }) => {
-  const radius = 18;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (percent / 100) * circumference;
-  const color =
-    percent >= 80 ? "#4CAF50" : percent >= 50 ? "#F59E0B" : "var(--colorPrimary)";
+function StatCard({
+  label,
+  value,
+  accent,
+  sub,
+}: {
+  label: string;
+  value: string | number;
+  accent?: string;
+  sub?: string;
+}) {
   return (
-    <svg width="48" height="48" viewBox="0 0 48 48" className="shrink-0">
-      <circle cx="24" cy="24" r={radius} fill="none" stroke="#F0EBE0" strokeWidth="4" />
-      <circle
-        cx="24" cy="24" r={radius} fill="none"
-        stroke={color} strokeWidth="4"
-        strokeDasharray={circumference}
-        strokeDashoffset={offset}
-        strokeLinecap="round"
-        transform="rotate(-90 24 24)"
-        style={{ transition: "stroke-dashoffset 0.5s ease" }}
-      />
-      <text x="24" y="28" textAnchor="middle" fontSize="10" fontWeight="bold" fill={color}>
-        {percent}%
-      </text>
-    </svg>
+    <div
+      className="bg-white rounded-xl border p-5"
+      style={{ borderColor: "#E5E7EB" }}
+    >
+      <p className="text-[12px] text-gray-500 mb-1">{label}</p>
+      <p
+        className="text-[28px] font-bold leading-tight"
+        style={{ color: accent || "var(--colorText)" }}
+      >
+        {value}
+      </p>
+      {sub && <p className="text-[11px] text-gray-400 mt-1">{sub}</p>}
+    </div>
   );
-};
+}
+
+function MiniProgress({ percent }: { percent: number }) {
+  const color =
+    percent >= 80 ? "#22C55E" : percent >= 50 ? "#F59E0B" : "var(--colorPrimary)";
+  return (
+    <div className="flex items-center gap-2 min-w-[120px]">
+      <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+        <div
+          className="h-full rounded-full"
+          style={{
+            width: `${percent}%`,
+            background: color,
+            transition: "width 0.5s ease",
+          }}
+        />
+      </div>
+      <span
+        className="text-[11px] font-bold tabular-nums shrink-0"
+        style={{ color }}
+      >
+        {percent}%
+      </span>
+    </div>
+  );
+}
+
+function DaysBadge({ days }: { days: number }) {
+  const color = days > 30 ? "var(--colorPrimary)" : days > 0 ? "#F59E0B" : "#EF4444";
+  const bg =
+    days > 30 ? "var(--colorSecondary)" : days > 0 ? "#FEF3C7" : "#FEE2E2";
+  const label =
+    days > 0 ? `あと ${days} 日` : days === 0 ? "本日" : `${Math.abs(days)} 日経過`;
+  return (
+    <span
+      className="text-[11px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap"
+      style={{ color, background: bg }}
+    >
+      {label}
+    </span>
+  );
+}
 
 export default function AdminDashboard() {
-  const { isLiffReady, profile } = useLiff();
   const router = useRouter();
-
   const [users, setUsers] = useState<IUserProgress[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [authed, setAuthed] = useState(false);
-  const [authChecked, setAuthChecked] = useState(false);
-  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<"all" | "upcoming" | "past">("all");
+  const [query, setQuery] = useState("");
+  const [sortBy, setSortBy] = useState<"date" | "progress">("date");
 
-  // LIFF 認証：is_admin=true なら自動ログイン
   useEffect(() => {
-    if (!isLiffReady || !profile) return;
-    const check = async () => {
-      try {
-        const res = await apiClient.post({ action: "getUser", line_id: profile.userId });
-        if (res.is_admin) setAuthed(true);
-      } catch (_) {}
-      setAuthChecked(true);
-    };
-    check();
-  }, [isLiffReady, profile]);
-
-  // LIFF が使えない場合（非 LINE ブラウザ）もパスワードへ
-  useEffect(() => {
-    if (isLiffReady && !profile) setAuthChecked(true);
-  }, [isLiffReady, profile]);
-
-  // 認証後にデータ取得
-  useEffect(() => {
-    if (!authed) return;
     setLoading(true);
     apiClient
       .post({ action: "getUsersWithProgress", line_id: "admin" })
@@ -72,193 +101,274 @@ export default function AdminDashboard() {
         if (res.users) setUsers(res.users as IUserProgress[]);
       })
       .finally(() => setLoading(false));
-  }, [authed]);
+  }, []);
 
-  const handlePasswordLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (password === (process.env.NEXT_PUBLIC_ADMIN_PASSWORD || "roots2026")) {
-      setAuthed(true);
+  const couples = users.filter((u) => !u.is_admin);
+
+  const stats = useMemo(() => {
+    const totalTasks = couples.reduce((s, u) => s + u.total_tasks, 0);
+    const doneTasks = couples.reduce((s, u) => s + u.done_tasks, 0);
+    const avgPercent =
+      couples.length === 0
+        ? 0
+        : Math.round(
+            couples.reduce(
+              (sum, u) =>
+                sum +
+                (u.total_tasks > 0
+                  ? (u.done_tasks / u.total_tasks) * 100
+                  : 0),
+              0
+            ) / couples.length
+          );
+    return { totalTasks, doneTasks, avgPercent };
+  }, [couples]);
+
+  const filtered = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return couples.filter((u) => {
+      if (query) {
+        const q = query.toLowerCase();
+        const name = `${u.name1_kana || ""}${u.name2_kana || ""}`.toLowerCase();
+        if (!name.includes(q) && !u.line_id.toLowerCase().includes(q))
+          return false;
+      }
+      if (filter === "all") return true;
+      const parts = u.wedding_date?.split("-").map(Number);
+      if (!parts || !parts[0]) return false;
+      const d = new Date(parts[0], parts[1] - 1, parts[2]);
+      const days = Math.round((d.getTime() - today.getTime()) / 86400000);
+      if (filter === "upcoming") return days >= 0;
+      if (filter === "past") return days < 0;
+      return true;
+    });
+  }, [couples, query, filter]);
+
+  const sorted = useMemo(() => {
+    const list = filtered.slice();
+    if (sortBy === "date") {
+      list.sort((a, b) =>
+        (a.wedding_date || "9999") > (b.wedding_date || "9999") ? 1 : -1
+      );
     } else {
-      alert("パスワードが違います");
+      const pct = (u: IUserProgress) =>
+        u.total_tasks > 0 ? u.done_tasks / u.total_tasks : 0;
+      list.sort((a, b) => pct(b) - pct(a));
     }
-  };
-
-  // LIFF チェック中
-  if (!authChecked && !isLiffReady) return <Spinner fullScreen />;
-
-  // 未認証 → パスワードフォーム
-  if (!authed) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20">
-        <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-200 w-full max-w-sm">
-          <p className="text-[10px] font-bold tracking-[0.2em] text-[var(--colorPrimary)] uppercase text-center mb-2">
-            Planner Login
-          </p>
-          <h2 className="text-xl font-bold mb-6 text-center text-[var(--colorText)]">
-            管理者ログイン
-          </h2>
-          <form onSubmit={handlePasswordLogin} className="flex flex-col gap-4">
-            <input
-              type="password"
-              placeholder="パスワードを入力"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="px-4 py-3 border border-gray-200 rounded-xl outline-none focus:border-[var(--colorPrimary)] bg-gray-50"
-            />
-            <button
-              type="submit"
-              className="px-6 py-3 bg-[var(--colorPrimary)] text-white font-bold rounded-xl hover:opacity-90 active:scale-95 transition-all"
-            >
-              ログイン
-            </button>
-          </form>
-          <p className="text-[11px] text-gray-400 text-center mt-4">
-            LINEログインでも自動認証されます
-          </p>
-        </div>
-      </div>
-    );
-  }
+    return list;
+  }, [filtered, sortBy]);
 
   if (loading) return <Spinner fullScreen />;
 
-  const couples = users.filter((u) => !u.is_admin);
-  const avgPercent =
-    couples.length === 0
-      ? 0
-      : Math.round(
-          couples.reduce(
-            (sum, u) =>
-              sum + (u.total_tasks > 0 ? (u.done_tasks / u.total_tasks) * 100 : 0),
-            0
-          ) / couples.length
-        );
-
   return (
     <div className="pb-16">
-      {/* ページタイトル */}
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-[var(--colorText)]">ダッシュボード</h2>
+      <div className="flex items-end justify-between mb-6 gap-4 flex-wrap">
+        <div>
+          <h2
+            className="text-2xl font-bold mb-1"
+            style={{ color: "var(--colorText)" }}
+          >
+            お客様
+          </h2>
+          <p className="text-[13px] text-gray-500">
+            登録カップル {couples.length} 組 / 平均完了率 {stats.avgPercent}%
+          </p>
+        </div>
+        <Link
+          href="/admin/help"
+          className="text-[12px] font-bold inline-flex items-center gap-1.5 px-3 py-2 rounded-md hover:bg-gray-50"
+          style={{ color: "var(--colorPrimary)" }}
+        >
+          📖 使い方ガイド
+        </Link>
       </div>
 
-      {/* サマリカード */}
-      <div className="grid grid-cols-2 gap-3 mb-8">
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
-          <p className="text-[32px] font-bold leading-none text-[var(--colorPrimary)]">
-            {couples.length}
-          </p>
-          <p className="text-[12px] text-gray-500 mt-1">登録ペア数</p>
-        </div>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
-          <p className="text-[32px] font-bold leading-none" style={{ color: "var(--colorAccent)" }}>
-            {avgPercent}%
-          </p>
-          <p className="text-[12px] text-gray-500 mt-1">平均完了率</p>
-        </div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+        <StatCard label="登録ペア数" value={couples.length} />
+        <StatCard
+          label="平均完了率"
+          value={`${stats.avgPercent}%`}
+          accent="var(--colorAccent)"
+        />
+        <StatCard
+          label="累計タスク"
+          value={stats.totalTasks}
+          sub={`完了 ${stats.doneTasks}`}
+        />
+        <StatCard
+          label="完了率"
+          value={`${
+            stats.totalTasks === 0
+              ? 0
+              : Math.round((stats.doneTasks / stats.totalTasks) * 100)
+          }%`}
+          accent="#22C55E"
+        />
       </div>
 
-      {/* ペア一覧 */}
-      {couples.length === 0 ? (
-        <div className="bg-white p-8 rounded-2xl text-center text-gray-400 border border-gray-100">
-          登録されているお客様がいません
+      {/* Toolbar */}
+      <div className="bg-white border rounded-xl px-4 py-3 mb-3 flex flex-wrap items-center gap-3" style={{ borderColor: "#E5E7EB" }}>
+        <div className="flex items-center gap-1">
+          {[
+            { key: "all", label: "すべて" },
+            { key: "upcoming", label: "挙式予定" },
+            { key: "past", label: "挙式済" },
+          ].map((f) => {
+            const active = filter === f.key;
+            return (
+              <button
+                key={f.key}
+                onClick={() => setFilter(f.key as typeof filter)}
+                className="px-3 py-1.5 text-[12px] font-semibold rounded-md transition-colors"
+                style={{
+                  background: active ? "var(--colorPrimary)" : "transparent",
+                  color: active ? "white" : "#6B7280",
+                }}
+              >
+                {f.label}
+              </button>
+            );
+          })}
+        </div>
+        <div className="h-5 w-px bg-gray-200" />
+        <div className="flex items-center gap-1 text-[12px] text-gray-500">
+          並び順
+          <button
+            onClick={() => setSortBy("date")}
+            className={`px-2 py-1 rounded-md ${
+              sortBy === "date" ? "font-bold text-gray-800 bg-gray-100" : ""
+            }`}
+          >
+            挙式日
+          </button>
+          <button
+            onClick={() => setSortBy("progress")}
+            className={`px-2 py-1 rounded-md ${
+              sortBy === "progress"
+                ? "font-bold text-gray-800 bg-gray-100"
+                : ""
+            }`}
+          >
+            進捗
+          </button>
+        </div>
+        <div className="flex-1 min-w-[200px]" />
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="お名前で検索"
+          className="px-3 py-1.5 text-[13px] border rounded-md outline-none bg-white w-64"
+          style={{ borderColor: "#E5E7EB" }}
+        />
+      </div>
+
+      {sorted.length === 0 ? (
+        <div
+          className="bg-white p-16 rounded-xl text-center border"
+          style={{ borderColor: "#E5E7EB" }}
+        >
+          <p className="text-gray-400">該当するお客様がいません</p>
         </div>
       ) : (
-        <div className="flex flex-col gap-4">
-          {couples
-            .slice()
-            .sort((a, b) => (a.wedding_date > b.wedding_date ? 1 : -1))
-            .map((user) => {
+        <Table>
+          <THead>
+            <tr>
+              <TH>カップル</TH>
+              <TH className="w-[130px]">挙式日</TH>
+              <TH className="w-[110px]">残り日数</TH>
+              <TH className="w-[200px]">進捗</TH>
+              <TH className="w-[100px]">タスク</TH>
+              <TH className="w-[120px] text-right">操作</TH>
+            </tr>
+          </THead>
+          <TBody>
+            {sorted.map((u) => {
               const percent =
-                user.total_tasks > 0
-                  ? Math.round((user.done_tasks / user.total_tasks) * 100)
+                u.total_tasks > 0
+                  ? Math.round((u.done_tasks / u.total_tasks) * 100)
                   : 0;
-              const parts = user.wedding_date?.split("-").map(Number);
+              const parts = u.wedding_date?.split("-").map(Number);
               const weddingObj =
                 parts && parts[0]
                   ? new Date(parts[0], parts[1] - 1, parts[2])
                   : null;
               const daysLeft = weddingObj ? getDaysFromToday(weddingObj) : null;
               const coupleName =
-                user.name1_kana && user.name2_kana
-                  ? `${user.name1_kana}＆${user.name2_kana}`
+                u.name1_kana && u.name2_kana
+                  ? `${u.name1_kana}＆${u.name2_kana}`
                   : "（未登録）";
               const initials =
-                user.name1_kana && user.name2_kana
-                  ? `${user.name1_kana[0]}＆${user.name2_kana[0]}`
+                u.name1_kana && u.name2_kana
+                  ? `${u.name1_kana[0]}＆${u.name2_kana[0]}`
                   : "?";
-
-              const barColor =
-                percent >= 80 ? "#4CAF50" : percent >= 50 ? "#F59E0B" : "var(--colorPrimary)";
-
               return (
-                <div
-                  key={user.line_id}
-                  className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5"
+                <TR
+                  key={u.line_id}
+                  onClick={() => router.push(`/admin/${u.line_id}`)}
                 >
-                  {/* 上段：アバター・名前・リング */}
-                  <div className="flex items-start gap-3">
-                    {/* イニシャルアバター */}
-                    <div
-                      className="w-11 h-11 rounded-full flex items-center justify-center text-white text-[11px] font-bold shrink-0"
-                      style={{ background: "linear-gradient(135deg, var(--colorPrimary), var(--colorAccent))" }}
-                    >
-                      {initials}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[16px] font-bold text-[var(--colorText)] truncate">
-                        {coupleName}ペア
-                      </p>
-                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                        <span className="text-[12px] text-gray-500">{user.wedding_date || "日程未定"}</span>
-                        {daysLeft !== null && (
-                          <span
-                            className="text-[11px] font-bold px-2 py-0.5 rounded-full"
-                            style={{
-                              color: daysLeft > 30 ? "var(--colorPrimary)" : daysLeft > 0 ? "#F59E0B" : "#EF4444",
-                              background: daysLeft > 30 ? "var(--colorSecondary)" : daysLeft > 0 ? "#FEF3C7" : "#FEE2E2",
-                            }}
-                          >
-                            {daysLeft > 0 ? `あと${daysLeft}日` : daysLeft === 0 ? "本日！" : `${Math.abs(daysLeft)}日経過`}
-                          </span>
-                        )}
+                  <TD>
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0"
+                        style={{
+                          background:
+                            "linear-gradient(135deg, var(--colorPrimary), var(--colorAccent))",
+                        }}
+                      >
+                        {initials}
+                      </div>
+                      <div className="min-w-0">
+                        <p
+                          className="font-bold truncate"
+                          style={{ color: "var(--colorText)" }}
+                        >
+                          {coupleName}ペア
+                        </p>
+                        <p className="text-[11px] text-gray-400 font-mono truncate">
+                          {u.line_id}
+                        </p>
                       </div>
                     </div>
-                    <ProgressRing percent={percent} />
-                  </div>
-
-                  {/* 進捗バー */}
-                  <div className="mt-4">
-                    <div className="flex justify-between items-center mb-1.5">
-                      <span className="text-[11px] text-gray-400 font-medium">タスク進捗</span>
-                      <span className="text-[12px] font-bold text-gray-600">
-                        {user.done_tasks} / {user.total_tasks} 完了
+                  </TD>
+                  <TD>
+                    <span className="text-[12px]">
+                      {u.wedding_date || (
+                        <span className="text-gray-300 italic">未定</span>
+                      )}
+                    </span>
+                  </TD>
+                  <TD>
+                    {daysLeft !== null ? (
+                      <DaysBadge days={daysLeft} />
+                    ) : (
+                      <span className="text-gray-300 italic text-[11px]">
+                        —
                       </span>
-                    </div>
-                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full"
-                        style={{
-                          width: `${percent}%`,
-                          backgroundColor: barColor,
-                          transition: "width 0.5s ease",
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* アクションボタン */}
-                  <div className="mt-4 flex justify-end">
-                    <button
-                      onClick={() => router.push(`/admin/${user.line_id}`)}
-                      className="px-4 py-2 bg-[var(--colorSecondary)] text-[var(--colorPrimary)] text-[13px] font-bold rounded-xl hover:opacity-80 active:scale-95 transition-all"
+                    )}
+                  </TD>
+                  <TD>
+                    <MiniProgress percent={percent} />
+                  </TD>
+                  <TD>
+                    <span className="text-[12px] tabular-nums text-gray-600">
+                      {u.done_tasks} / {u.total_tasks}
+                    </span>
+                  </TD>
+                  <TD className="text-right">
+                    <span
+                      className="text-[12px] font-bold"
+                      style={{ color: "var(--colorPrimary)" }}
                     >
-                      タスクを管理 →
-                    </button>
-                  </div>
-                </div>
+                      管理 →
+                    </span>
+                  </TD>
+                </TR>
               );
             })}
-        </div>
+          </TBody>
+        </Table>
       )}
     </div>
   );

@@ -25,13 +25,13 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Ensure padding for safe area */
-main {
-  max-width: 440px; /* LINE WebView width constraint */
+/* LIFF couple-facing wrapper (440px). Applied only inside (liff) route group. */
+.liff-shell {
+  max-width: 440px;
   margin: 0 auto;
   min-height: 100vh;
-  background-color: white; /* Base container background */
-  box-shadow: 0 0 10px rgba(0,0,0,0.05); /* Soft shadow on wider screens */
+  background-color: white;
+  box-shadow: 0 0 10px rgba(0,0,0,0.05);
   padding-bottom: env(safe-area-inset-bottom);
   padding-top: env(safe-area-inset-top);
   display: flex;
