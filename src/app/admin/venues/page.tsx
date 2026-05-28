@@ -2,161 +2,458 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAdminGate } from "@/hooks/useAdminGate";
 import { apiClient } from "@/lib/api";
 import { IVenue } from "@/lib/types";
 import { Spinner } from "@/components/Spinner";
-import { AdminAccessDenied } from "@/components/AdminAccessDenied";
+import { Dialog } from "@/components/admin/Dialog";
+import { Field, inputCls, inputStyle } from "@/components/admin/Field";
+import { Button } from "@/components/admin/Button";
+import {
+  Table,
+  THead,
+  TBody,
+  TR,
+  TH,
+  TD,
+} from "@/components/admin/Table";
+
+const EMPTY_VENUE = {
+  venue_name: "",
+  planner_line_user_id: "",
+  line_liff_id: "",
+};
+
+function nextVenueId(venues: IVenue[]): string {
+  const nums = venues
+    .map((v) => v.venue_id.match(/^RC(\d+)$/))
+    .filter((m): m is RegExpMatchArray => !!m)
+    .map((m) => parseInt(m[1], 10));
+  const next = (nums.length === 0 ? 0 : Math.max(...nums)) + 1;
+  return `RC${String(next).padStart(3, "0")}`;
+}
+
+function StatusBadge({ active }: { active: boolean }) {
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2 py-0.5 rounded-full"
+      style={{
+        background: active ? "#E8F5E9" : "#F5F5F5",
+        color: active ? "#2E7D32" : "#9E9E9E",
+      }}
+    >
+      <span
+        className="w-1.5 h-1.5 rounded-full"
+        style={{ background: active ? "#4CAF50" : "#BDBDBD" }}
+      />
+      {active ? "稼働中" : "停止中"}
+    </span>
+  );
+}
 
 export default function VenuesPage() {
   const router = useRouter();
-  const { authorized, authChecked } = useAdminGate();
-
   const [venues, setVenues] = useState<IVenue[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showCreate, setShowCreate] = useState(false);
+  const [editing, setEditing] = useState<IVenue | null>(null);
+  const [form, setForm] = useState(EMPTY_VENUE);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [query, setQuery] = useState("");
 
-  useEffect(() => {
-    if (!authorized) return;
-    apiClient
-      .get("getVenues", "admin")
-      .then((res) => {
-        if (res.venues) setVenues(res.venues as IVenue[]);
-      })
-      .finally(() => setLoading(false));
-  }, [authorized]);
+  const previewNextId = nextVenueId(venues);
 
-  const handleToggleActive = async (venue: IVenue) => {
-    await apiClient.post({
-      action: "updateVenueStatus",
-      line_id: "admin",
-      venue_id: venue.venue_id,
-      active: !venue.active,
-    });
-    setVenues((prev) =>
-      prev.map((v) => (v.venue_id === venue.venue_id ? { ...v, active: !v.active } : v))
-    );
+  const fetchVenues = async () => {
+    setLoading(true);
+    try {
+      const res = await apiClient.get("getVenues", "admin");
+      if (res.venues) setVenues(res.venues);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  if (!authChecked || (authorized && loading)) return <Spinner fullScreen />;
-  if (!authorized) return <AdminAccessDenied />;
+  useEffect(() => {
+    fetchVenues();
+  }, []);
 
-  const activeCount = venues.filter((v) => v.active).length;
+  const openCreate = () => {
+    setForm(EMPTY_VENUE);
+    setError("");
+    setShowCreate(true);
+  };
+
+  const openEdit = (v: IVenue) => {
+    setForm({
+      venue_name: v.venue_name,
+      planner_line_user_id: v.planner_line_user_id || "",
+      line_liff_id: v.line_liff_id || "",
+    });
+    setError("");
+    setEditing(v);
+  };
+
+  const submitCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    if (!form.venue_name) {
+      setError("式場名は必須です");
+      return;
+    }
+    setSaving(true);
+    try {
+      await apiClient.post({
+        action: "createVenue",
+        line_id: "admin",
+        venue_id: nextVenueId(venues),
+        ...form,
+      });
+      setShowCreate(false);
+      await fetchVenues();
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const submitEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editing) return;
+    setError("");
+    setSaving(true);
+    try {
+      await apiClient.post({
+        action: "updateVenue",
+        line_id: "admin",
+        venue_id: editing.venue_id,
+        patch: {
+          venue_name: form.venue_name,
+          planner_line_user_id: form.planner_line_user_id,
+          line_liff_id: form.line_liff_id,
+        },
+      });
+      setEditing(null);
+      await fetchVenues();
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleActive = async (v: IVenue) => {
+    setSaving(true);
+    try {
+      await apiClient.post({
+        action: "updateVenueStatus",
+        line_id: "admin",
+        venue_id: v.venue_id,
+        active: !v.active,
+      });
+      await fetchVenues();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const filtered = venues.filter(
+    (v) =>
+      !query ||
+      v.venue_name?.toLowerCase().includes(query.toLowerCase()) ||
+      v.venue_id?.toLowerCase().includes(query.toLowerCase())
+  );
+
+  if (loading) return <Spinner fullScreen />;
 
   return (
-    <div className="pb-2xl animate-fade-in">
-      <div className="flex flex-wrap items-center justify-between gap-md mb-xl">
-        <div className="flex items-center gap-sm">
-          <button
-            onClick={() => router.push("/admin")}
-            className="w-10 h-10 -ml-xs flex items-center justify-center text-neutral-50 hover:bg-neutral-95 rounded-full active:bg-neutral-90 transition-colors"
-            aria-label="管理画面へ戻る"
+    <div className="pb-16">
+      <div className="flex items-end justify-between mb-6 gap-4 flex-wrap">
+        <div>
+          <h2
+            className="text-2xl font-bold mb-1"
+            style={{ color: "var(--colorText)" }}
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2.4} viewBox="0 0 24 24" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <div>
-            <p className="text-label-caps text-tertiary-70">VENUES</p>
-            <h2 className="font-display text-display-lg text-on-surface mt-2xs">式場管理</h2>
-          </div>
+            式場
+          </h2>
+          <p className="text-[13px] text-gray-500">
+            登録 {venues.length} 件 / 稼働{" "}
+            {venues.filter((v) => v.active).length} 件
+          </p>
         </div>
-        <button
-          onClick={() => router.push("/admin/venues/new")}
-          className="btn-primary md:px-lg"
+        <div className="flex items-center gap-2">
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="式場名・ID で検索"
+            className="px-3 py-2 text-[13px] border rounded-lg outline-none w-64 bg-white"
+            style={{ borderColor: "#E5E7EB" }}
+          />
+          <Button onClick={openCreate}>＋ 新しい式場</Button>
+        </div>
+      </div>
+
+      {filtered.length === 0 ? (
+        <div
+          className="bg-white p-16 rounded-xl text-center border"
+          style={{ borderColor: "#E5E7EB" }}
         >
-          <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-            <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
-          </svg>
-          新規式場登録
-        </button>
-      </div>
-
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-sm md:gap-md mb-xl">
-        <div className="card-base p-md md:p-lg text-center">
-          <p className="font-display text-[32px] tabular-nums leading-none text-primary-70">
-            {venues.length}
+          <p className="text-gray-400 mb-4">
+            {query ? "該当する式場がありません" : "まだ式場が登録されていません"}
           </p>
-          <p className="text-body-sm text-neutral-50 mt-2xs">登録式場数</p>
-        </div>
-        <div className="card-base p-md md:p-lg text-center">
-          <p className="font-display text-[32px] tabular-nums leading-none text-success">
-            {activeCount}
-          </p>
-          <p className="text-body-sm text-neutral-50 mt-2xs">契約中</p>
-        </div>
-        <div className="card-base p-md md:p-lg text-center">
-          <p className="font-display text-[32px] tabular-nums leading-none text-neutral-60">
-            {venues.length - activeCount}
-          </p>
-          <p className="text-body-sm text-neutral-50 mt-2xs">停止中</p>
-        </div>
-        <div className="card-base p-md md:p-lg text-center hidden md:block">
-          <p className="font-display text-[32px] tabular-nums leading-none text-tertiary-60">
-            {venues.length > 0 ? Math.round((activeCount / venues.length) * 100) : 0}%
-          </p>
-          <p className="text-body-sm text-neutral-50 mt-2xs">稼働率</p>
-        </div>
-      </div>
-
-      {venues.length === 0 ? (
-        <div className="card-base p-2xl text-center text-body-md text-neutral-50">
-          式場が登録されていません
+          {!query && (
+            <Button onClick={openCreate}>最初の式場を追加</Button>
+          )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-md">
-          {venues.map((venue) => (
-            <div
-              key={venue.venue_id}
-              className="card-base p-lg flex flex-col"
-            >
-              <div className="flex items-start justify-between gap-sm">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-xs mb-xs flex-wrap">
-                    <span
-                      className={[
-                        "text-[10px] font-bold px-2 py-0.5 rounded-full tabular-nums",
-                        venue.active
-                          ? "bg-success/15 text-success"
-                          : "bg-neutral-95 text-neutral-50",
-                      ].join(" ")}
-                    >
-                      {venue.active ? "契約中" : "停止中"}
-                    </span>
-                    <span className="text-[11px] text-neutral-60 font-mono">
-                      {venue.venue_id}
-                    </span>
-                  </div>
-                  <p className="text-headline-md text-on-surface truncate">{venue.venue_name}</p>
-                  <p className="text-body-sm text-neutral-60 mt-2xs tabular-nums">
-                    登録日: {venue.created_at?.slice(0, 10)}
+        <Table>
+          <THead>
+            <tr>
+              <TH className="w-[80px]">ID</TH>
+              <TH>式場名</TH>
+              <TH>プランナー LINE</TH>
+              <TH>LIFF ID</TH>
+              <TH className="w-[100px]">ステータス</TH>
+              <TH className="w-[260px] text-right">操作</TH>
+            </tr>
+          </THead>
+          <TBody>
+            {filtered.map((v) => (
+              <TR key={v.venue_id}>
+                <TD mono>
+                  <span
+                    className="px-1.5 py-0.5 rounded text-[11px] font-bold"
+                    style={{
+                      background: "var(--colorSecondary)",
+                      color: "var(--colorPrimary)",
+                    }}
+                  >
+                    {v.venue_id}
+                  </span>
+                </TD>
+                <TD>
+                  <p
+                    className="font-bold"
+                    style={{ color: "var(--colorText)" }}
+                  >
+                    {v.venue_name}
                   </p>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
-                  <input
-                    type="checkbox"
-                    className="sr-only peer"
-                    checked={venue.active}
-                    onChange={() => handleToggleActive(venue)}
-                    aria-label={venue.active ? "契約停止" : "契約再開"}
-                  />
-                  <div className="w-11 h-6 bg-neutral-90 rounded-full peer peer-checked:bg-primary-70 transition-colors duration-short after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:border-neutral-80 after:rounded-full after:h-5 after:w-5 after:shadow-sm after:transition-all peer-checked:after:translate-x-full peer-checked:after:border-primary-70" />
-                </label>
-              </div>
-              <div className="mt-auto pt-md flex justify-end">
-                <button
-                  onClick={() => router.push(`/admin/venues/${venue.venue_id}`)}
-                  className="btn-ghost"
-                >
-                  詳細を見る
-                  <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                    <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+                </TD>
+                <TD mono>
+                  {v.planner_line_user_id ? (
+                    <span className="text-gray-600 text-[12px]">
+                      {v.planner_line_user_id}
+                    </span>
+                  ) : (
+                    <span className="text-gray-300 italic">未設定</span>
+                  )}
+                </TD>
+                <TD mono>
+                  {v.line_liff_id ? (
+                    <span className="text-gray-600 text-[12px]">
+                      {v.line_liff_id}
+                    </span>
+                  ) : (
+                    <span className="text-gray-300 italic">未設定</span>
+                  )}
+                </TD>
+                <TD>
+                  <StatusBadge active={v.active} />
+                </TD>
+                <TD className="text-right whitespace-nowrap">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() =>
+                      router.push(`/admin/tasks?venue=${v.venue_id}`)
+                    }
+                  >
+                    📋 タスクを見る
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="ml-1"
+                    onClick={() => openEdit(v)}
+                  >
+                    編集
+                  </Button>
+                  <button
+                    onClick={() => toggleActive(v)}
+                    disabled={saving}
+                    className="ml-1 text-[12px] text-gray-500 hover:text-gray-800 px-2 py-1.5"
+                  >
+                    {v.active ? "停止" : "再開"}
+                  </button>
+                </TD>
+              </TR>
+            ))}
+          </TBody>
+        </Table>
       )}
+
+      {/* Create Dialog */}
+      <Dialog
+        open={showCreate}
+        onClose={() => setShowCreate(false)}
+        title="新しい式場を追加"
+        size="md"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setShowCreate(false)}>
+              キャンセル
+            </Button>
+            <Button onClick={(e) => submitCreate(e as any)} disabled={saving}>
+              {saving ? "追加中…" : "追加する"}
+            </Button>
+          </>
+        }
+      >
+        <form onSubmit={submitCreate} className="flex flex-col gap-4">
+          <div
+            className="rounded-lg p-3 flex items-center gap-3"
+            style={{ background: "#F9FAFB", border: "1px solid #E5E7EB" }}
+          >
+            <span className="text-[11px] text-gray-500">式場ID</span>
+            <span
+              className="px-2 py-0.5 rounded font-mono text-[12px] font-bold"
+              style={{
+                background: "var(--colorSecondary)",
+                color: "var(--colorPrimary)",
+              }}
+            >
+              {previewNextId}
+            </span>
+            <span className="text-[11px] text-gray-400">
+              自動採番されます
+            </span>
+          </div>
+
+          <Field label="式場名" required>
+            <input
+              type="text"
+              value={form.venue_name}
+              onChange={(e) =>
+                setForm({ ...form, venue_name: e.target.value })
+              }
+              className={inputCls}
+              style={inputStyle}
+              placeholder="ヒルトン札幌"
+              required
+              autoFocus
+            />
+          </Field>
+          <Field
+            label="プランナー LINE user_id"
+            hint="日次サマリ・テスト送信の宛先"
+          >
+            <input
+              type="text"
+              value={form.planner_line_user_id}
+              onChange={(e) =>
+                setForm({ ...form, planner_line_user_id: e.target.value })
+              }
+              className={`${inputCls} font-mono`}
+              style={inputStyle}
+              placeholder="U1234..."
+            />
+          </Field>
+          <Field label="LIFF ID" hint="任意・LINE Developers コンソールで取得">
+            <input
+              type="text"
+              value={form.line_liff_id}
+              onChange={(e) =>
+                setForm({ ...form, line_liff_id: e.target.value })
+              }
+              className={`${inputCls} font-mono`}
+              style={inputStyle}
+              placeholder="0000000000-XXXXXXXX"
+            />
+          </Field>
+          {error && (
+            <p
+              className="text-[12px] font-semibold"
+              style={{ color: "var(--colorError)" }}
+            >
+              {error}
+            </p>
+          )}
+          <div
+            className="rounded-lg p-3 text-[11px] leading-relaxed"
+            style={{
+              background: "var(--colorSecondary)",
+              color: "var(--colorPrimary)",
+            }}
+          >
+            ✨ 追加すると、共通の base task が自動で 16 件コピーされ、
+            翌朝 9 時から配信を開始できます。
+          </div>
+        </form>
+      </Dialog>
+
+      {/* Edit Dialog */}
+      <Dialog
+        open={!!editing}
+        onClose={() => setEditing(null)}
+        title={`式場を編集 / ${editing?.venue_id}`}
+        size="md"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setEditing(null)}>
+              キャンセル
+            </Button>
+            <Button onClick={(e) => submitEdit(e as any)} disabled={saving}>
+              {saving ? "保存中…" : "保存する"}
+            </Button>
+          </>
+        }
+      >
+        <form onSubmit={submitEdit} className="flex flex-col gap-4">
+          <Field label="式場名" required>
+            <input
+              type="text"
+              value={form.venue_name}
+              onChange={(e) =>
+                setForm({ ...form, venue_name: e.target.value })
+              }
+              className={inputCls}
+              style={inputStyle}
+              required
+            />
+          </Field>
+          <Field label="プランナー LINE user_id">
+            <input
+              type="text"
+              value={form.planner_line_user_id}
+              onChange={(e) =>
+                setForm({ ...form, planner_line_user_id: e.target.value })
+              }
+              className={`${inputCls} font-mono`}
+              style={inputStyle}
+            />
+          </Field>
+          <Field label="LIFF ID">
+            <input
+              type="text"
+              value={form.line_liff_id}
+              onChange={(e) =>
+                setForm({ ...form, line_liff_id: e.target.value })
+              }
+              className={`${inputCls} font-mono`}
+              style={inputStyle}
+            />
+          </Field>
+          {error && (
+            <p
+              className="text-[12px] font-semibold"
+              style={{ color: "var(--colorError)" }}
+            >
+              {error}
+            </p>
+          )}
+        </form>
+      </Dialog>
     </div>
   );
 }
