@@ -106,7 +106,13 @@ function setupEnvironment() {
         userHiddenTasksSheet = ss.insertSheet("user_hidden_tasks");
     }
     userHiddenTasksSheet.getRange("A1:B1").setValues([["line_id", "task_id"]]);
-    // 6. message_drafts シートの作成とヘッダー
+    // 6. task_items シート（カップル別の手配物リスト）
+    let taskItemsSheet = ss.getSheetByName("task_items");
+    if (!taskItemsSheet) {
+        taskItemsSheet = ss.insertSheet("task_items");
+    }
+    taskItemsSheet.getRange("A1:H1").setValues([["item_id", "task_id", "line_id", "item_name", "quantity", "is_done", "memo", "created_at"]]);
+    // 7. message_drafts シートの作成とヘッダー
     let messageDraftsSheet = ss.getSheetByName("message_drafts");
     if (!messageDraftsSheet) {
         messageDraftsSheet = ss.insertSheet("message_drafts");

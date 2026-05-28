@@ -185,9 +185,80 @@ function doPost(e: any) {
       return responseJSON({ status: "deleted" });
     }
 
+    // ─── task_items（手配物）──────────────────────────────
+    if (action === "getTaskItems") {
+      const targetId = postData.target_line_id;
+      if (!targetId) {
+        return responseJSON({ status: "error", message: "target_line_id is required" });
+      }
+      const items = getTaskItems(targetId);
+      return responseJSON({ status: "ok", items });
+    }
+
+    if (action === "addTaskItem") {
+      const targetId = postData.target_line_id;
+      const taskId = postData.task_id;
+      const itemName = String(postData.item_name || "").trim();
+      const quantity = Math.max(1, parseInt(postData.quantity, 10) || 1);
+      const memo = postData.memo || "";
+      if (!targetId || !taskId || !itemName) {
+        return responseJSON({ status: "error", message: "target_line_id / task_id / item_name は必須" });
+      }
+      const item = addTaskItem(taskId, targetId, itemName, quantity, memo);
+      return responseJSON({ status: "created", item });
+    }
+
+    if (action === "updateTaskItem") {
+      const itemId = postData.item_id;
+      const patch = postData.patch || {};
+      if (!itemId) {
+        return responseJSON({ status: "error", message: "item_id is required" });
+      }
+      const cleanPatch: Partial<ITaskItem> = {};
+      if (patch.item_name !== undefined) cleanPatch.item_name = String(patch.item_name);
+      if (patch.quantity !== undefined) cleanPatch.quantity = Math.max(1, parseInt(patch.quantity, 10) || 1);
+      if (patch.is_done !== undefined) cleanPatch.is_done = !!patch.is_done;
+      if (patch.memo !== undefined) cleanPatch.memo = String(patch.memo);
+      const ok = updateTaskItem(itemId, cleanPatch);
+      if (!ok) return responseJSON({ status: "error", message: "Item not found" });
+      return responseJSON({ status: "updated" });
+    }
+
+    if (action === "deleteTaskItem") {
+      const itemId = postData.item_id;
+      if (!itemId) {
+        return responseJSON({ status: "error", message: "item_id is required" });
+      }
+      const ok = deleteTaskItem(itemId);
+      if (!ok) return responseJSON({ status: "error", message: "Item not found" });
+      return responseJSON({ status: "deleted" });
+    }
+
+    if (action === "getTaskItemTemplates") {
+      const taskId = postData.task_id;
+      if (!taskId) {
+        return responseJSON({ status: "error", message: "task_id is required" });
+      }
+      const items = getTaskItemTemplates(taskId);
+      return responseJSON({ status: "ok", items });
+    }
+
+    if (action === "addTaskItemTemplate") {
+      const taskId = postData.task_id;
+      const itemName = String(postData.item_name || "").trim();
+      const quantity = Math.max(1, parseInt(postData.quantity, 10) || 1);
+      const memo = postData.memo || "";
+      if (!taskId || !itemName) {
+        return responseJSON({ status: "error", message: "task_id / item_name は必須" });
+      }
+      const item = addTaskItem(taskId, "", itemName, quantity, memo);
+      return responseJSON({ status: "created", item });
+    }
+
     // ─── メッセージドラフト管理 ──────────────────────────────────────
 
     if (action === "getMessageDrafts") {
+      const venueId = postData.venue_id || undefined;
       const status = postData.status || undefined;
       const drafts = getMessageDrafts(venueId, status);
       return responseJSON({ status: "ok", drafts });
@@ -207,36 +278,6 @@ function doPost(e: any) {
       return responseJSON({ status: "updated" });
     }
 
-    // ─── 式場管理（超管理者） ────────────────────────────────────────
-
-    if (action === "createVenue") {
-      // 半端に式場だけ追加されてタスク雛形だけ失敗、を避けるため
-      // 必要シートが両方そろっているかを最初にまとめて確認する。
-      if (!getSheet("venues") || !getSheet("task_master")) {
-        return responseJSON({
-          status: "error",
-          message: "venues / task_master シートが見つかりません。setupEnvironment を実行してください。",
-        });
-      }
-      const newVenue: Omit<IVenue, "created_at"> = {
-        venue_id: postData.venue_id,
-        venue_name: postData.venue_name,
-        planner_line_user_id: postData.planner_line_user_id || "",
-        line_channel_access_token: postData.line_channel_access_token || "",
-        line_liff_id: postData.line_liff_id || "",
-        active: true,
-      };
-      createVenue(newVenue);
-      // デフォルトタスクマスターをセットアップ
-      setupDefaultTaskMaster(postData.venue_id);
-      return responseJSON({ status: "created" });
-    }
-
-    if (action === "updateVenueStatus") {
-      updateVenueStatus(postData.venue_id, postData.active);
-      return responseJSON({ status: "updated" });
-    }
-
     if (action === "getVenueDetail") {
       const venue = getVenue(postData.venue_id);
       if (!venue) return responseJSON({ status: "error", message: "Venue not found" });
@@ -245,18 +286,10 @@ function doPost(e: any) {
       return responseJSON({ status: "ok", venue, users, pending_drafts_count: pendingDrafts.length });
     }
 
-    if (action === "getVenueTasks") {
-      // 式場に属する基本タスク一覧（特定ユーザー向けカスタムタスクは除外）
-      const allTasks = getActiveTasks(venueId || undefined);
-      const tasks = allTasks.filter(t => !t.target_line_id);
-      return responseJSON({ status: "ok", tasks });
-    }
-
     if (action === "updateTaskManualUrl") {
       const taskId = String(postData.task_id || "");
       const manualUrl = String(postData.manual_url || "");
       if (!taskId) return responseJSON({ status: "error", message: "task_id is required" });
-      // URL 形式の軽い検証（空 or http(s)://）
       if (manualUrl && !/^https?:\/\//.test(manualUrl)) {
         return responseJSON({ status: "error", message: "URLは http(s):// で始めてください" });
       }
