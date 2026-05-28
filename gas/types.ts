@@ -31,6 +31,38 @@ interface ITaskProgress {
   is_visible: boolean; // Note: We might phase this out, but keep for type compatibility
 }
 
+interface IVenue {
+  venue_id: string;
+  venue_name: string;
+  planner_line_user_id?: string;
+  line_channel_access_token?: string;
+  line_liff_id?: string;
+  active: boolean;
+  created_at?: string;
+}
+
+interface IMessageDraft {
+  draft_id: string;
+  venue_id: string;
+  couple_id: string;
+  task_id: string;
+  draft_message: string;
+  status: string;
+  created_at: string;
+  sent_at?: string;
+}
+
+interface ITaskItem {
+  item_id: string;
+  task_id: string;
+  line_id: string;
+  item_name: string;
+  quantity: number;
+  is_done: boolean;
+  memo?: string;
+  created_at?: string;
+}
+
 interface ITaskResponse {
   task_id: string;
   category: string;

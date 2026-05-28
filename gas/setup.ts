@@ -140,5 +140,25 @@ function setupEnvironment() {
   }
   userHiddenTasksSheet.getRange("A1:B1").setValues([["line_id", "task_id"]]);
 
+  // 5. task_items シート（カップル別の手配物リスト）
+  let taskItemsSheet = ss.getSheetByName("task_items");
+  if (!taskItemsSheet) {
+    taskItemsSheet = ss.insertSheet("task_items");
+  }
+  taskItemsSheet
+    .getRange("A1:H1")
+    .setValues([
+      [
+        "item_id",
+        "task_id",
+        "line_id",
+        "item_name",
+        "quantity",
+        "is_done",
+        "memo",
+        "created_at",
+      ],
+    ]);
+
   return "Setup Completed!";
 };

@@ -258,3 +258,352 @@ function deleteCustomTask(taskId: string): void {
     }
   }
 };
+
+// ─── task_items（手配物）─────────────────────────────────
+
+function ensureTaskItemsSheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName("task_items");
+  if (!sheet) {
+    sheet = ss.insertSheet("task_items");
+    sheet
+      .getRange("A1:H1")
+      .setValues([
+        [
+          "item_id",
+          "task_id",
+          "line_id",
+          "item_name",
+          "quantity",
+          "is_done",
+          "memo",
+          "created_at",
+        ],
+      ]);
+  }
+  return sheet;
+}
+
+function getTaskItems(lineId: string): ITaskItem[] {
+  const sheet = ensureTaskItemsSheet();
+  if (!sheet) return [];
+  const data = sheet.getDataRange().getValues();
+  const items: ITaskItem[] = [];
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][2]) === lineId) {
+      items.push({
+        item_id: String(data[i][0]),
+        task_id: String(data[i][1]),
+        line_id: String(data[i][2]),
+        item_name: String(data[i][3] || ""),
+        quantity: Number(data[i][4]) || 1,
+        is_done:
+          data[i][5] === true ||
+          String(data[i][5]).toLowerCase() === "true",
+        memo: String(data[i][6] || ""),
+        created_at: String(data[i][7] || ""),
+      });
+    }
+  }
+  return items;
+}
+
+function addTaskItem(
+  taskId: string,
+  lineId: string,
+  itemName: string,
+  quantity: number,
+  memo?: string
+): ITaskItem {
+  const sheet = ensureTaskItemsSheet();
+  if (!sheet) throw new Error("task_items シートを作成できません");
+  const itemId = "ITEM-" + new Date().getTime();
+  const createdAt = new Date().toISOString();
+  sheet.appendRow([
+    itemId,
+    taskId,
+    lineId,
+    itemName,
+    quantity,
+    false,
+    memo || "",
+    createdAt,
+  ]);
+  return {
+    item_id: itemId,
+    task_id: taskId,
+    line_id: lineId,
+    item_name: itemName,
+    quantity: quantity,
+    is_done: false,
+    memo: memo || "",
+    created_at: createdAt,
+  };
+}
+
+function updateTaskItem(
+  itemId: string,
+  patch: Partial<ITaskItem>
+): boolean {
+  const sheet = ensureTaskItemsSheet();
+  if (!sheet) return false;
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === itemId) {
+      // 列: item_id / task_id / line_id / item_name / quantity / is_done / memo / created_at
+      if (patch.item_name !== undefined)
+        sheet.getRange(i + 1, 4).setValue(patch.item_name);
+      if (patch.quantity !== undefined)
+        sheet.getRange(i + 1, 5).setValue(patch.quantity);
+      if (patch.is_done !== undefined)
+        sheet.getRange(i + 1, 6).setValue(patch.is_done);
+      if (patch.memo !== undefined)
+        sheet.getRange(i + 1, 7).setValue(patch.memo);
+      return true;
+    }
+  }
+  return false;
+}
+
+function deleteTaskItem(itemId: string): boolean {
+  const sheet = ensureTaskItemsSheet();
+  if (!sheet) return false;
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === itemId) {
+      sheet.deleteRow(i + 1);
+      return true;
+    }
+  }
+  return false;
+}
+
+// テンプレ手配物（line_id="" の task_items を task_id で取得）
+function getTaskItemTemplates(taskId: string): ITaskItem[] {
+  const sheet = ensureTaskItemsSheet();
+  if (!sheet) return [];
+  const data = sheet.getDataRange().getValues();
+  const items: ITaskItem[] = [];
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][1]) === taskId && String(data[i][2]) === "") {
+      items.push({
+        item_id: String(data[i][0]),
+        task_id: String(data[i][1]),
+        line_id: "",
+        item_name: String(data[i][3] || ""),
+        quantity: Number(data[i][4]) || 1,
+        is_done:
+          data[i][5] === true ||
+          String(data[i][5]).toLowerCase() === "true",
+        memo: String(data[i][6] || ""),
+        created_at: String(data[i][7] || ""),
+      });
+    }
+  }
+  return items;
+}
+
+// ─── venues ────────────────────────────────────────────────
+
+function ensureVenuesSheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName("venues");
+  if (!sheet) {
+    sheet = ss.insertSheet("venues");
+    sheet
+      .getRange("A1:G1")
+      .setValues([
+        [
+          "venue_id",
+          "venue_name",
+          "planner_line_user_id",
+          "line_channel_access_token",
+          "line_liff_id",
+          "active",
+          "created_at",
+        ],
+      ]);
+  }
+  return sheet;
+}
+
+function rowToVenue(row: any[]): IVenue {
+  return {
+    venue_id: String(row[0]),
+    venue_name: String(row[1] || ""),
+    planner_line_user_id: String(row[2] || ""),
+    line_channel_access_token: String(row[3] || ""),
+    line_liff_id: String(row[4] || ""),
+    active:
+      row[5] === true || String(row[5]).toLowerCase() === "true",
+    created_at: String(row[6] || ""),
+  };
+}
+
+function getVenues(): IVenue[] {
+  const sheet = ensureVenuesSheet();
+  if (!sheet) return [];
+  const data = sheet.getDataRange().getValues();
+  const venues: IVenue[] = [];
+  for (let i = 1; i < data.length; i++) {
+    if (!data[i][0]) continue;
+    venues.push(rowToVenue(data[i]));
+  }
+  return venues;
+}
+
+function getVenue(venueId: string): IVenue | null {
+  const sheet = ensureVenuesSheet();
+  if (!sheet) return null;
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === venueId) return rowToVenue(data[i]);
+  }
+  return null;
+}
+
+function createVenue(v: IVenue): void {
+  const sheet = ensureVenuesSheet();
+  if (!sheet) return;
+  sheet.appendRow([
+    v.venue_id,
+    v.venue_name,
+    v.planner_line_user_id || "",
+    v.line_channel_access_token || "",
+    v.line_liff_id || "",
+    v.active === false ? false : true,
+    new Date().toISOString(),
+  ]);
+}
+
+function updateVenue(venueId: string, patch: Partial<IVenue>): boolean {
+  const sheet = ensureVenuesSheet();
+  if (!sheet) return false;
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === venueId) {
+      // 列: venue_id / venue_name / planner_line_user_id / line_channel_access_token / line_liff_id / active / created_at
+      if (patch.venue_name !== undefined)
+        sheet.getRange(i + 1, 2).setValue(patch.venue_name);
+      if (patch.planner_line_user_id !== undefined)
+        sheet.getRange(i + 1, 3).setValue(patch.planner_line_user_id);
+      if (patch.line_channel_access_token !== undefined)
+        sheet.getRange(i + 1, 4).setValue(patch.line_channel_access_token);
+      if (patch.line_liff_id !== undefined)
+        sheet.getRange(i + 1, 5).setValue(patch.line_liff_id);
+      if (patch.active !== undefined)
+        sheet.getRange(i + 1, 6).setValue(patch.active);
+      return true;
+    }
+  }
+  return false;
+}
+
+function updateVenueStatus(venueId: string, active: boolean): boolean {
+  return updateVenue(venueId, { active });
+}
+
+// ─── message_drafts ────────────────────────────────────────
+
+function ensureMessageDraftsSheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName("message_drafts");
+  if (!sheet) {
+    sheet = ss.insertSheet("message_drafts");
+    sheet
+      .getRange("A1:H1")
+      .setValues([
+        [
+          "draft_id",
+          "venue_id",
+          "couple_id",
+          "task_id",
+          "draft_message",
+          "status",
+          "created_at",
+          "sent_at",
+        ],
+      ]);
+  }
+  return sheet;
+}
+
+function getMessageDrafts(
+  venueId?: string,
+  status?: string
+): IMessageDraft[] {
+  const sheet = ensureMessageDraftsSheet();
+  if (!sheet) return [];
+  const data = sheet.getDataRange().getValues();
+  const drafts: IMessageDraft[] = [];
+  for (let i = 1; i < data.length; i++) {
+    if (!data[i][0]) continue;
+    const d: IMessageDraft = {
+      draft_id: String(data[i][0]),
+      venue_id: String(data[i][1] || ""),
+      couple_id: String(data[i][2] || ""),
+      task_id: String(data[i][3] || ""),
+      draft_message: String(data[i][4] || ""),
+      status: String(data[i][5] || ""),
+      created_at: String(data[i][6] || ""),
+      sent_at: String(data[i][7] || ""),
+    };
+    if (venueId && d.venue_id !== venueId) continue;
+    if (status && d.status !== status) continue;
+    drafts.push(d);
+  }
+  return drafts;
+}
+
+// ─── task_master patch / add ───────────────────────────────
+
+function updateTaskMaster(
+  taskId: string,
+  patch: Partial<ITaskMaster>
+): boolean {
+  const sheet = getSheet("task_master");
+  if (!sheet) return false;
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === taskId) {
+      // 列: task_id / category / task_content / due_formula / due_estimate / memo / is_active / target_line_id
+      if (patch.category !== undefined)
+        sheet.getRange(i + 1, 2).setValue(patch.category);
+      if (patch.task_content !== undefined)
+        sheet.getRange(i + 1, 3).setValue(patch.task_content);
+      if (patch.due_formula !== undefined)
+        sheet.getRange(i + 1, 4).setValue(patch.due_formula);
+      if (patch.due_estimate !== undefined)
+        sheet.getRange(i + 1, 5).setValue(patch.due_estimate);
+      if (patch.memo !== undefined)
+        sheet.getRange(i + 1, 6).setValue(patch.memo);
+      if (patch.is_active !== undefined)
+        sheet.getRange(i + 1, 7).setValue(patch.is_active);
+      CacheService.getScriptCache().remove("activeTasks");
+      return true;
+    }
+  }
+  return false;
+}
+
+function addTaskMaster(task: ITaskMaster): string {
+  const sheet = getSheet("task_master");
+  if (!sheet) return "";
+  // task_id が空なら自動採番
+  let taskId = task.task_id;
+  if (!taskId) {
+    taskId = "CUST-" + new Date().getTime();
+  }
+  sheet.appendRow([
+    taskId,
+    task.category || "",
+    task.task_content || "",
+    task.due_formula || "",
+    task.due_estimate || "",
+    task.memo || "",
+    task.is_active === false ? false : true,
+    task.target_line_id || "",
+  ]);
+  CacheService.getScriptCache().remove("activeTasks");
+  return taskId;
+}
