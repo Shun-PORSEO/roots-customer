@@ -11,7 +11,7 @@ function doGetLiff(e) {
         if (!lineId) {
             return responseJSON({ status: "error", message: "Unauthorized" });
         }
-        if (action === "getTasks") {
+        if (action === "getTasks" || action === "getTasksAndUser") {
             const customer = getCustomer(lineId);
             if (!customer) {
                 return responseJSON({ status: "error", message: "Customer not found" });
@@ -40,6 +40,7 @@ function doGetLiff(e) {
                     manual_url: task.manual_url || "",
                 };
             }).filter(t => t.is_visible);
+            if (action === "getTasksAndUser") return responseJSON({ status: "ok", tasks, wedding_date: customer.wedding_date, name1_kana: customer.name1_kana || "", name2_kana: customer.name2_kana || "", is_admin: customer.is_admin || false });
             return responseJSON({ tasks });
         }
         if (action === "getVenues") {

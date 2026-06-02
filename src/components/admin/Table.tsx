@@ -5,8 +5,11 @@ import { ReactNode } from "react";
 export function Table({ children }: { children: ReactNode }) {
   return (
     <div
-      className="bg-white rounded-xl border overflow-hidden"
-      style={{ borderColor: "#E5E7EB" }}
+      className="bg-white rounded-xl overflow-hidden"
+      style={{
+        border: "1px solid var(--cb)",
+        boxShadow: "0 1px 2px rgba(26,24,21,0.04), 0 4px 12px rgba(26,24,21,0.04)",
+      }}
     >
       <div className="overflow-x-auto">
         <table className="w-full text-[13px]">{children}</table>
@@ -18,8 +21,8 @@ export function Table({ children }: { children: ReactNode }) {
 export function THead({ children }: { children: ReactNode }) {
   return (
     <thead
-      className="text-left text-[11px] font-bold uppercase tracking-wider text-gray-500"
-      style={{ background: "#F9FAFB" }}
+      className="text-left text-[11px] font-bold uppercase tracking-wider"
+      style={{ background: "var(--cs-page)", color: "var(--ct-muted)" }}
     >
       {children}
     </thead>
@@ -36,7 +39,7 @@ export function TH({
   return (
     <th
       className={`px-4 py-3 font-semibold border-b ${className}`}
-      style={{ borderColor: "#E5E7EB" }}
+      style={{ borderColor: "var(--cb)" }}
     >
       {children}
     </th>
@@ -44,7 +47,14 @@ export function TH({
 }
 
 export function TBody({ children }: { children: ReactNode }) {
-  return <tbody className="divide-y" style={{}}>{children}</tbody>;
+  return (
+    <tbody
+      className="divide-y"
+      style={{ borderColor: "var(--cb)" }}
+    >
+      {children}
+    </tbody>
+  );
 }
 
 export function TR({
@@ -59,12 +69,28 @@ export function TR({
   return (
     <tr
       onClick={onClick}
-      className={`${onClick ? "cursor-pointer hover:bg-gray-50" : ""} ${
-        highlight ? "" : ""
-      }`}
+      className={onClick ? "cursor-pointer transition-colors" : ""}
       style={{
-        background: highlight ? "#FFFBEB" : undefined,
+        background: highlight ? "var(--ca-light)" : undefined,
       }}
+      onMouseEnter={
+        onClick
+          ? (e) => {
+              if (!highlight)
+                (e.currentTarget as HTMLElement).style.background =
+                  "var(--cs-page)";
+            }
+          : undefined
+      }
+      onMouseLeave={
+        onClick
+          ? (e) => {
+              (e.currentTarget as HTMLElement).style.background = highlight
+                ? "var(--ca-light)"
+                : "";
+            }
+          : undefined
+      }
     >
       {children}
     </tr>
@@ -85,7 +111,7 @@ export function TD({
       className={`px-4 py-3 align-middle ${
         mono ? "font-mono text-[12px]" : ""
       } ${className}`}
-      style={{ borderColor: "#E5E7EB" }}
+      style={{ color: "var(--ct)" }}
     >
       {children}
     </td>

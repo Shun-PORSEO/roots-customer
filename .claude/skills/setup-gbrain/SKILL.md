@@ -1,0 +1,1 @@
+/Users/shun/ADK-Agents-hub/setup-gbrain/SKILL.md

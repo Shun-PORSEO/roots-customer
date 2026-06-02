@@ -43,6 +43,7 @@ export const useLiff = () => {
         }
 
         const userProfile = await liff.getProfile();
+        localStorage.setItem("roots_last_user_id", userProfile.userId);
         setProfile({
           userId: userProfile.userId,
           displayName: userProfile.displayName,

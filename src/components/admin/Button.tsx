@@ -14,30 +14,41 @@ export function Button({
   variant?: Variant;
   size?: Size;
 }) {
-  const sizeCls =
-    size === "sm" ? "px-3 py-1.5 text-[12px]" : "px-4 py-2.5 text-[13px]";
-
   const base =
-    "font-bold rounded-xl transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1.5";
+    "font-semibold rounded-md transition-all active:scale-[0.98] " +
+    "disabled:opacity-50 disabled:cursor-not-allowed " +
+    "inline-flex items-center justify-center gap-1.5";
 
-  let style: React.CSSProperties = {};
+  const sizeCls =
+    size === "sm"
+      ? "px-3 py-1.5 text-[13px]"
+      : "px-5 py-2.5 text-[14px]";
+
   let variantCls = "";
+  let style: React.CSSProperties = {};
 
   if (variant === "primary") {
-    style = { background: "var(--colorPrimary)", color: "white" };
-    variantCls = "hover:opacity-90";
-  } else if (variant === "secondary") {
+    variantCls = "text-white hover:opacity-90";
     style = {
-      background: "var(--colorSecondary)",
-      color: "var(--colorPrimary)",
+      background: "var(--cp)",
+      boxShadow: "0 1px 3px rgba(47,90,64,0.22)",
     };
-    variantCls = "hover:opacity-80";
+  } else if (variant === "secondary") {
+    variantCls = "border hover:opacity-90";
+    style = {
+      background: "var(--cp-muted)",
+      color: "var(--cp)",
+      borderColor: "var(--cp-light)",
+    };
   } else if (variant === "ghost") {
-    style = { color: "var(--colorTextLight)" };
-    variantCls = "hover:bg-gray-100";
+    variantCls = "hover:bg-neutral-95";
+    style = { color: "var(--ct-muted)" };
   } else if (variant === "danger") {
-    style = { background: "var(--colorError)", color: "white" };
-    variantCls = "hover:opacity-90";
+    variantCls = "text-white hover:opacity-90";
+    style = {
+      background: "var(--c-error)",
+      boxShadow: "0 1px 3px rgba(181,64,47,0.22)",
+    };
   }
 
   return (

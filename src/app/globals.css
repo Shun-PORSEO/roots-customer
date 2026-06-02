@@ -1,44 +1,151 @@
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&family=Shippori+Mincho:wght@400;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ─── Design tokens (mirrors DESIGN.md → tailwind.config.ts) ── */
 :root {
-  --colorPrimary: #4A7C59;
-  --colorSecondary: #F5F0E8;
-  --colorAccent: #D4A853;
-  --colorText: #2C2C2C;
-  --colorTextLight: #7A7A7A;
-  --colorError: #C0392B;
-  --colorSuccess: #27AE60;
-  --colorBorder: #E0D8CC;
-  --colorBg: #FAFAF7;
+  --cp:        #2F5A40; /* primary-70  Forest Sage */
+  --cp-hover:  #1F3A2A; /* primary-80 */
+  --cp-light:  #A7C5B2; /* primary-30 */
+  --cp-muted:  #F2F7F3; /* primary-05 */
+  --ca:        #D4A853; /* tertiary-50 Champagne Gold */
+  --ca-light:  #FAEFD2; /* tertiary-10 */
+  --cs:        #FFFFFF;
+  --cs-page:   #FBFAF6; /* Warm Ivory */
+  --cs-muted:  #F5F1EA;
+  --ct:        #1A1815; /* Deep Charcoal */
+  --ct-muted:  #7A7268;
+  --cb:        #EFE8DC;
+  --cb-strong: #DDD3C2;
+  --c-error:   #B5402F;
+  --c-success: #2F8A4E;
+  --c-warning: #D88B2C;
+
+  /* Legacy aliases */
+  --colorPrimary:   var(--cp);
+  --colorAccent:    var(--ca);
+  --colorSecondary: var(--cp-muted);
+  --colorText:      var(--ct);
+  --colorTextLight: var(--ct-muted);
+  --colorError:     var(--c-error);
+  --colorSuccess:   var(--c-success);
+  --colorBorder:    var(--cb);
+  --colorBg:        var(--cs-page);
 }
 
+/* ─── Base ── */
 body {
-  background-color: var(--colorBg);
-  color: var(--colorText);
-  font-family: 'Noto Sans JP', sans-serif;
+  background-color: var(--cs-page);
+  color: var(--ct);
+  font-family: 'Noto Sans JP', system-ui, sans-serif;
   margin: 0;
   padding: 0;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* LIFF couple-facing wrapper (440px). Applied only inside (liff) route group. */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ─── LIFF shell ── */
 .liff-shell {
   max-width: 440px;
   margin: 0 auto;
-  min-height: 100vh;
-  background-color: white;
-  box-shadow: 0 0 10px rgba(0,0,0,0.05);
+  min-height: 100dvh;
+  background-color: var(--cs-page);
+  box-shadow: 0 0 40px rgba(26, 24, 21, 0.06);
   padding-bottom: env(safe-area-inset-bottom);
   padding-top: env(safe-area-inset-top);
   display: flex;
   flex-direction: column;
 }
 
-/* Tap highlight removal for clean UI */
-* {
-  -webkit-tap-highlight-color: transparent;
+/* ─── Components ── */
+@layer components {
+  .card-base {
+    background: white;
+    border-radius: 14px;
+    border: 1px solid var(--cb);
+    box-shadow: 0 1px 2px rgba(26,24,21,0.04), 0 4px 12px rgba(26,24,21,0.04);
+    transition: box-shadow 200ms, transform 200ms;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 font-semibold
+           transition-all active:scale-[0.98]
+           disabled:opacity-50 disabled:cursor-not-allowed;
+    font-size: 15px;
+    color: white;
+    background: var(--cp);
+    border-radius: 10px;
+    padding: 12px 20px;
+    box-shadow: 0 1px 3px rgba(47, 90, 64, 0.22);
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background: var(--cp-hover);
+    box-shadow: 0 2px 6px rgba(47, 90, 64, 0.30);
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 font-semibold
+           transition-all active:scale-[0.98]
+           disabled:opacity-50 disabled:cursor-not-allowed;
+    font-size: 15px;
+    color: var(--cp);
+    background: white;
+    border: 1.5px solid var(--cp-light);
+    border-radius: 10px;
+    padding: 12px 20px;
+  }
+
+  .btn-secondary:hover:not(:disabled) {
+    background: var(--cp-muted);
+  }
+
+  .chip-category {
+    @apply inline-block font-bold uppercase;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    padding: 2px 7px;
+    border-radius: 4px;
+    background: #E7F0EA;
+    color: #2F5A40;
+  }
+
+  .toast {
+    @apply fixed z-50;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    max-width: 360px;
+    width: calc(100% - 2rem);
+    padding: 12px 16px;
+    border-radius: 10px;
+    background: #1A1815;
+    color: white;
+    box-shadow: 0 8px 24px rgba(26,24,21,0.20), 0 2px 6px rgba(26,24,21,0.12);
+  }
+}
+
+/* ─── Animations ── */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translate(-50%, 16px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+
+.animate-fade-in {
+  animation: fade-in 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-slide-up {
+  animation: slide-up 300ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }

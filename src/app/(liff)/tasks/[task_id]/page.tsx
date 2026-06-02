@@ -22,6 +22,7 @@ export default function TaskDetailPage({ params }: { params: { task_id: string }
     const fetchTask = async () => {
       if (!profile) return;
 
+      const CACHE_FRESH_MS = 60_000;
       const cacheKey = `roots_dashboard_${profile.userId}`;
       const cachedData = localStorage.getItem(cacheKey);
       let parsedCache: any = null;
@@ -32,6 +33,10 @@ export default function TaskDetailPage({ params }: { params: { task_id: string }
           if (found) {
             setTask(found);
             setLoading(false);
+            // キャッシュが新鮮（60秒以内）ならGAS再フェッチをスキップ
+            if (parsedCache.cachedAt && Date.now() - parsedCache.cachedAt < CACHE_FRESH_MS) {
+              return;
+            }
           }
         } catch (e) {}
       }

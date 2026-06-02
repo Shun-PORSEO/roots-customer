@@ -23,6 +23,25 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"incomplete" | "completed">("incomplete");
 
+  // LIFF 初期化を待たずにキャッシュを即時表示する
+  useEffect(() => {
+    const lastUserId = localStorage.getItem("roots_last_user_id");
+    if (!lastUserId) return;
+    const raw = localStorage.getItem(`roots_dashboard_${lastUserId}`);
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed.tasks?.length > 0) {
+        setTasks(parsed.tasks);
+        setWeddingDate(parsed.weddingDate || null);
+        setName1(parsed.name1 || "");
+        setName2(parsed.name2 || "");
+        setIsAdmin(parsed.isAdmin || false);
+        setLoading(false);
+      }
+    } catch {}
+  }, []);
+
   const fetchTasks = useCallback(async () => {
     if (!profile) return;
 
@@ -43,15 +62,12 @@ export default function DashboardPage() {
     }
 
     try {
-      const [resTasks, resUser] = await Promise.all([
-        apiClient.get("getTasks", profile.userId),
-        apiClient.post({ action: "getUser", line_id: profile.userId }),
-      ]);
-      const newTasks = (resTasks.tasks || []) as ITask[];
-      const newWeddingDate = resUser.wedding_date || null;
-      const newName1 = resUser.name1_kana || "";
-      const newName2 = resUser.name2_kana || "";
-      const newIsAdmin = resUser.is_admin || false;
+      const res = await apiClient.get("getTasksAndUser", profile.userId);
+      const newTasks = (res.tasks || []) as ITask[];
+      const newWeddingDate = res.wedding_date || null;
+      const newName1 = res.name1_kana || "";
+      const newName2 = res.name2_kana || "";
+      const newIsAdmin = res.is_admin || false;
 
       setTasks(newTasks);
       setWeddingDate(newWeddingDate);
@@ -66,6 +82,7 @@ export default function DashboardPage() {
         name1: newName1,
         name2: newName2,
         isAdmin: newIsAdmin,
+        cachedAt: Date.now(),
       }));
     } catch (err: any) {
       if (!cachedData) {
@@ -126,7 +143,7 @@ export default function DashboardPage() {
     router.push(`/tasks/${taskId}`);
   };
 
-  if (!isLiffReady || (loading && tasks.length === 0)) {
+  if (loading && tasks.length === 0) {
     return <Spinner fullScreen />;
   }
 

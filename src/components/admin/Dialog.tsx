@@ -37,38 +37,55 @@ export function Dialog({
       role="dialog"
       aria-modal="true"
     >
+      {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/30"
+        className="absolute inset-0 bg-neutral-10/40 backdrop-blur-[2px]"
         onClick={onClose}
         aria-hidden="true"
       />
+
+      {/* Panel */}
       <div
-        className={`relative bg-white rounded-2xl shadow-xl border w-full ${maxWidth} max-h-[90vh] flex flex-col`}
-        style={{ borderColor: "var(--colorBorder)" }}
+        className={`relative bg-white rounded-xl w-full ${maxWidth} max-h-[90vh] flex flex-col animate-fade-in`}
+        style={{
+          border: "1px solid var(--cb)",
+          boxShadow:
+            "0 8px 24px rgba(26,24,21,0.10), 0 32px 64px rgba(26,24,21,0.06)",
+        }}
       >
+        {/* Header */}
         <div
-          className="flex items-center justify-between px-6 py-4 border-b"
-          style={{ borderColor: "var(--colorBorder)" }}
+          className="flex items-center justify-between px-6 py-4 border-b shrink-0"
+          style={{ borderColor: "var(--cb)" }}
         >
-          <h3
-            className="text-lg font-bold"
-            style={{ color: "var(--colorText)" }}
-          >
+          <h3 className="text-[16px] font-bold" style={{ color: "var(--ct)" }}>
             {title}
           </h3>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-xl leading-none"
+            className="w-7 h-7 rounded-md flex items-center justify-center text-[18px] leading-none transition-colors"
+            style={{ color: "var(--ct-muted)" }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLElement).style.background =
+                "var(--cs-muted)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLElement).style.background = "transparent";
+            }}
             aria-label="閉じる"
           >
             ×
           </button>
         </div>
+
+        {/* Body */}
         <div className="px-6 py-5 overflow-y-auto flex-1">{children}</div>
+
+        {/* Footer */}
         {footer && (
           <div
-            className="px-6 py-4 border-t flex justify-end gap-2"
-            style={{ borderColor: "var(--colorBorder)" }}
+            className="px-6 py-4 border-t shrink-0 flex justify-end gap-2"
+            style={{ borderColor: "var(--cb)", background: "var(--cs-page)" }}
           >
             {footer}
           </div>

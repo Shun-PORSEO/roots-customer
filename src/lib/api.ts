@@ -30,6 +30,17 @@ export const apiClient = {
       if (action === "getTasks") {
         return { status: "ok", tasks: MOCK_TASKS };
       }
+      if (action === "getTasksAndUser") {
+        const date = localStorage.getItem("mock_wedding_date");
+        return {
+          status: "ok",
+          tasks: MOCK_TASKS,
+          wedding_date: date || undefined,
+          name1_kana: localStorage.getItem("mock_name1") || "",
+          name2_kana: localStorage.getItem("mock_name2") || "",
+          is_admin: localStorage.getItem("mock_is_admin") === "true",
+        };
+      }
       if (action === "getVenues") {
         return { status: "ok", venues: MOCK_VENUES };
       }

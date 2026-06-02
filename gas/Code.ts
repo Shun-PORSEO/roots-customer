@@ -15,7 +15,7 @@ function doGetLiff(e: any) {
       return responseJSON({ status: "error", message: "Unauthorized" });
     }
 
-    if (action === "getTasks") {
+    if (action === "getTasks" || action === "getTasksAndUser") {
       const customer = getCustomer(lineId);
       if (!customer) {
         return responseJSON({ status: "error", message: "Customer not found" });
@@ -71,6 +71,20 @@ function doPost(e: any) {
 
     if (!lineId) {
       return responseJSON({ status: "error", message: "Unauthorized" });
+    }
+
+    const ADMIN_ACTIONS = [
+      "getUsers", "getUsersWithProgress", "getAdminUserTasks",
+      "toggleTaskVisibility", "addCustomTask", "deleteCustomTask",
+      "getMessageDrafts", "updateDraftStatus", "updateDraftMessage",
+      "getVenueDetail", "updateTaskManualUrl", "getVenueTasks",
+      "updateTaskMaster", "getTaskItemTemplates", "addTaskItemTemplate",
+    ];
+    if (ADMIN_ACTIONS.includes(action)) {
+      const caller = getCustomer(lineId);
+      if (!caller?.is_admin) {
+        return responseJSON({ status: "error", message: "Forbidden" });
+      }
     }
 
     if (action === "getUser") {
