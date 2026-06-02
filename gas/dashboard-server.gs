@@ -355,7 +355,17 @@ function testLineSend(taskId, venueId) {
 
 function syncBaseTasks() {
   try {
-    return _syncAllVenuesWithBaseTasks();
+    const r = _syncAllVenuesWithBaseTasks();
+    // base/式場タスクの手配物テンプレも全カップルへ反映
+    try {
+      const items = syncTaskItemTemplatesToAllCustomers();
+      r.items_added   = items.added;
+      r.items_skipped = items.skipped;
+    } catch (ie) {
+      r.items_added = 0;
+      r.items_error = ie.message;
+    }
+    return r;
   } catch (e) { throw new Error(e.message); }
 }
 
@@ -404,6 +414,8 @@ function addCustomer(data) {
       // Old schema — no venue_id column
       createCustomer(data.line_id, data.wedding_date, data.name1_kana || '', data.name2_kana || '');
     }
+    // 新規カップルに手配物テンプレを自動コピー（失敗しても登録自体は成功扱い）
+    try { copyTaskItemTemplatesToCustomer(data.line_id); } catch (ie) {}
     return { ok: true };
   } catch (e) { throw new Error(e.message); }
 }
@@ -707,4 +719,157 @@ function debugSchedule() {
   };
   console.log(JSON.stringify(summary, null, 2));
   return summary;
+}
+
+// ─── Task Items (手配物) + テンプレート functions ──────────────────────────────
+
+function getDashboardTaskItems(lineId) {
+  try {
+    const sheet = _s('task_items');
+    if (!sheet) return [];
+    const m = _colMap(sheet);
+    const data = sheet.getDataRange().getValues();
+    const items = [];
+    for (var i = 1; i < data.length; i++) {
+      if (!data[i][0]) continue;
+      var r = data[i];
+      var itemLineId = m['line_id'] !== undefined ? String(r[m['line_id']] || '') : '';
+      if (itemLineId !== lineId) continue;
+      items.push({
+        item_id:   String(r[m['item_id']]   || r[0]),
+        task_id:   String(r[m['task_id']]   || ''),
+        line_id:   itemLineId,
+        item_name: String(r[m['item_name']] || ''),
+        quantity:  Number(r[m['quantity']]  || 1),
+        is_done:   _bool(r[m['is_done']]   || false),
+        memo:      m['memo'] !== undefined ? String(r[m['memo']] || '') : '',
+      });
+    }
+    return items;
+  } catch (e) { throw new Error(e.message); }
+}
+
+function addDashboardTaskItem(lineId, taskId, itemName, quantity) {
+  try {
+    const sheet = _s('task_items');
+    if (!sheet) throw new Error('task_items sheet not found');
+    const m = _colMap(sheet);
+    const itemId = 'ITEM-' + Date.now();
+    if (Object.keys(m).length > 0) {
+      var maxCol = Math.max.apply(null, Object.values(m));
+      var row = new Array(maxCol + 1).fill('');
+      if (m['item_id']   !== undefined) row[m['item_id']]   = itemId;
+      if (m['task_id']   !== undefined) row[m['task_id']]   = taskId;
+      if (m['line_id']   !== undefined) row[m['line_id']]   = lineId;
+      if (m['item_name'] !== undefined) row[m['item_name']] = itemName;
+      if (m['quantity']  !== undefined) row[m['quantity']]  = quantity || 1;
+      if (m['is_done']   !== undefined) row[m['is_done']]   = false;
+      if (m['memo']      !== undefined) row[m['memo']]      = '';
+      if (m['created_at']!== undefined) row[m['created_at']]= new Date().toISOString();
+      sheet.appendRow(row);
+    } else {
+      sheet.appendRow([itemId, taskId, lineId, itemName, quantity || 1, false, '', new Date().toISOString()]);
+    }
+    return { ok: true, item_id: itemId, item_name: itemName, quantity: quantity || 1, is_done: false };
+  } catch (e) { throw new Error(e.message); }
+}
+
+function updateDashboardTaskItem(itemId, patch) {
+  try {
+    const sheet = _s('task_items');
+    if (!sheet) throw new Error('task_items sheet not found');
+    const m = _colMap(sheet);
+    const data = sheet.getDataRange().getValues();
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][0]) !== itemId) continue;
+      if (patch.item_name !== undefined && m['item_name'] !== undefined)
+        sheet.getRange(i + 1, m['item_name'] + 1).setValue(patch.item_name);
+      if (patch.quantity  !== undefined && m['quantity']  !== undefined)
+        sheet.getRange(i + 1, m['quantity']  + 1).setValue(Number(patch.quantity));
+      if (patch.is_done   !== undefined && m['is_done']   !== undefined)
+        sheet.getRange(i + 1, m['is_done']   + 1).setValue(_bool(patch.is_done));
+      return { ok: true };
+    }
+    throw new Error('Item not found: ' + itemId);
+  } catch (e) { throw new Error(e.message); }
+}
+
+function deleteDashboardTaskItem(itemId) {
+  try {
+    const sheet = _s('task_items');
+    if (!sheet) throw new Error('task_items sheet not found');
+    const data = sheet.getDataRange().getValues();
+    for (var i = data.length - 1; i >= 1; i--) {
+      if (String(data[i][0]) === itemId) {
+        sheet.deleteRow(i + 1);
+        return { ok: true };
+      }
+    }
+    throw new Error('Item not found: ' + itemId);
+  } catch (e) { throw new Error(e.message); }
+}
+
+// ─── 手配物テンプレート（line_id="" の task_items を base/式場タスクに紐づけ）──────
+
+// 指定タスクの手配物テンプレ（line_id が空の行）を返す
+function getTaskItemTemplatesForTask(taskId) {
+  try {
+    return getDashboardTaskItems('').filter(function (it) { return it.task_id === taskId; });
+  } catch (e) { throw new Error(e.message); }
+}
+
+// 手配物テンプレを追加（line_id を空で登録）
+function addTaskItemTemplate(taskId, itemName, quantity) {
+  try {
+    if (!taskId || !String(itemName || '').trim()) throw new Error('task_id / 手配物名 は必須です');
+    return addDashboardTaskItem('', taskId, String(itemName).trim(), quantity || 1);
+  } catch (e) { throw new Error(e.message); }
+}
+
+// task_id → venue_id のマップ（テンプレ反映の対象判定に使用）
+function _taskVenueMap() {
+  const map = {};
+  _readTaskSheet(true).forEach(function (t) { map[t.task_id] = t.venue_id || ''; });
+  return map;
+}
+
+// 1組のカップルに、関連タスクの手配物テンプレをコピー（重複はスキップ）
+function copyTaskItemTemplatesToCustomer(lineId) {
+  try {
+    const custs = _readCustomers(null);
+    let venueId = '';
+    for (let i = 0; i < custs.length; i++) {
+      if (custs[i].line_id === lineId) { venueId = custs[i].venue_id; break; }
+    }
+    const taskVenue = _taskVenueMap();
+    const templates = getDashboardTaskItems('');           // 全テンプレ
+    const existing  = getDashboardTaskItems(lineId);       // このカップルの既存手配物
+    const existKey = {};
+    existing.forEach(function (it) { existKey[it.task_id + '\u0000' + it.item_name] = true; });
+    let added = 0, skipped = 0;
+    templates.forEach(function (tpl) {
+      if (!(tpl.task_id in taskVenue)) { skipped++; return; }        // タスクが存在しない
+      const tv = taskVenue[tpl.task_id];
+      if (tv && tv !== venueId) { skipped++; return; }               // 別式場専用タスク
+      const key = tpl.task_id + '\u0000' + tpl.item_name;
+      if (existKey[key]) { skipped++; return; }                      // 既にコピー済み
+      addDashboardTaskItem(lineId, tpl.task_id, tpl.item_name, tpl.quantity);
+      existKey[key] = true;
+      added++;
+    });
+    return { ok: true, added: added, skipped: skipped };
+  } catch (e) { throw new Error(e.message); }
+}
+
+// 全カップルに手配物テンプレを反映
+function syncTaskItemTemplatesToAllCustomers() {
+  try {
+    const custs = _readCustomers(null);
+    let added = 0, skipped = 0;
+    custs.forEach(function (c) {
+      const r = copyTaskItemTemplatesToCustomer(c.line_id);
+      added += r.added; skipped += r.skipped;
+    });
+    return { ok: true, customers: custs.length, added: added, skipped: skipped };
+  } catch (e) { throw new Error(e.message); }
 }

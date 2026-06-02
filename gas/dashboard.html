@@ -191,7 +191,7 @@ a:hover{text-decoration:underline}
 .sys-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:16px}
 .sys-card{background:var(--surface);border-radius:var(--r);box-shadow:var(--shadow);padding:24px;border:1px solid var(--border);transition:box-shadow .15s}
 .sys-card:hover{box-shadow:var(--shadow-md)}
-.sys-card__icon{font-size:28px;margin-bottom:12px}
+.sys-card__icon{margin-bottom:12px;color:var(--text)}
 .sys-card__title{font-weight:600;margin-bottom:6px;font-size:15px;letter-spacing:-.01em}
 .sys-card__desc{font-size:12px;color:var(--text-sub);margin-bottom:16px;line-height:1.6}
 .sys-result{margin-top:12px;padding:10px 12px;border-radius:calc(var(--r) - 2px);font-size:12px;border:1px solid transparent}
@@ -218,7 +218,6 @@ a:hover{text-decoration:underline}
 .items-panel{border-top:1px solid var(--border);padding:10px 12px;background:var(--bg)}
 .item-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)}
 .item-row:last-child{border-bottom:none}
-.item-row input[type=checkbox]{width:15px;height:15px;accent-color:var(--primary);flex-shrink:0;cursor:pointer}
 .item-name-input{flex:1;font-size:12.5px;border:1px solid transparent;background:transparent;outline:none;min-width:0;padding:2px 6px;border-radius:5px;transition:background-color .12s,border-color .12s}
 .item-name-input:hover{background:var(--primary-bg)}
 .item-name-input:focus{background:#fff;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-ring)}
@@ -245,6 +244,24 @@ a:hover{text-decoration:underline}
 .info-row{display:flex;gap:12px;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px}
 .info-row:last-child{border-bottom:none}
 .info-row__label{min-width:120px;color:var(--text-sub);font-size:12px}
+
+/* ─── SVG icons (monochrome, inherits currentColor) ─── */
+.ic{width:16px;height:16px;display:inline-block;vertical-align:-3px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.ic--sm{width:14px;height:14px;vertical-align:-2px;stroke-width:2}
+.ic--lg{width:24px;height:24px}
+
+/* ─── Custom checkbox (clean black check, replaces emoji/native) ─── */
+.chk{appearance:none;-webkit-appearance:none;width:18px;height:18px;border:1.6px solid #C7C7CC;border-radius:5px;background:#fff;cursor:pointer;position:relative;flex-shrink:0;transition:background-color .12s,border-color .12s;margin:0}
+.chk:hover{border-color:var(--text)}
+.chk:checked{background:var(--text);border-color:var(--text)}
+.chk:checked::after{content:'';position:absolute;left:5px;top:1px;width:5px;height:10px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.chk:focus-visible{outline:none;box-shadow:0 0 0 3px var(--primary-ring)}
+
+/* ─── Centered sheet (large center panel for couple tasks) ─── */
+.sheet-overlay{position:fixed;inset:0;background:rgb(0 0 0 / .5);z-index:95;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(2px);padding:24px;animation:fadeIn .15s ease}
+.sheet{width:840px;max-width:100%;max-height:90vh;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow-lg);overflow-y:auto;padding:30px 34px;animation:dialogIn .18s ease}
+.sheet .drawer__section{margin-bottom:24px}
+@media(max-width:600px){.sheet{padding:22px}}
 
 /* ─── Schedule / Calendar ─────────────────────────────── */
 .sched-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:20px}
@@ -298,12 +315,12 @@ a:hover{text-decoration:underline}
   <nav class="sidebar">
     <div class="sidebar__logo">Roots <span>admin</span></div>
     <ul class="sidebar__nav" id="nav-list">
-      <li class="sidebar__item active" data-s="schedule">📅 タスクカレンダー <span class="stale-dot" id="dot-schedule"></span></li>
-      <li class="sidebar__item" data-s="venues">🏛 式場管理 <span class="stale-dot" id="dot-venues"></span></li>
-      <li class="sidebar__item" data-s="tasks">📋 タスクマスター <span class="stale-dot" id="dot-tasks"></span></li>
-      <li class="sidebar__item" data-s="customers">💍 カップル管理 <span class="stale-dot" id="dot-customers"></span></li>
-      <li class="sidebar__item" data-s="logs">📨 送信ログ <span class="stale-dot" id="dot-logs"></span></li>
-      <li class="sidebar__item" data-s="system">⚙️ システム</li>
+      <li class="sidebar__item active" data-s="schedule"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> タスクカレンダー <span class="stale-dot" id="dot-schedule"></span></li>
+      <li class="sidebar__item" data-s="venues"><svg class="ic" viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-3M9 9h.01M9 13h.01M9 17h.01"/></svg> 式場管理 <span class="stale-dot" id="dot-venues"></span></li>
+      <li class="sidebar__item" data-s="tasks"><svg class="ic" viewBox="0 0 24 24"><path d="M9 2h6a1 1 0 0 1 1 1v2H8V3a1 1 0 0 1 1-1zM8 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2"/></svg> タスクマスター <span class="stale-dot" id="dot-tasks"></span></li>
+      <li class="sidebar__item" data-s="customers"><svg class="ic" viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg> カップル管理 <span class="stale-dot" id="dot-customers"></span></li>
+      <li class="sidebar__item" data-s="logs"><svg class="ic" viewBox="0 0 24 24"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M22 6l-10 7L2 6"/></svg> 送信ログ <span class="stale-dot" id="dot-logs"></span></li>
+      <li class="sidebar__item" data-s="system"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> システム</li>
     </ul>
     <div class="sidebar__footer">Roots DB Admin</div>
   </nav>
@@ -312,7 +329,7 @@ a:hover{text-decoration:underline}
 
 <div id="modal-ov" class="modal-overlay hidden">
   <div class="modal-card">
-    <button class="modal-close" id="modal-close-btn">✕</button>
+    <button class="modal-close" id="modal-close-btn"><svg class="ic" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
     <div id="modal-body"></div>
   </div>
 </div>
@@ -321,6 +338,12 @@ a:hover{text-decoration:underline}
   <aside class="drawer" id="drawer-panel">
     <div id="drawer-body"></div>
   </aside>
+</div>
+
+<div id="sheet-ov" class="sheet-overlay hidden">
+  <div class="sheet" id="sheet-panel">
+    <div id="sheet-body"></div>
+  </div>
 </div>
 
 <div id="confirm-ov" class="confirm-overlay hidden">
@@ -439,6 +462,14 @@ function openDrawer(html) {
 }
 function closeDrawer() { document.getElementById('drawer-ov').classList.add('hidden'); }
 
+function openSheet(html) {
+  document.getElementById('sheet-body').innerHTML = html;
+  var ov = document.getElementById('sheet-ov');
+  ov.classList.remove('hidden');
+  ov.scrollTop = 0;
+}
+function closeSheet() { document.getElementById('sheet-ov').classList.add('hidden'); }
+
 function confirmDialog(msg, onOk) {
   document.getElementById('confirm-msg').textContent = msg;
   document.getElementById('confirm-ov').classList.remove('hidden');
@@ -456,6 +487,36 @@ function esc(s) {
 }
 function trunc(s,n){ return s&&s.length>n ? s.slice(0,n)+'…' : (s||''); }
 
+// ─── SVG icon helper (monochrome, inherits currentColor) ──
+var ICONS = {
+  building:'<path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-3M9 9h.01M9 13h.01M9 17h.01"/>',
+  clipboard:'<path d="M9 2h6a1 1 0 0 1 1 1v2H8V3a1 1 0 0 1 1-1zM8 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2"/>',
+  heart:'<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/>',
+  mail:'<path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M22 6l-10 7L2 6"/>',
+  users:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+  inbox:'<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>',
+  refresh:'<path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>',
+  pause:'<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>',
+  play:'<path d="M5 3l16 9-16 9V3z"/>',
+  send:'<path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>',
+  trash:'<path d="M3 6h18M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+  alert:'<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/>',
+  bag:'<path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18M16 10a4 4 0 0 1-8 0"/>',
+  calendar:'<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+  wrench:'<path d="M14.7 6.3a4 4 0 0 0-5.2 5.2l-6.1 6.1a1.5 1.5 0 0 0 2.1 2.1l6.1-6.1a4 4 0 0 0 5.2-5.2l-2.4 2.4-2.1-2.1 2.4-2.4z"/>',
+  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  check:'<path d="M20 6L9 17l-5-5"/>',
+  xcircle:'<circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6M9 9l6 6"/>',
+  bolt:'<path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  minus:'<path d="M5 12h14"/>',
+  x:'<path d="M18 6L6 18M6 6l12 12"/>',
+  chevron:'<path d="M9 6l6 6-6 6"/>'
+};
+function ic(name, cls) {
+  return '<svg class="ic'+(cls?' '+cls:'')+'" viewBox="0 0 24 24" aria-hidden="true">'+(ICONS[name]||'')+'</svg>';
+}
+
 function badgeStatus(status) {
   var map={sent:'green',pending:'orange',failed:'red'};
   return '<span class="badge badge--'+(map[status]||'grey')+'">'+esc(status)+'</span>';
@@ -469,7 +530,7 @@ function venueOptions(venues, selected) {
 }
 
 function staleBanner() {
-  return '<div class="stale-banner" id="stale-banner">⚡ キャッシュを表示中 — バックグラウンドで更新しています…</div>';
+  return '<div class="stale-banner" id="stale-banner">'+ic('bolt','ic--sm')+' キャッシュを表示中 — バックグラウンドで更新しています…</div>';
 }
 
 // ─── Navigation ───────────────────────────────────────────
@@ -484,8 +545,9 @@ document.getElementById('nav-list').addEventListener('click', function(e){
 document.getElementById('modal-close-btn').addEventListener('click', closeModal);
 document.getElementById('modal-ov').addEventListener('click', function(e){ if(e.target===this) closeModal(); });
 document.getElementById('drawer-ov').addEventListener('click', function(e){ if(e.target===this) closeDrawer(); });
+document.getElementById('sheet-ov').addEventListener('click', function(e){ if(e.target===this) closeSheet(); });
 document.addEventListener('keydown', function(e){
-  if(e.key==='Escape'){ closeModal(); closeDrawer(); document.getElementById('confirm-ov').classList.add('hidden'); }
+  if(e.key==='Escape'){ closeModal(); closeDrawer(); closeSheet(); document.getElementById('confirm-ov').classList.add('hidden'); }
 });
 
 function renderSection(s) {
@@ -586,7 +648,7 @@ function renderScheduleUI(entries, range, isStale) {
         // 左: 直近の手配タスク
         '<div class="sched-panel">' +
           '<div class="sched-panel__head">' +
-            '<div><div class="sched-panel__title">🚨 直近の手配タスク</div><div class="sched-panel__sub">期限切れ・今日〜14日以内の未完了</div></div>' +
+            '<div><div class="sched-panel__title" style="display:flex;align-items:center;gap:6px">'+ic('alert','ic--sm')+' 直近の手配タスク</div><div class="sched-panel__sub">期限切れ・今日〜14日以内の未完了</div></div>' +
           '</div>' +
           '<div class="sched-panel__body">' + renderUpcomingRows(upcoming, todayIso) + '</div>' +
         '</div>' +
@@ -594,7 +656,7 @@ function renderScheduleUI(entries, range, isStale) {
         // 右: 月カレンダー
         '<div class="sched-panel">' +
           '<div class="sched-panel__head">' +
-            '<div><div class="sched-panel__title">📅 月カレンダー</div><div class="sched-panel__sub">日付クリックで詳細</div></div>' +
+            '<div><div class="sched-panel__title" style="display:flex;align-items:center;gap:6px">'+ic('calendar','ic--sm')+' 月カレンダー</div><div class="sched-panel__sub">日付クリックで詳細</div></div>' +
             '<div class="cal-nav">' +
               '<button class="btn btn--outline btn--xs" id="cal-prev">‹</button>' +
               '<span class="cal-nav__title">'+range.y+'年 '+range.m+'月</span>' +
@@ -636,8 +698,8 @@ function renderUpcomingRows(upcoming, todayIso) {
           diffBadge +
         '</div>' +
         '<div class="upcoming-row__meta">' +
-          '<span>💍 '+esc(e.couple_name)+'</span>' +
-          (e.venue_name?'<span>🏛 '+esc(e.venue_name)+'</span>':'') +
+          '<span style="display:inline-flex;align-items:center;gap:3px">'+ic('heart','ic--sm')+' '+esc(e.couple_name)+'</span>' +
+          (e.venue_name?'<span style="display:inline-flex;align-items:center;gap:3px">'+ic('building','ic--sm')+' '+esc(e.venue_name)+'</span>':'') +
           (e.category?'<span>'+esc(e.category)+'</span>':'') +
           (e.due_estimate?'<span class="text-sub">'+esc(e.due_estimate)+'</span>':'') +
         '</div>' +
@@ -748,8 +810,8 @@ function openDayDrawer(iso, entries) {
           '<div class="task-item__body">' +
             '<div class="task-item__title">'+esc(e.task_content)+'</div>' +
             '<div class="task-item__meta">' +
-              '<span>💍 '+esc(e.couple_name)+'</span>' +
-              (e.venue_name?'<span>🏛 '+esc(e.venue_name)+'</span>':'') +
+              '<span style="display:inline-flex;align-items:center;gap:3px">'+ic('heart','ic--sm')+' '+esc(e.couple_name)+'</span>' +
+              (e.venue_name?'<span style="display:inline-flex;align-items:center;gap:3px">'+ic('building','ic--sm')+' '+esc(e.venue_name)+'</span>':'') +
               (e.category?'<span>'+esc(e.category)+'</span>':'') +
               diffBadge +
               (e.is_done?'<span class="badge badge--green">完了</span>':'') +
@@ -761,7 +823,7 @@ function openDayDrawer(iso, entries) {
   }
 
   openDrawer(
-    '<div class="drawer__title"><span>📅 '+esc(label)+'</span><button class="btn btn--sm btn--outline" onclick="closeDrawer()">閉じる</button></div>' +
+    '<div class="drawer__title"><span style="display:inline-flex;align-items:center;gap:6px">'+ic('calendar')+' '+esc(label)+'</span><button class="btn btn--sm btn--outline" onclick="closeDrawer()">閉じる</button></div>' +
     '<div class="drawer__section"><div class="drawer__section-label">'+list.length+'件のタスク</div>' + body + '</div>'
   );
   document.querySelectorAll('#drawer-body .task-item[data-line-id]').forEach(function(item){
@@ -784,7 +846,7 @@ function renderVenues() {
         staleBanner() +
         '<div class="section__header">' +
           '<div><h1 class="section__title">式場管理</h1><p class="section__sub">'+venues.length+'件登録</p></div>' +
-          '<div class="section__actions"><button class="btn btn--primary" id="add-venue-btn">＋ 式場を追加</button></div>' +
+          '<div class="section__actions"><button class="btn btn--primary" id="add-venue-btn">'+ic('plus','ic--sm')+' 式場を追加</button></div>' +
         '</div>' +
         '<div class="cards" id="venue-cards">'+renderVenueCards(venues)+'</div>' +
       '</div>';
@@ -806,8 +868,8 @@ function renderVenueCards(venues) {
       '</div>' +
       '<div class="card__name">'+esc(v.venue_name)+'</div>' +
       '<div class="card__meta">' +
-        '<span>👫 '+( v.couple_count||0)+' 組</span>' +
-        '<span>📬 未送信 '+(v.pending_drafts||0)+'</span>' +
+        '<span style="display:inline-flex;align-items:center;gap:3px">'+ic('users','ic--sm')+' '+( v.couple_count||0)+' 組</span>' +
+        '<span style="display:inline-flex;align-items:center;gap:3px">'+ic('inbox','ic--sm')+' 未送信 '+(v.pending_drafts||0)+'</span>' +
         '<span class="badge '+(v.active?'badge--green':'badge--grey')+'">'+(v.active?'稼働中':'停止')+'</span>' +
       '</div>' +
     '</div>';
@@ -866,7 +928,7 @@ function openVenueDrawer(venueId) {
   var v = state.venues.find(function(x){return x.venue_id===venueId;});
   if (!v) return;
   openDrawer(
-    '<div class="drawer__title"><span>🏛 '+esc(v.venue_name)+'</span><button class="btn btn--sm btn--outline" onclick="closeDrawer()">閉じる</button></div>' +
+    '<div class="drawer__title"><span style="display:inline-flex;align-items:center;gap:6px">'+ic('building')+' '+esc(v.venue_name)+'</span><button class="btn btn--sm btn--outline" onclick="closeDrawer()">閉じる</button></div>' +
     '<div class="drawer__section">' +
       '<div class="drawer__section-label">基本情報</div>' +
       ir('式場ID', v.venue_id) + ir('プランナー LINE ID', v.planner_line_user_id||'—') +
@@ -906,9 +968,9 @@ function renderTasksUI(tasks, isStale) {
       '<div class="section__header">' +
         '<div><h1 class="section__title">タスクマスター管理</h1><p class="section__sub">'+tasks.length+'件表示</p></div>' +
         '<div class="section__actions">' +
-          '<button class="btn btn--outline btn--sm" id="btn-sync-base">🔄 全式場に同期</button>' +
-          '<button class="btn btn--outline btn--sm" id="btn-add-venue-task">＋ 式場別タスク</button>' +
-          '<button class="btn btn--primary btn--sm" id="btn-add-base-task">＋ base task</button>' +
+          '<button class="btn btn--outline btn--sm" id="btn-sync-base">'+ic('refresh','ic--sm')+' 全式場に同期</button>' +
+          '<button class="btn btn--outline btn--sm" id="btn-add-venue-task">'+ic('plus','ic--sm')+' 式場別タスク</button>' +
+          '<button class="btn btn--primary btn--sm" id="btn-add-base-task">'+ic('plus','ic--sm')+' base task</button>' +
         '</div>' +
       '</div>' +
       '<div class="filter-bar">' +
@@ -933,7 +995,8 @@ function renderTasksUI(tasks, isStale) {
   document.getElementById('btn-sync-base').addEventListener('click', function(){
     confirmDialog('base task を全式場に同期します。実行しますか？', function(){
       api('syncBaseTasks', [], function(r){
-        toast('同期完了: 追加 '+r.added+'件 / スキップ '+r.skipped+'件','success');
+        var itemMsg = (r.items_added!==undefined) ? ' / 手配物 '+r.items_added+'件' : '';
+        toast('同期完了: タスク追加 '+r.added+'件 / スキップ '+r.skipped+'件'+itemMsg,'success');
         swrCache.set('tasks_base', null);
         loadAndRenderTasks();
       });
@@ -946,7 +1009,7 @@ function renderTaskRows(tasks) {
   if (!tasks.length) return '<tr><td colspan="8" class="empty">タスクがありません</td></tr>';
   return tasks.map(function(t){
     var isCustom = t.task_id.startsWith('CUST-') || t.task_id.includes('-CUST-');
-    return '<tr data-task-id="'+esc(t.task_id)+'">' +
+    return '<tr data-task-id="'+esc(t.task_id)+'" data-content="'+esc(t.task_content)+'">' +
       '<td><span class="tag">'+esc(t.task_id)+'</span></td>' +
       '<td>'+(t.venue_id?'<span class="tag">'+esc(t.venue_id)+'</span>':'<span class="text-sub">—</span>')+'</td>' +
       '<td class="editable-cell" data-field="category">'+esc(t.category)+'</td>' +
@@ -955,9 +1018,10 @@ function renderTaskRows(tasks) {
       '<td class="editable-cell" data-field="reminder_message" style="max-width:160px">'+esc(trunc(t.reminder_message,28))+'</td>' +
       '<td>'+(t.is_active?'<span class="badge badge--green">有効</span>':'<span class="badge badge--grey">停止</span>')+'</td>' +
       '<td><div class="actions">' +
-        '<button class="btn btn--icon btn--outline task-toggle-btn" title="'+(t.is_active?'停止':'有効化')+'">'+(t.is_active?'⏸':'▶')+'</button>' +
-        '<button class="btn btn--icon btn--outline task-test-btn"'+(!t.venue_id?' disabled':'')+' title="LINEテスト送信">💌</button>' +
-        (isCustom?'<button class="btn btn--icon btn--outline task-del-btn" title="削除">🗑</button>':'') +
+        '<button class="btn btn--icon btn--outline task-items-btn" title="手配物を設定">'+ic('bag','ic--sm')+'</button>' +
+        '<button class="btn btn--icon btn--outline task-toggle-btn" title="'+(t.is_active?'停止':'有効化')+'">'+(t.is_active?ic('pause','ic--sm'):ic('play','ic--sm'))+'</button>' +
+        '<button class="btn btn--icon btn--outline task-test-btn"'+(!t.venue_id?' disabled':'')+' title="LINEテスト送信">'+ic('send','ic--sm')+'</button>' +
+        (isCustom?'<button class="btn btn--icon btn--outline task-del-btn" title="削除">'+ic('trash','ic--sm')+'</button>':'') +
       '</div></td>' +
     '</tr>';
   }).join('');
@@ -1022,6 +1086,107 @@ function bindTaskTableEvents() {
         toast('削除しました','success');
         swrCache.set('tasks_'+(state.taskFilter.venueId||'base'), null);
         loadAndRenderTasks();
+      });
+    });
+  });
+  tbody.addEventListener('click', function(e){
+    var btn = e.target.closest('.task-items-btn');
+    if(!btn) return;
+    var tr = btn.closest('tr');
+    openTaskItemTemplateModal(tr.dataset.taskId, tr.dataset.content||'');
+  });
+}
+
+// ─── 手配物テンプレート（base/式場タスクに紐づく標準手配物）─────────
+function openTaskItemTemplateModal(taskId, taskContent) {
+  openModal(
+    '<h2 style="display:flex;align-items:center;gap:8px">'+ic('bag')+' 手配物テンプレート</h2>' +
+    '<p style="font-size:12px;color:var(--text-sub);margin:-12px 0 16px;line-height:1.6">'+esc(trunc(taskContent,60))+
+      '<br><span class="tag" style="margin-top:6px">'+esc(taskId)+'</span></p>' +
+    '<div style="background:var(--primary-bg);border:1px solid var(--border);border-radius:calc(var(--r) - 2px);padding:9px 12px;font-size:11.5px;color:var(--text-sub);margin-bottom:14px;line-height:1.6;display:flex;gap:6px;align-items:flex-start">'+
+      ic('alert','ic--sm')+'<span>ここで登録した手配物は、「全式場に同期」やカップル新規登録時に各カップルへ自動コピーされます。</span></div>' +
+    '<div id="tpl-items-wrap"><div style="display:flex;justify-content:center;padding:20px"><div class="spinner"></div></div></div>'
+  );
+  loadTaskItemTemplates(taskId);
+}
+
+function loadTaskItemTemplates(taskId) {
+  google.script.run
+    .withSuccessHandler(function(items){ renderTaskItemTemplates(taskId, items||[]); })
+    .withFailureHandler(function(e){ toast((e&&e.message)||'読み込み失敗','error'); })
+    .getTaskItemTemplatesForTask(taskId);
+}
+
+function renderTaskItemTemplates(taskId, items) {
+  var wrap = document.getElementById('tpl-items-wrap');
+  if (!wrap) return;
+  var rows = items.length
+    ? items.map(function(it){
+        return '<div class="item-row" data-item-id="'+esc(it.item_id)+'">' +
+          '<input type="text" class="item-name-input tpl-name" value="'+esc(it.item_name)+'" data-item-id="'+esc(it.item_id)+'">' +
+          '<div class="item-qty-wrap">' +
+            '<button class="item-qty-btn tpl-qty-minus" data-item-id="'+esc(it.item_id)+'">'+ic('minus','ic--sm')+'</button>' +
+            '<span class="item-qty" id="tplqty-'+esc(it.item_id)+'">'+it.quantity+'</span>' +
+            '<button class="item-qty-btn tpl-qty-plus" data-item-id="'+esc(it.item_id)+'">'+ic('plus','ic--sm')+'</button>' +
+          '</div>' +
+          '<button class="item-del-btn tpl-del" data-item-id="'+esc(it.item_id)+'" title="削除">'+ic('trash','ic--sm')+'</button>' +
+        '</div>';
+      }).join('')
+    : '<p style="font-size:11.5px;color:var(--text-sub);padding:6px 0 10px">手配物テンプレートはまだありません</p>';
+  wrap.innerHTML =
+    '<div class="items-panel" style="border-top:none;border-radius:calc(var(--r) - 2px);border:1px solid var(--border)">' +
+      rows +
+      '<div class="item-add-row">' +
+        '<input class="item-add-input tpl-add-name" type="text" placeholder="手配物名（例: メインドレス）">' +
+        '<input class="item-add-qty tpl-add-qty" type="number" min="1" value="1">' +
+        '<button class="btn btn--sm btn--primary tpl-add-btn">追加</button>' +
+      '</div>' +
+    '</div>';
+  bindTaskItemTemplateEvents(taskId);
+}
+
+function bindTaskItemTemplateEvents(taskId) {
+  var wrap = document.getElementById('tpl-items-wrap');
+  if (!wrap) return;
+  wrap.querySelector('.tpl-add-btn').addEventListener('click', function(){
+    var nameInp = wrap.querySelector('.tpl-add-name');
+    var qtyInp  = wrap.querySelector('.tpl-add-qty');
+    var name = nameInp.value.trim();
+    if (!name){ toast('手配物名を入力してください','error'); return; }
+    var qty = parseInt(qtyInp.value,10)||1;
+    api('addTaskItemTemplate',[taskId,name,qty],function(){
+      nameInp.value=''; qtyInp.value='1';
+      loadTaskItemTemplates(taskId);
+      toast('追加しました','success');
+    });
+  });
+  wrap.addEventListener('blur', function(e){
+    var inp = e.target.closest('.tpl-name');
+    if (!inp) return;
+    var val = inp.value.trim();
+    if (!val) return;
+    api('updateDashboardTaskItem',[inp.dataset.itemId,{item_name:val}],function(){ toast('保存しました','success'); });
+  }, true);
+  wrap.addEventListener('click', function(e){
+    var minus = e.target.closest('.tpl-qty-minus');
+    var plus  = e.target.closest('.tpl-qty-plus');
+    var btn = minus || plus;
+    if (!btn) return;
+    var id = btn.dataset.itemId;
+    var qEl = document.getElementById('tplqty-'+id);
+    var cur = parseInt(qEl.textContent,10)||1;
+    var next = minus ? Math.max(1,cur-1) : cur+1;
+    qEl.textContent = next;
+    api('updateDashboardTaskItem',[id,{quantity:next}],function(){});
+  });
+  wrap.addEventListener('click', function(e){
+    var btn = e.target.closest('.tpl-del');
+    if (!btn) return;
+    var id = btn.dataset.itemId;
+    confirmDialog('この手配物テンプレートを削除しますか？', function(){
+      api('deleteDashboardTaskItem',[id],function(){
+        loadTaskItemTemplates(taskId);
+        toast('削除しました','success');
       });
     });
   });
@@ -1097,7 +1262,7 @@ function renderCustomersUI(customers, isStale) {
       staleBanner() +
       '<div class="section__header">' +
         '<div><h1 class="section__title">カップル管理</h1><p class="section__sub">'+customers.length+'組登録</p></div>' +
-        '<button class="btn btn--primary" id="add-customer-btn">＋ カップルを追加</button>' +
+        '<button class="btn btn--primary" id="add-customer-btn">'+ic('plus','ic--sm')+' カップルを追加</button>' +
       '</div>' +
       '<div class="filter-bar"><select id="cust-venue-filter">'+venueOptions(state.venues, state.customerFilter.venueId)+'</select></div>' +
       '<div class="table-wrap">' +
@@ -1183,8 +1348,8 @@ function openCustomerDrawer(lineId, venueId) {
     tryRender();
   });
 
-  // Show placeholder immediately
-  openDrawer('<div style="display:flex;align-items:center;justify-content:center;height:100px"><div class="spinner"></div></div>');
+  // Show placeholder immediately (centered sheet)
+  openSheet('<div style="display:flex;align-items:center;justify-content:center;height:160px"><div class="spinner"></div></div>');
 }
 
 function renderCustomerDrawerContent(lineId, venueId, c, tasks, items) {
@@ -1195,7 +1360,7 @@ function renderCustomerDrawerContent(lineId, venueId, c, tasks, items) {
   (items||[]).forEach(function(it){ (itemsByTask[it.task_id]||(itemsByTask[it.task_id]=[])).push(it); });
 
   var drawerHtml =
-    '<div class="drawer__title"><span>💍 '+esc(name)+'</span><button class="btn btn--sm btn--outline" onclick="closeDrawer()">閉じる</button></div>' +
+    '<div class="drawer__title"><span style="display:inline-flex;align-items:center;gap:6px">'+ic('heart')+' '+esc(name)+'</span><button class="btn btn--sm btn--outline" onclick="closeSheet()">閉じる</button></div>' +
 
     '<div class="drawer__section">' +
       '<div class="drawer__section-label">基本情報</div>' +
@@ -1216,7 +1381,7 @@ function renderCustomerDrawerContent(lineId, venueId, c, tasks, items) {
       '</div>' +
       '<div id="cust-tasks-list">' + renderCustomerTaskList(tasks||[], itemsByTask, lineId, c.venue_id||venueId||'') + '</div>' +
       '<div class="mt-16">' +
-        '<details><summary style="cursor:pointer;font-size:12px;color:var(--primary);font-weight:600">＋ このカップルにタスクを追加</summary>' +
+        '<details><summary style="cursor:pointer;font-size:12px;color:var(--primary);font-weight:600">'+ic('plus','ic--sm')+' このカップルにタスクを追加</summary>' +
           '<form id="add-cust-task-form" class="mt-10">' +
             '<div class="form-row">'+fg('category','カテゴリ','text','','追加タスク')+fg('due_estimate','期限目安','text')+'</div>' +
             fg('task_content','タスク内容 *','textarea') +
@@ -1227,10 +1392,10 @@ function renderCustomerDrawerContent(lineId, venueId, c, tasks, items) {
     '</div>' +
 
     '<div class="drawer__section">' +
-      '<button class="btn btn--outline btn--sm" id="cust-reset-btn" style="border-color:var(--danger);color:var(--danger)">⚠ 進捗をリセット</button>' +
+      '<button class="btn btn--outline btn--sm" id="cust-reset-btn" style="border-color:var(--danger);color:var(--danger)">'+ic('alert','ic--sm')+' 進捗をリセット</button>' +
     '</div>';
 
-  document.getElementById('drawer-body').innerHTML = drawerHtml;
+  document.getElementById('sheet-body').innerHTML = drawerHtml;
   bindCustomerDrawerEvents(lineId, venueId, c, name);
 }
 
@@ -1241,16 +1406,17 @@ function renderCustomerTaskList(tasks, itemsByTask, lineId, venueId) {
     var doneCount = taskItems.filter(function(i){return i.is_done;}).length;
     var doneClass = t.is_done ? ' task-done' : '';
     var itemsBadge = taskItems.length > 0
-      ? '<span class="badge badge--'+(doneCount===taskItems.length?'green':'orange')+'" style="font-size:10px">🛍 '+doneCount+'/'+taskItems.length+'</span>'
+      ? '<span class="badge badge--'+(doneCount===taskItems.length?'green':'orange')+'" style="font-size:10px;display:inline-flex;align-items:center;gap:3px">'+ic('bag','ic--sm')+' '+doneCount+'/'+taskItems.length+'</span>'
       : '';
     return '<div class="task-item'+doneClass+'" data-task-id="'+esc(t.task_id)+'">' +
       '<div class="task-item__header">' +
-        '<span class="task-item__arrow">▶</span>' +
+        '<input type="checkbox" class="task-item__check chk" data-task-id="'+esc(t.task_id)+'"'+(t.is_done?' checked':'')+' title="完了" onclick="event.stopPropagation()">' +
+        '<span class="task-item__arrow">'+ic('chevron','ic--sm')+'</span>' +
         '<div class="task-item__body">' +
           '<div class="task-item__title">'+esc(t.task_content)+'</div>' +
           '<div class="task-item__meta">' +
             (t.category?'<span>'+esc(t.category)+'</span>':'') +
-            '<span>📅 '+esc(t.due_estimate||'—')+'</span>' +
+            '<span style="display:inline-flex;align-items:center;gap:3px">'+ic('calendar','ic--sm')+' '+esc(t.due_estimate||'—')+'</span>' +
             (t.is_custom?'<span class="badge badge--purple" style="font-size:10px">個別</span>':'') +
             (!t.is_visible?'<span class="badge badge--grey" style="font-size:10px">非表示</span>':'') +
             itemsBadge +
@@ -1280,14 +1446,14 @@ function renderItemRows(taskItems, taskId, lineId) {
   if (!taskItems.length) return '<p style="font-size:11px;color:var(--text-sub);padding:6px 0 10px">手配物はまだありません</p>';
   return taskItems.map(function(it){
     return '<div class="item-row'+(it.is_done?' item-done':'')+'" data-item-id="'+esc(it.item_id)+'">' +
-      '<input type="checkbox" '+(it.is_done?'checked':'')+' class="item-done-chk" data-item-id="'+esc(it.item_id)+'" title="完了">' +
+      '<input type="checkbox" '+(it.is_done?'checked':'')+' class="item-done-chk chk" data-item-id="'+esc(it.item_id)+'" title="完了">' +
       '<input type="text" class="item-name-input" value="'+esc(it.item_name)+'" data-item-id="'+esc(it.item_id)+'" style="'+(it.is_done?'text-decoration:line-through;color:var(--text-sub)':'')+'">' +
       '<div class="item-qty-wrap">' +
-        '<button class="item-qty-btn item-qty-minus" data-item-id="'+esc(it.item_id)+'">−</button>' +
+        '<button class="item-qty-btn item-qty-minus" data-item-id="'+esc(it.item_id)+'">'+ic('minus','ic--sm')+'</button>' +
         '<span class="item-qty" id="qty-'+esc(it.item_id)+'">'+it.quantity+'</span>' +
-        '<button class="item-qty-btn item-qty-plus" data-item-id="'+esc(it.item_id)+'">＋</button>' +
+        '<button class="item-qty-btn item-qty-plus" data-item-id="'+esc(it.item_id)+'">'+ic('plus','ic--sm')+'</button>' +
       '</div>' +
-      '<button class="item-del-btn" data-item-id="'+esc(it.item_id)+'" title="削除">✕</button>' +
+      '<button class="item-del-btn" data-item-id="'+esc(it.item_id)+'" title="削除">'+ic('x','ic--sm')+'</button>' +
     '</div>';
   }).join('');
 }
@@ -1309,7 +1475,7 @@ function bindCustomerDrawerEvents(lineId, venueId, c, name) {
   document.getElementById('cust-tasks-list').addEventListener('click', function(e){
     var header = e.target.closest('.task-item__header');
     if (!header) return;
-    if (e.target.closest('.vis-toggle,.cust-task-del,.item-qty-btn,.item-done-chk,.item-add-btn')) return;
+    if (e.target.closest('.vis-toggle,.cust-task-del,.item-qty-btn,.item-done-chk,.item-add-btn,.task-item__check')) return;
     var taskItem = header.closest('.task-item');
     var taskId = taskItem.dataset.taskId;
     var panel = document.getElementById('items-'+taskId);
@@ -1325,9 +1491,15 @@ function bindCustomerDrawerEvents(lineId, venueId, c, name) {
     var chk = e.target.closest('.task-item__check');
     if (!chk) return;
     var taskId = chk.dataset.taskId;
+    var taskItem = chk.closest('.task-item');
     showLoading();
     google.script.run
-      .withSuccessHandler(function(){ hideLoading(); toast('更新しました','success'); swrCache.set('ctasks_'+lineId, null); })
+      .withSuccessHandler(function(){
+        hideLoading(); toast('更新しました','success');
+        if (taskItem) taskItem.classList.toggle('task-done', chk.checked);
+        swrCache.set('ctasks_'+lineId, null);
+        swrCache.set('customers_all', null);
+      })
       .withFailureHandler(function(err){ hideLoading(); toast(err.message||'エラー','error'); chk.checked=!chk.checked; })
       .updateOrCreateTaskProgress(lineId, taskId, chk.checked);
   });
@@ -1483,8 +1655,8 @@ function refreshItemBadge(el, lineId) {
   if (total > 0) {
     var span = document.createElement('span');
     span.className = 'badge badge--'+(done===total?'green':'orange');
-    span.style.fontSize = '10px';
-    span.textContent = '🛍 '+done+'/'+total;
+    span.style.cssText = 'font-size:10px;display:inline-flex;align-items:center;gap:3px';
+    span.innerHTML = ic('bag','ic--sm')+' '+done+'/'+total;
     meta.appendChild(span);
   }
 }
@@ -1573,7 +1745,7 @@ function openDraftDrawer(draftId, drafts) {
   var d = drafts.find(function(x){return x.draft_id===draftId;});
   if (!d) return;
   openDrawer(
-    '<div class="drawer__title"><span>📨 ドラフト詳細</span><button class="btn btn--sm btn--outline" onclick="closeDrawer()">閉じる</button></div>' +
+    '<div class="drawer__title"><span style="display:inline-flex;align-items:center;gap:6px">'+ic('mail')+' ドラフト詳細</span><button class="btn btn--sm btn--outline" onclick="closeDrawer()">閉じる</button></div>' +
     '<div class="drawer__section">' +
       ir('draft_id',d.draft_id)+ir('カップル',d.couple_name||d.couple_id)+ir('task_id',d.task_id)+
       ir('状態',d.status)+ir('作成日時',d.created_at?d.created_at.slice(0,16).replace('T',' '):'—')+
@@ -1613,36 +1785,36 @@ function renderSystem() {
     '<div class="section">' +
       '<div class="section__header"><h1 class="section__title">システム操作</h1></div>' +
       '<div class="sys-cards">' +
-        sysCard('sys-remind','📨','手動リマインド実行','現在すべての登録カップルに対し、期限3日以内の未完了タスクのリマインド通知を LINE で送信します。','全カップルに送信','btn--danger') +
-        sysCard('sys-setup','🔧','初期セットアップ','6つのシートのヘッダーを初期化します。初回のみ実行してください。','セットアップを実行','btn--outline') +
-        sysCard('sys-trigger','⏰','リマインドトリガー登録','sendReminders() を毎日9:00に自動実行するトリガーを登録します。','トリガーを登録','btn--outline') +
+        sysCard('sys-remind','mail','手動リマインド実行','現在すべての登録カップルに対し、期限3日以内の未完了タスクのリマインド通知を LINE で送信します。','全カップルに送信','btn--danger') +
+        sysCard('sys-setup','wrench','初期セットアップ','6つのシートのヘッダーを初期化します。初回のみ実行してください。','セットアップを実行','btn--outline') +
+        sysCard('sys-trigger','clock','リマインドトリガー登録','sendReminders() を毎日9:00に自動実行するトリガーを登録します。','トリガーを登録','btn--outline') +
       '</div>' +
     '</div>';
   document.getElementById('sys-remind-btn').addEventListener('click', function(){
     confirmDialog('本当に全カップルにリマインドを送信しますか？\nLINEに即時送信されます。', function(){
-      api('runSendReminders',[],function(){ toast('リマインド送信完了','success'); showSysResult('sys-remind','✅ 完了',true); }, function(e){ showSysResult('sys-remind','❌ '+(e&&e.message||'失敗'),false); });
+      api('runSendReminders',[],function(){ toast('リマインド送信完了','success'); showSysResult('sys-remind','完了',true); }, function(e){ showSysResult('sys-remind',(e&&e.message||'失敗'),false); });
     });
   });
   document.getElementById('sys-setup-btn').addEventListener('click', function(){
     confirmDialog('シートのヘッダーを初期化します。実行しますか？', function(){
-      api('runSetupEnvironment',[],function(){ toast('セットアップ完了','success'); showSysResult('sys-setup','✅ 完了',true); }, function(e){ showSysResult('sys-setup','❌ '+(e&&e.message||'失敗'),false); });
+      api('runSetupEnvironment',[],function(){ toast('セットアップ完了','success'); showSysResult('sys-setup','完了',true); }, function(e){ showSysResult('sys-setup',(e&&e.message||'失敗'),false); });
     });
   });
   document.getElementById('sys-trigger-btn').addEventListener('click', function(){
     confirmDialog('毎朝9時のトリガーを登録します。実行しますか？', function(){
-      api('runSetupRemindTrigger',[],function(){ toast('トリガー登録完了','success'); showSysResult('sys-trigger','✅ 完了（毎日 9:00）',true); }, function(e){ showSysResult('sys-trigger','❌ '+(e&&e.message||'失敗'),false); });
+      api('runSetupRemindTrigger',[],function(){ toast('トリガー登録完了','success'); showSysResult('sys-trigger','完了（毎日 9:00）',true); }, function(e){ showSysResult('sys-trigger',(e&&e.message||'失敗'),false); });
     });
   });
 }
 
 function sysCard(id,icon,title,desc,btnLabel,btnClass){
-  return '<div class="sys-card"><div class="sys-card__icon">'+icon+'</div><div class="sys-card__title">'+esc(title)+'</div><div class="sys-card__desc">'+esc(desc)+'</div><button class="btn btn--sm '+btnClass+'" id="'+id+'-btn">'+esc(btnLabel)+'</button><div id="'+id+'-result"></div></div>';
+  return '<div class="sys-card"><div class="sys-card__icon">'+ic(icon,'ic--lg')+'</div><div class="sys-card__title">'+esc(title)+'</div><div class="sys-card__desc">'+esc(desc)+'</div><button class="btn btn--sm '+btnClass+'" id="'+id+'-btn">'+esc(btnLabel)+'</button><div id="'+id+'-result"></div></div>';
 }
 function showSysResult(id,msg,ok){
   var el=document.getElementById(id+'-result');
   if(!el)return;
   el.className='sys-result '+(ok?'sys-result--ok':'sys-result--err');
-  el.textContent=msg;
+  el.innerHTML=ic(ok?'check':'xcircle','ic--sm')+' '+esc(msg);
 }
 
 // ─── Form helpers ─────────────────────────────────────────
