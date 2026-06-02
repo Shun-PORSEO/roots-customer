@@ -1,96 +1,8 @@
 // types.ts interfaces are global
 const getSheet = (name) => SpreadsheetApp.getActiveSpreadsheet().getSheetByName(name);
-// ─── Venues ────────────────────────────────────────────────────────
-function getVenues() {
-    const sheet = getSheet("venues");
-    if (!sheet)
-        return [];
-    const data = sheet.getDataRange().getValues();
-    const venues = [];
-    for (let i = 1; i < data.length; i++) {
-        if (!data[i][0])
-            continue;
-        venues.push({
-            venue_id: String(data[i][0]),
-            venue_name: String(data[i][1]),
-            planner_line_user_id: String(data[i][2]),
-            line_channel_access_token: String(data[i][3]),
-            line_liff_id: String(data[i][4]),
-            active: data[i][5] === true || String(data[i][5]).toLowerCase() === "true",
-            created_at: String(data[i][6]),
-        });
-    }
-    return venues;
-}
-function getVenue(venueId) {
-    const venues = getVenues();
-    return venues.find(v => v.venue_id === venueId) || null;
-}
 function getVenueByPlannerId(plannerLineId) {
     const venues = getVenues();
     return venues.find(v => v.planner_line_user_id === plannerLineId) || null;
-}
-// 失敗時はクライアント側 diagnose() が拾える英文キーワードを含むエラーを投げる。
-function createVenue(venue) {
-    const sheet = getSheet("venues");
-    if (!sheet) {
-        throw new Error("venues シートが見つかりません。setupEnvironment を実行してください。");
-    }
-    if (!venue.venue_id || !venue.venue_name) {
-        throw new Error("venue_id と venue_name は必須です");
-    }
-    if (getVenue(venue.venue_id)) {
-        throw new Error(`venue_id "${venue.venue_id}" は already exists`);
-    }
-    sheet.appendRow([
-        venue.venue_id,
-        venue.venue_name,
-        venue.planner_line_user_id,
-        venue.line_channel_access_token,
-        venue.line_liff_id,
-        venue.active,
-        new Date().toISOString(),
-    ]);
-}
-function updateVenueStatus(venueId, active) {
-    const sheet = getSheet("venues");
-    if (!sheet)
-        return;
-    const data = sheet.getDataRange().getValues();
-    for (let i = 1; i < data.length; i++) {
-        if (String(data[i][0]) === venueId) {
-            sheet.getRange(i + 1, 6).setValue(active);
-            return;
-        }
-    }
-}
-// ─── Message Drafts ─────────────────────────────────────────────────
-function getMessageDrafts(venueId, status) {
-    const sheet = getSheet("message_drafts");
-    if (!sheet)
-        return [];
-    const data = sheet.getDataRange().getValues();
-    const drafts = [];
-    for (let i = 1; i < data.length; i++) {
-        if (!data[i][0])
-            continue;
-        if (String(data[i][1]) !== venueId)
-            continue;
-        const draftStatus = String(data[i][5]);
-        if (status && draftStatus !== status)
-            continue;
-        drafts.push({
-            draft_id: String(data[i][0]),
-            venue_id: String(data[i][1]),
-            couple_id: String(data[i][2]),
-            task_id: String(data[i][3]),
-            draft_message: String(data[i][4]),
-            status: draftStatus,
-            created_at: String(data[i][6]),
-            sent_at: String(data[i][7] || ""),
-        });
-    }
-    return drafts;
 }
 function createMessageDraft(draft) {
     const sheet = getSheet("message_drafts");
@@ -145,13 +57,18 @@ function formatDateCell(value) {
     return String(value);
 }
 function getCustomer(lineId) {
+    const cache = CacheService.getScriptCache();
+    const cacheKey = `customer_${lineId}`;
+    const cached = cache.get(cacheKey);
+    if (cached)
+        return JSON.parse(cached);
     const sheet = getSheet("customers");
     if (!sheet)
         return null;
     const data = sheet.getDataRange().getValues();
     for (let i = 1; i < data.length; i++) {
         if (data[i][0] === lineId) {
-            return {
+            const customer = {
                 line_id: String(data[i][0]),
                 venue_id: String(data[i][1] || ""),
                 wedding_date: formatDateCell(data[i][2]),
@@ -160,6 +77,8 @@ function getCustomer(lineId) {
                 name2_kana: String(data[i][5] || ""),
                 is_admin: data[i][6] === true || String(data[i][6]).toLowerCase() === "true",
             };
+            cache.put(cacheKey, JSON.stringify(customer), 300);
+            return customer;
         }
     }
     return null;
@@ -170,6 +89,7 @@ function createCustomer(lineId, weddingDate, name1Kana, name2Kana, venueId) {
     if (!sheet)
         return;
     sheet.appendRow([lineId, venueId || "", weddingDate, new Date().toISOString(), name1Kana || "", name2Kana || ""]);
+    CacheService.getScriptCache().remove(`customer_${lineId}`);
 }
 ;
 function updateCustomerNames(lineId, name1Kana, name2Kana) {
@@ -181,6 +101,7 @@ function updateCustomerNames(lineId, name1Kana, name2Kana) {
         if (data[i][0] === lineId) {
             sheet.getRange(i + 1, 5).setValue(name1Kana);
             sheet.getRange(i + 1, 6).setValue(name2Kana);
+            CacheService.getScriptCache().remove(`customer_${lineId}`);
             return;
         }
     }
@@ -839,6 +760,12 @@ function getVenue(venueId) {
     return null;
 }
 function createVenue(v) {
+    if (!v.venue_id || !v.venue_name) {
+        throw new Error("venue_id と venue_name は必須です");
+    }
+    if (getVenue(v.venue_id)) {
+        throw new Error(`venue_id "${v.venue_id}" は already exists`);
+    }
     const sheet = ensureVenuesSheet();
     if (!sheet)
         return;
