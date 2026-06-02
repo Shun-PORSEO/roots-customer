@@ -315,8 +315,9 @@ a:hover{text-decoration:underline}
   <nav class="sidebar">
     <div class="sidebar__logo">Roots <span>admin</span></div>
     <ul class="sidebar__nav" id="nav-list">
-      <li class="sidebar__item active" data-s="schedule"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> タスクカレンダー <span class="stale-dot" id="dot-schedule"></span></li>
-      <li class="sidebar__item" data-s="venues"><svg class="ic" viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-3M9 9h.01M9 13h.01M9 17h.01"/></svg> 式場管理 <span class="stale-dot" id="dot-venues"></span></li>
+      <!-- タスクカレンダー: 将来の機能候補として一時非表示（renderSchedule 等のロジックは残置） -->
+      <!-- <li class="sidebar__item" data-s="schedule"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> タスクカレンダー <span class="stale-dot" id="dot-schedule"></span></li> -->
+      <li class="sidebar__item active" data-s="venues"><svg class="ic" viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-3M9 9h.01M9 13h.01M9 17h.01"/></svg> 式場管理 <span class="stale-dot" id="dot-venues"></span></li>
       <li class="sidebar__item" data-s="tasks"><svg class="ic" viewBox="0 0 24 24"><path d="M9 2h6a1 1 0 0 1 1 1v2H8V3a1 1 0 0 1 1-1zM8 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2"/></svg> タスクマスター <span class="stale-dot" id="dot-tasks"></span></li>
       <li class="sidebar__item" data-s="customers"><svg class="ic" viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg> カップル管理 <span class="stale-dot" id="dot-customers"></span></li>
       <li class="sidebar__item" data-s="logs"><svg class="ic" viewBox="0 0 24 24"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M22 6l-10 7L2 6"/></svg> 送信ログ <span class="stale-dot" id="dot-logs"></span></li>
@@ -419,7 +420,7 @@ function apiSWR(fn, args, cacheKey, onData) {
 
 // ─── State ────────────────────────────────────────────────
 var state = {
-  section: 'schedule',
+  section: 'venues',
   venues: [],
   taskFilter: { venueId: '', showInactive: false },
   customerFilter: { venueId: '' },
@@ -1831,7 +1832,7 @@ function ir(label,value){
 }
 
 // ─── Boot ─────────────────────────────────────────────────
-renderSection('schedule');
+renderSection('venues');
 
 })();
 </script>
