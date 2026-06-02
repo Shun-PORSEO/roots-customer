@@ -308,6 +308,47 @@ a:hover{text-decoration:underline}
 .cal-cell__chip.is-overdue{background:#FEE2E2;border-color:#fecaca;color:#991B1B}
 .cal-cell__chip.is-done{background:#DCFCE7;border-color:#bbf7d0;color:#166534;text-decoration:line-through}
 .cal-cell__more{font-size:10px;color:var(--text-sub);margin-top:2px}
+
+/* ─── Manual / Help ───────────────────────────────────── */
+.man{max-width:940px;margin:0 auto}
+.man__lead{font-size:13.5px;color:var(--text-sub);line-height:1.9;margin:-8px 0 22px}
+.man-toc{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:18px 20px;margin-bottom:30px;box-shadow:var(--shadow)}
+.man-toc__title{font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--text-sub);text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.man-toc ul{list-style:none;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:2px 14px}
+.man-toc a{display:flex;align-items:center;gap:8px;padding:6px 9px;border-radius:6px;font-size:13px;color:var(--text);cursor:pointer;transition:background-color .12s}
+.man-toc a:hover{background:var(--primary-bg);text-decoration:none}
+.man-toc a .n{font-size:11px;font-weight:700;color:var(--text-sub);background:var(--primary-bg);border:1px solid var(--border);min-width:20px;height:20px;border-radius:5px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.man-sec{margin-bottom:42px;scroll-margin-top:14px}
+.man-sec__head{display:flex;align-items:center;gap:11px;padding-bottom:11px;margin-bottom:18px;border-bottom:2px solid var(--text)}
+.man-sec__num{font-size:14px;font-weight:700;background:var(--primary);color:#fff;min-width:28px;height:28px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.man-sec__title{font-size:19px;font-weight:700;letter-spacing:-.01em}
+.man-h3{font-size:15px;font-weight:700;margin:24px 0 9px;display:flex;align-items:center;gap:7px;letter-spacing:-.01em}
+.man p{font-size:13.5px;line-height:1.95;color:var(--text);margin-bottom:12px}
+.man ul.man-list{margin:0 0 14px;padding-left:1.3em}
+.man ol.man-steps{margin:0 0 14px;padding-left:1.5em}
+.man li{font-size:13.5px;line-height:1.9;margin-bottom:5px}
+.man strong{font-weight:700}
+.man kbd{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;background:var(--primary-bg);border:1px solid var(--border);border-bottom-width:2px;border-radius:5px;padding:1px 6px;color:var(--text)}
+.man-fig{margin:16px 0 20px;border:1px solid var(--border);border-radius:var(--r);overflow:hidden;background:var(--bg);box-shadow:var(--shadow-md)}
+.man-fig img{display:block;width:100%;height:auto;cursor:zoom-in}
+.man-fig figcaption{font-size:11.5px;color:var(--text-sub);padding:9px 13px;border-top:1px solid var(--border);background:var(--surface);display:flex;gap:6px;align-items:center}
+.man-table{margin:8px 0 18px;border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.man-table table{width:100%;font-size:13px;border-collapse:collapse}
+.man-table th{background:var(--bg);text-align:left;padding:9px 13px;font-weight:600;border-bottom:1px solid var(--border);white-space:nowrap}
+.man-table td{padding:9px 13px;border-bottom:1px solid var(--border);vertical-align:top;line-height:1.75}
+.man-table tr:last-child td{border-bottom:none}
+.man-callout{display:flex;gap:9px;align-items:flex-start;padding:11px 14px;border-radius:calc(var(--r) - 2px);font-size:12.5px;line-height:1.85;margin:8px 0 18px;border:1px solid}
+.man-callout svg{flex-shrink:0;margin-top:1px}
+.man-callout--tip{background:#EFF6FF;border-color:#bfdbfe;color:#1E40AF}
+.man-callout--warn{background:#FFFBEB;border-color:#FDE68A;color:#92400E}
+.man-callout--note{background:var(--primary-bg);border-color:var(--border);color:var(--text-sub)}
+.man-req{font-size:10px;font-weight:700;color:#fff;background:var(--danger);border-radius:4px;padding:1px 5px;vertical-align:1px}
+.man-opt{font-size:10px;font-weight:600;color:var(--text-sub);background:var(--primary-bg);border:1px solid var(--border);border-radius:4px;padding:1px 5px;vertical-align:1px}
+.man-missing{padding:40px;text-align:center;color:var(--text-sub);border:1px dashed var(--border);border-radius:var(--r);font-size:12px;background:var(--bg)}
+.man-backtop{position:fixed;bottom:22px;right:22px;z-index:80}
+/* lightbox */
+.man-lb{position:fixed;inset:0;background:rgb(0 0 0 / .9);z-index:300;display:flex;align-items:center;justify-content:center;padding:32px;cursor:zoom-out;animation:fadeIn .15s ease}
+.man-lb img{max-width:100%;max-height:100%;border-radius:6px;box-shadow:var(--shadow-lg)}
 </style>
 </head>
 <body>
@@ -322,6 +363,7 @@ a:hover{text-decoration:underline}
       <li class="sidebar__item" data-s="customers"><svg class="ic" viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg> カップル管理 <span class="stale-dot" id="dot-customers"></span></li>
       <li class="sidebar__item" data-s="logs"><svg class="ic" viewBox="0 0 24 24"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M22 6l-10 7L2 6"/></svg> 送信ログ <span class="stale-dot" id="dot-logs"></span></li>
       <li class="sidebar__item" data-s="system"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> システム</li>
+      <li class="sidebar__item" data-s="manual"><svg class="ic" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg> マニュアル</li>
     </ul>
     <div class="sidebar__footer">Roots DB Admin</div>
   </nav>
@@ -424,7 +466,7 @@ var state = {
   venues: [],
   taskFilter: { venueId: '', showInactive: false },
   customerFilter: { venueId: '' },
-  logFilter: { venueId: '', date: todayStr() },
+  logFilter: { venueId: '', date: todayStr(), couple: '' },
   scheduleFilter: { venueId: '', month: thisMonthStr(), hideDone: true },
 };
 
@@ -512,7 +554,13 @@ var ICONS = {
   plus:'<path d="M12 5v14M5 12h14"/>',
   minus:'<path d="M5 12h14"/>',
   x:'<path d="M18 6L6 18M6 6l12 12"/>',
-  chevron:'<path d="M9 6l6 6-6 6"/>'
+  chevron:'<path d="M9 6l6 6-6 6"/>',
+  book:'<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
+  list:'<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
+  help:'<circle cx="12" cy="12" r="9"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',
+  arrowUp:'<path d="M12 19V5M5 12l7-7 7 7"/>',
+  info:'<circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/>',
+  rocket:'<path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>'
 };
 function ic(name, cls) {
   return '<svg class="ic'+(cls?' '+cls:'')+'" viewBox="0 0 24 24" aria-hidden="true">'+(ICONS[name]||'')+'</svg>';
@@ -560,6 +608,7 @@ function renderSection(s) {
   if (s==='customers') renderCustomers();
   if (s==='logs')      renderLogs();
   if (s==='system')    renderSystem();
+  if (s==='manual')    renderManual();
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1692,8 +1741,24 @@ function loadAndRenderLogs(parentStale) {
   });
 }
 
-function renderLogsUI(drafts, isStale) {
+function filterDraftsByCouple(drafts) {
+  var q = (state.logFilter.couple||'').trim().toLowerCase();
+  if (!q) return drafts;
+  return drafts.filter(function(d){
+    return ((d.couple_name||d.couple_id||'').toLowerCase().indexOf(q) !== -1);
+  });
+}
+
+function updateLogView(allDrafts) {
+  var drafts = filterDraftsByCouple(allDrafts);
   var total=drafts.length, sent=drafts.filter(function(d){return d.status==='sent';}).length, pending=drafts.filter(function(d){return d.status==='pending';}).length;
+  var summary = document.getElementById('log-summary');
+  if (summary) summary.innerHTML = '合計 <strong>'+total+'</strong> 件 ／ 送信済 <strong>'+sent+'</strong> 件 ／ 未送信 <strong>'+pending+'</strong> 件';
+  var tbody = document.querySelector('#log-table tbody');
+  if (tbody) tbody.innerHTML = renderLogRows(drafts);
+}
+
+function renderLogsUI(drafts, isStale) {
   var m = document.getElementById('main');
   m.innerHTML =
     '<div class="section">' +
@@ -1703,16 +1768,18 @@ function renderLogsUI(drafts, isStale) {
         '<select id="log-venue-filter">'+venueOptions(state.venues, state.logFilter.venueId)+'</select>' +
         '<input type="date" id="log-date-filter" value="'+esc(state.logFilter.date||'')+'">' +
         '<button class="btn btn--outline btn--sm" id="log-clear-date">日付クリア</button>' +
+        '<input type="search" id="log-couple-filter" placeholder="カップル名で絞り込み" value="'+esc(state.logFilter.couple||'')+'" style="flex:1;min-width:160px;padding:6px 10px;border:1px solid var(--border);border-radius:8px;font:inherit">' +
       '</div>' +
-      '<div class="summary-bar">合計 <strong>'+total+'</strong> 件 ／ 送信済 <strong>'+sent+'</strong> 件 ／ 未送信 <strong>'+pending+'</strong> 件</div>' +
+      '<div class="summary-bar" id="log-summary"></div>' +
       '<div class="table-wrap">' +
         '<table class="tbl" id="log-table">' +
           '<thead><tr><th>カップル</th><th>task_id</th><th>メッセージ</th><th>状態</th><th>作成日時</th></tr></thead>' +
-          '<tbody>'+renderLogRows(drafts)+'</tbody>' +
+          '<tbody></tbody>' +
         '</table>' +
       '</div>' +
     '</div>';
   if (isStale) document.getElementById('stale-banner').classList.add('show');
+  updateLogView(drafts);
   document.getElementById('log-venue-filter').addEventListener('change', function(){
     state.logFilter.venueId=this.value; loadAndRenderLogs();
   });
@@ -1721,6 +1788,9 @@ function renderLogsUI(drafts, isStale) {
   });
   document.getElementById('log-clear-date').addEventListener('click', function(){
     state.logFilter.date=''; document.getElementById('log-date-filter').value=''; loadAndRenderLogs();
+  });
+  document.getElementById('log-couple-filter').addEventListener('input', function(){
+    state.logFilter.couple=this.value; updateLogView(drafts);
   });
   document.querySelector('#log-table tbody').addEventListener('click', function(e){
     var tr = e.target.closest('tr[data-draft-id]');
@@ -1816,6 +1886,319 @@ function showSysResult(id,msg,ok){
   if(!el)return;
   el.className='sys-result '+(ok?'sys-result--ok':'sys-result--err');
   el.innerHTML=ic(ok?'check':'xcircle','ic--sm')+' '+esc(msg);
+}
+
+// ═══════════════════════════════════════════════════════════
+// ⑥ マニュアル（アプリ内ヘルプ）
+// ═══════════════════════════════════════════════════════════
+function manImg(key, caption){
+  var src = (window.MANUAL_IMG || {})[key];
+  if (!src) return '<div class="man-missing">スクリーンショット（'+esc(key)+'）を読み込めませんでした</div>';
+  return '<figure class="man-fig"><img loading="lazy" data-lb="1" src="'+src+'" alt="'+esc(caption||'')+'">' +
+    (caption ? '<figcaption>'+ic('info','ic--sm')+esc(caption)+'</figcaption>' : '') + '</figure>';
+}
+function manTbl(headers, rows){
+  return '<div class="man-table"><table><thead><tr>' +
+    headers.map(function(h){return '<th>'+h+'</th>';}).join('') +
+    '</tr></thead><tbody>' +
+    rows.map(function(r){return '<tr>'+r.map(function(c){return '<td>'+c+'</td>';}).join('')+'</tr>';}).join('') +
+    '</tbody></table></div>';
+}
+function manCallout(type, html){
+  var icon = type==='warn' ? 'alert' : type==='tip' ? 'bolt' : 'info';
+  return '<div class="man-callout man-callout--'+type+'">'+ic(icon,'ic--sm')+'<div>'+html+'</div></div>';
+}
+function manSec(num, id, title, body){
+  return '<section class="man-sec" id="'+id+'">' +
+    '<div class="man-sec__head"><span class="man-sec__num">'+num+'</span><h2 class="man-sec__title">'+title+'</h2></div>' +
+    body + '</section>';
+}
+function manH3(text){ return '<h3 class="man-h3">'+text+'</h3>'; }
+var REQ = '<span class="man-req">必須</span>';
+var OPT = '<span class="man-opt">任意</span>';
+
+function renderManual(){
+  hideStaleDot('manual');
+  var m = document.getElementById('main');
+
+  var toc = [
+    ['0','man-intro','はじめに','help'],
+    ['1','man-venues','式場管理','building'],
+    ['2','man-tasks','タスクマスター管理','clipboard'],
+    ['3','man-customers','カップル管理','heart'],
+    ['4','man-logs','送信ログ','mail'],
+    ['5','man-system','システム操作','wrench'],
+    ['6','man-flow','導入フロー','rocket'],
+    ['7','man-faq','FAQ・困ったとき','help'],
+    ['A','man-appendix','付録（期限式・手配物）','book']
+  ];
+
+  var html = '<div class="section"><div class="man">' +
+    '<div class="section__header"><div>' +
+      '<h1 class="section__title" style="display:flex;align-items:center;gap:9px">'+ic('book')+' 操作マニュアル</h1>' +
+      '<p class="section__sub">このダッシュボードの使い方を、画面のスクリーンショット付きで解説します</p>' +
+    '</div></div>' +
+    '<p class="man__lead">Roots 管理ダッシュボードは、<strong>結婚式場ごとに担当カップル（新郎新婦）の準備タスク・手配物を管理し、LINEで自動リマインドを送る</strong>ための管理画面です。データはすべて Google スプレッドシートに保存されます。下の目次から各メニューの使い方へ移動できます。</p>';
+
+  // 目次
+  html += '<nav class="man-toc"><div class="man-toc__title">'+ic('list','ic--sm')+' 目次</div><ul>' +
+    toc.map(function(t){
+      return '<li><a data-goto="'+t[1]+'"><span class="n">'+t[0]+'</span>'+ic(t[3],'ic--sm')+t[2]+'</a></li>';
+    }).join('') +
+    '</ul></nav>';
+
+  // ── 0. はじめに ──
+  html += manSec('0','man-intro','はじめに',
+    manH3(ic('info','ic--sm')+' このツールでできること') +
+    '<p>大きく分けて5つの仕事を、この1画面で行えます。サイドバー（画面左）のメニューをクリックして切り替えます。</p>' +
+    manTbl(['メニュー','役割'],[
+      ['<strong>式場管理</strong>','式場（会場）の登録・稼働ON/OFF'],
+      ['<strong>タスクマスター管理</strong>','「全式場共通のタスク」と「式場ごとのタスク」のひな型を整備'],
+      ['<strong>カップル管理</strong>','カップルの登録、進捗チェック、手配物の管理'],
+      ['<strong>送信ログ</strong>','LINEメッセージ（ドラフト）の確認・編集・状態管理'],
+      ['<strong>システム操作</strong>','一括リマインド送信・初期セットアップ・自動実行トリガー登録']
+    ]) +
+    manH3(ic('list','ic--sm')+' 画面の全体構成') +
+    '<p>画面は常に「<strong>左：サイドバー（メニュー）</strong>」＋「<strong>右：メインエリア（選択中メニューの内容）</strong>」の2カラム構成です。選択中のメニューは背景がグレーにハイライトされます。</p>' +
+    manImg('01-venues-list','基本レイアウト（左：サイドバー／右：メインエリア）') +
+    manH3(ic('bolt','ic--sm')+' 全画面で共通の操作') +
+    '<ul class="man-list">' +
+      '<li><strong>自動更新（キャッシュ）</strong>：表示を速くするため、前回の内容をすぐ表示し、裏で最新を取得して自動で差し替えます。上部に黄色い帯「キャッシュを表示中…」が出たら更新中のサインです。</li>' +
+      '<li><strong>通知（トースト）</strong>：保存・追加・削除が成功すると画面右下に「保存しました」等が数秒表示されます（成功＝緑／エラー＝赤）。</li>' +
+      '<li><strong>確認ダイアログ</strong>：削除や一括送信など取り消せない操作の前に必ず確認が出ます。「実行する」を押すまで処理は走りません。</li>' +
+      '<li><strong>閉じ方</strong>：追加フォームや詳細パネルは、背景の暗い部分のクリック・<kbd>Esc</kbd>キー・「閉じる/キャンセル/✕」で閉じられます。</li>' +
+    '</ul>' +
+    manImg('16-system-confirm','取り消せない操作の前に出る確認ダイアログ') +
+    manH3(ic('book','ic--sm')+' 覚えておきたい用語') +
+    manTbl(['用語','意味'],[
+      ['式場（venue）','結婚式の会場。<code>RC001</code> のような式場IDで識別。'],
+      ['カップル（customer）','新郎新婦。LINEの <code>line_id</code> で識別。'],
+      ['base task','すべての式場で共通の標準タスクのひな型。'],
+      ['式場別タスク','特定の式場だけのタスク。'],
+      ['個別タスク','特定の1組だけに追加したタスク。'],
+      ['手配物（item）','タスクにぶら下がる持ち物・準備物（例：メインドレス）。'],
+      ['手配物テンプレート','タスクに紐づく手配物のひな型。登録/同期時に各カップルへ自動コピー。'],
+      ['ドラフト','カップルへ送るLINEメッセージの下書き／送信記録。'],
+      ['期限式','挙式日から締切を逆算する式（例：<code>挙式日 - 60日</code>）。'],
+      ['期限目安','人が読む目安ラベル（例：挙式2ヶ月前）。計算には使わない。']
+    ])
+  );
+
+  // ── 1. 式場管理 ──
+  html += manSec('1','man-venues','式場管理',
+    '<p>式場（会場）の登録と稼働状態を管理します。ダッシュボードを開いた最初の画面でもあります。各式場は<strong>カード</strong>で表示されます。</p>' +
+    manImg('01-venues-list','式場管理の一覧。カードに 式場ID・稼働トグル・式場名・カップル数・未送信数・状態が並ぶ') +
+    manH3('1-1. 式場を追加する') +
+    '<ol class="man-steps">' +
+      '<li>右上の「<strong>＋ 式場を追加</strong>」をクリック。</li>' +
+      '<li>フォームに入力します。</li>' +
+    '</ol>' +
+    manImg('02-venue-add-modal','式場の追加フォーム') +
+    manTbl(['項目','必須','説明'],[
+      ['式場 ID',REQ,'式場を識別するID。例：<code>RC001</code>。命名ルールを決めて入力。'],
+      ['式場名',REQ,'表示名。例：ロイヤルチャペル名古屋。'],
+      ['プランナー LINE User ID',OPT,'テスト送信・リマインドの宛先になる担当者のLINE ID。'],
+      ['LINEチャネルアクセストークン',OPT,'その式場のLINE公式アカウントから送るためのトークン。送信に必要。'],
+      ['LIFF ID',OPT,'LINEミニアプリ連携を使う場合のID。']
+    ]) +
+    '<p>「<strong>追加 + タスク初期化</strong>」を押すと、式場登録と同時に<strong>現在の base task が自動でこの式場へコピー</strong>され、「式場を追加しました（タスク追加: ◯件）」と通知されます。</p>' +
+    manCallout('tip','先に<a data-goto="man-tasks" style="text-decoration:underline">タスクマスター管理</a>で base task を整えておくと、式場追加と同時に標準タスク一式がセットされて効率的です。') +
+    manH3('1-2. 稼働を ON / OFF する') +
+    '<p>カード右上の<strong>トグルスイッチ</strong>をクリックすると、その場で稼働状態が切り替わります（「有効/無効にしました」と通知）。停止中（グレー）の式場は運用対象から外す、といった使い分けに使います。トグルはカード本体クリックとは独立しており、押しても詳細は開きません。</p>' +
+    manH3('1-3. 式場の詳細を確認する') +
+    '<p>カードの<strong>トグル以外の部分をクリック</strong>すると、右側に詳細ドロワーが開き、基本情報（式場ID・プランナーLINE ID・LIFF ID・登録日）と統計（カップル数・未送信ドラフト数）を確認できます。</p>' +
+    manImg('03-venue-drawer','式場の詳細ドロワー')
+  );
+
+  // ── 2. タスクマスター ──
+  html += manSec('2','man-tasks','タスクマスター管理',
+    '<p>カップルへ展開する「タスクのひな型」を整備します。ここで作ったタスクが、式場経由で各カップルの「やることリスト」になります。</p>' +
+    manImg('04-tasks-list','タスクマスター管理の一覧') +
+    manH3('2-0. base task と式場別タスク') +
+    '<ul class="man-list">' +
+      '<li><strong>base task（全共通）</strong>：すべての式場の標準となるタスク。</li>' +
+      '<li><strong>式場別タスク</strong>：特定の式場だけのタスク。</li>' +
+    '</ul>' +
+    '<p>上部の<strong>ドロップダウン</strong>で「base task（全共通）」か式場名を選んで表示を切り替えます。「<strong>停止も表示</strong>」にチェックを入れると、停止中のタスクも一覧に出ます（既定は有効なもののみ）。</p>' +
+    manH3('行の操作ボタン') +
+    manTbl(['ボタン','機能'],[
+      ['🛍 手配物テンプレ','このタスクに紐づく標準手配物を編集（2-4）。'],
+      ['⏸ / ▶ 停止/有効化','タスクの有効・無効を切り替え。'],
+      ['✈ LINEテスト送信','プランナーへテスト送信。<strong>式場を選んでいるときのみ有効</strong>。'],
+      ['🗑 削除','<strong>式場別タスク（CUST-付き）のみ</strong>表示。base task は停止で無効化。']
+    ]) +
+    manH3('2-1. その場で編集する（インライン編集）') +
+    '<p><strong>カテゴリ／タスク内容／期限目安／リマインド</strong>のセルはクリックすると直接編集できます。<kbd>Enter</kbd>で保存、<kbd>Esc</kbd>で取り消し。</p>' +
+    manImg('05-tasks-inline-edit','セルをクリックしてその場で編集') +
+    manH3('2-2. base task を追加する') +
+    '<p>右上の「<strong>＋ base task</strong>」から追加します。</p>' +
+    manImg('06-task-add-base-modal','base task の追加フォーム') +
+    manTbl(['項目','必須','説明'],[
+      ['カテゴリ',REQ,'例：衣装、引出物。'],
+      ['タスク内容',REQ,'カップルに表示する本文。'],
+      ['期限式',OPT,'挙式日から逆算する式。例：<code>挙式日 - 30日</code>（付録参照）。'],
+      ['期限目安',OPT,'表示用ラベル。例：挙式1ヶ月前。'],
+      ['リマインドメッセージ',OPT,'LINEリマインドの文面。'],
+      ['マニュアルURL / メモ',OPT,'参考リンク・社内補足。']
+    ]) +
+    manCallout('warn','base task を追加しただけでは既存式場には反映されません。<strong>「2-5 全式場に同期」</strong>を実行すると各式場へコピーされます。') +
+    manH3('2-3. 式場別タスクを追加する') +
+    '<p>右上の「<strong>＋ 式場別タスク</strong>」から。先頭で<strong>対象式場を選択</strong>し、base task と同じ項目を入力します。</p>' +
+    manImg('07-task-add-venue-modal','式場別タスクの追加フォーム') +
+    manH3('2-4. 手配物テンプレートを設定する') +
+    '<p>各行の 🛍 ボタンから、タスクに「標準で必要な持ち物」を紐づけられます。追加・数量増減（－/＋）・名称変更・削除ができます。</p>' +
+    manImg('08-task-item-template-modal','手配物テンプレートのモーダル') +
+    manCallout('warn','ここで登録した手配物は、<strong>「全式場に同期」やカップル新規登録時に各カップルへ自動コピー</strong>されます（仕組みは付録B）。') +
+    manH3('2-5. 全式場に同期する') +
+    '<p>右上の「<strong>↻ 全式場に同期</strong>」→ 確認 →「実行する」で、<strong>すべての base task が各式場へコピー</strong>され、さらに<strong>手配物テンプレートが全カップルへ反映</strong>されます。コピー済みは重複せずスキップされ、結果が件数で通知されます。base task を追加・修正したあとの「反映ボタン」です。</p>' +
+    manH3('2-6. LINEテスト送信') +
+    '<p>式場を選択した状態で行の ✈ ボタンを押すと、その式場のプランナー宛てに <code>[テスト送信]</code> 付きメッセージを実際にLINE送信します。式場に<strong>プランナーLINE ID</strong>と<strong>チャネルアクセストークン</strong>が設定されている必要があります。</p>'
+  );
+
+  // ── 3. カップル管理 ──
+  html += manSec('3','man-customers','カップル管理',
+    '<p>カップルの登録、進捗確認、タスク・手配物の編集を行う、日々の運用のメイン画面です。</p>' +
+    manImg('09-customers-list','カップル管理の一覧。進捗バーと 完了/合計 が見える') +
+    '<p>表の列：<strong>カップル名／挙式日／式場／進捗（バー＋%）／完了・合計</strong>。上部ドロップダウンで式場による絞り込みができます。</p>' +
+    manH3('3-1. カップルを追加する') +
+    '<p>右上の「<strong>＋ カップルを追加</strong>」から。</p>' +
+    manImg('10-customer-add-modal','カップル追加フォーム') +
+    manTbl(['項目','必須','説明'],[
+      ['LINE ID',REQ,'カップルを識別するLINEユーザーID。'],
+      ['挙式日',REQ,'期限計算の基準。カレンダーから選択。'],
+      ['花嫁カナ / 花婿カナ',OPT,'表示名・宛名に使用。'],
+      ['式場',OPT,'紐づける式場。未設定も可。']
+    ]) +
+    '<p>登録時、該当タスクの<strong>手配物テンプレートが自動でこのカップルにコピー</strong>されます。</p>' +
+    manH3('3-2. 詳細を見る・編集する') +
+    '<p>一覧の<strong>行をクリック</strong>すると、中央に大きな詳細シートが開きます。上から「①基本情報」「②タスク・手配物」「③進捗をリセット」の3セクションです。</p>' +
+    manImg('11-customer-sheet','カップル詳細シート') +
+    '<ul class="man-list">' +
+      '<li><strong>① 基本情報</strong>：花嫁/花婿カナ・挙式日・式場を編集して「保存」（挙式日を変えると期限計算も更新）。</li>' +
+      '<li><strong>② タスク・手配物</strong>：各タスクの<strong>左チェックで完了/未完了</strong>（進捗%に即反映）、<strong>▸で手配物を開閉</strong>、<strong>右トグルで表示/非表示</strong>。バッジは <code>個別</code>（このカップル専用）・<code>非表示</code>・🛍<code>◯/◯</code>（手配物の完了数）。</li>' +
+      '<li><strong>③ 進捗をリセット</strong>（赤）：このカップルの完了チェックをすべて削除（確認あり・取り消し不可）。</li>' +
+    '</ul>' +
+    manH3('3-3. 手配物を編集する') +
+    '<p>タスクの行を開くと手配物パネルが展開します。各手配物で<strong>完了チェック・名称変更・数量増減（－/＋）・削除</strong>ができ、最下段の入力欄から新規追加もできます。</p>' +
+    manImg('12-customer-sheet-items','手配物パネルを展開した状態') +
+    manH3('3-4. このカップルにだけタスクを追加する') +
+    '<p>タスク一覧下の「<strong>＋ このカップルにタスクを追加</strong>」を開き、カテゴリ・期限目安・タスク内容を入れて追加すると、<strong>このカップル専用タスク</strong>（<code>個別</code>バッジ付き）が作られます。</p>'
+  );
+
+  // ── 4. 送信ログ ──
+  html += manSec('4','man-logs','送信ログ',
+    '<p>カップルへ送るLINEメッセージ（ドラフト）の確認・編集・状態管理を行います。</p>' +
+    manImg('13-logs-list','送信ログ。状態バッジで sent / pending / failed を識別') +
+    '<ul class="man-list">' +
+      '<li><strong>フィルタ</strong>：式場／日付（<strong>初期値は当日</strong>）。「日付クリア」で全期間表示。</li>' +
+      '<li><strong>サマリーバー</strong>：合計／送信済／未送信の件数。</li>' +
+      '<li><strong>状態バッジ</strong>：<code>sent</code>（緑＝送信済）／<code>pending</code>（オレンジ＝未送信）／<code>failed</code>（赤＝失敗）。</li>' +
+    '</ul>' +
+    manCallout('tip','開いた直後に件数が少ないときは、<strong>日付フィルタが当日</strong>になっています。「日付クリア」で過去ログも表示されます。') +
+    manH3('4-1. ドラフトの詳細を見る・編集する') +
+    '<p>行をクリックすると右側に詳細ドロワーが開きます。<strong>メッセージ本文をその場で編集して「保存」</strong>、<strong>状態をプルダウンで変更</strong>できます（<code>sent</code>にすると送信日時が自動記録）。</p>' +
+    manImg('14-draft-drawer','ドラフト詳細ドロワー') +
+    manCallout('warn','この画面の「状態変更」は<strong>記録上のステータスを書き換える操作</strong>です。実際のLINE送信は、システム操作のリマインド機能や自動トリガーが行います。')
+  );
+
+  // ── 5. システム操作 ──
+  html += manSec('5','man-system','システム操作',
+    '<p>運用の裏側にあたる一括処理・初期設定を行います。影響が大きいため、各操作は確認ダイアログ付きです。</p>' +
+    manImg('15-system','システム操作の画面（3つのカード）') +
+    manTbl(['操作','内容'],[
+      ['<strong>手動リマインド実行</strong>（赤）','全カップルへ、期限3日以内の未完了タスクのリマインドをLINEで<strong>即時送信</strong>。'],
+      ['<strong>初期セットアップ</strong>','スプレッドシート各シートのヘッダーを初期化。<strong>導入時の初回のみ</strong>実行。'],
+      ['<strong>リマインドトリガー登録</strong>','リマインド送信を<strong>毎日9:00に自動実行</strong>するトリガーを登録。一度登録すれば以降は自動。']
+    ]) +
+    manCallout('warn','「手動リマインド実行」は実際にLINEへ送信されます。日々の自動送信はトリガーに任せ、手動実行は補助的に使ってください。')
+  );
+
+  // ── 6. 導入フロー ──
+  html += manSec('6','man-flow','はじめての導入フロー（推奨手順）',
+    '<p>初めて運用を始めるときは、次の順番がスムーズです。</p>' +
+    '<ol class="man-steps">' +
+      '<li><strong>［システム操作］初期セットアップ</strong>を実行（シート初期化・初回のみ）。</li>' +
+      '<li><strong>［タスクマスター管理］base task を整備</strong>（標準タスク・必要なら手配物テンプレも設定）。</li>' +
+      '<li><strong>［システム操作］リマインドトリガー登録</strong>（毎朝9:00の自動送信を有効化）。</li>' +
+      '<li><strong>［式場管理］式場を追加</strong>（base taskが自動コピー。プランナーLINE ID・トークンも設定）。</li>' +
+      '<li><strong>［タスクマスター管理］必要に応じて式場別タスクを追加</strong>。</li>' +
+      '<li><strong>［カップル管理］カップルを追加</strong>（挙式日・式場を設定。手配物テンプレが自動コピー）。</li>' +
+      '<li><strong>運用開始後</strong>：base taskを増やしたら「全式場に同期」／進捗はカップル管理で確認／送信内容は送信ログで微修正。</li>' +
+    '</ol>'
+  );
+
+  // ── 7. FAQ ──
+  html += manSec('7','man-faq','よくある質問・困ったとき',
+    manFaq('式場を追加したのにカップル側にタスクが出ない','既存の base task を変更した後は「全式場に同期」が必要です。また、カップルに<strong>挙式日</strong>が未設定だと期限が計算されません。') +
+    manFaq('LINEテスト送信でエラーになる','対象式場に「プランナー LINE User ID」と「チャネルアクセストークン」が両方設定されているか確認してください。base task（式場未選択）では送信できません。') +
+    manFaq('送信ログがほとんど表示されない','<strong>日付フィルタが当日</strong>になっています。「日付クリア」で全期間が表示されます。') +
+    manFaq('手配物テンプレートが特定のカップルにコピーされない','別の式場専用タスクに紐づくテンプレは、式場が一致するカップルにのみコピーされます。同名の手配物が既にある場合も重複コピーされません（付録B）。') +
+    manFaq('操作したのに反映されない／古い内容が出る','表示高速化のキャッシュが残っている可能性があります。上部に黄色い帯が出ているときは更新中です。少し待つか、メニューを切り替えて開き直してください。') +
+    manFaq('チェックを間違えて全部やり直したい','カップル詳細シート下部の「進捗をリセット」で、そのカップルの完了チェックを全削除できます（取り消し不可）。')
+  );
+
+  // ── 付録 ──
+  html += manSec('A','man-appendix','付録',
+    manH3('付録A. 期限式（due_formula）の書き方') +
+    '<p>各カップルの<strong>挙式日を基準に締切日を自動計算</strong>するための式です。タスクごとに設定します。</p>' +
+    '<ul class="man-list">' +
+      '<li>書式の例：<code>挙式日 - 120日</code>、<code>挙式日 - 60日</code>、<code>挙式日 - 14日</code></li>' +
+      '<li>意味：「挙式日の◯日前」を、そのカップルの締切日として計算します。</li>' +
+      '<li><strong>期限目安</strong>（挙式2ヶ月前 など）は表示用ラベルで、計算には使われません。両方を設定すると正確さと分かりやすさを両立できます。</li>' +
+    '</ul>' +
+    manCallout('note','期限式が未設定のタスクは、期限による並び・通知の対象になりません。') +
+    manH3('付録B. 手配物テンプレートの自動コピーの仕組み') +
+    '<p>手配物テンプレートは「タスクに紐づく手配物のひな型」です。次のタイミングで各カップルへコピーされます。</p>' +
+    '<ul class="man-list">' +
+      '<li><strong>カップルを新規登録したとき</strong>（関係するタスクのテンプレを自動コピー）</li>' +
+      '<li><strong>［タスクマスター管理］全式場に同期 を実行したとき</strong>（全カップルへまとめて反映）</li>' +
+    '</ul>' +
+    '<p>コピー時のルール：</p>' +
+    '<ol class="man-steps">' +
+      '<li>テンプレが紐づくタスクが存在しない → スキップ。</li>' +
+      '<li>別の式場専用タスクに紐づき、カップルの式場と一致しない → スキップ。</li>' +
+      '<li>同じタスク × 同じ手配物名が既にある → 重複を避けてスキップ。</li>' +
+      '<li>上記以外 → 手配物としてコピー（数量も引き継ぎ）。</li>' +
+    '</ol>' +
+    manCallout('tip','標準の持ち物は<strong>テンプレートで一括管理</strong>し、カップル個別の事情は<strong>カップル詳細シートで個別に増減</strong>する、という運用が基本です。')
+  );
+
+  html += '</div></div>';
+  html += '<button class="btn btn--primary btn--icon man-backtop" id="man-backtop" title="先頭へ">'+ic('arrowUp','ic--sm')+'</button>';
+
+  m.innerHTML = html;
+  bindManualEvents();
+}
+
+function manFaq(q, a){
+  return '<div style="margin-bottom:14px">' +
+    '<p style="font-weight:700;margin-bottom:4px;display:flex;gap:7px;align-items:flex-start">'+ic('help','ic--sm')+'<span>'+q+'</span></p>' +
+    '<p style="margin:0 0 0 23px;color:var(--text-sub)">'+a+'</p>' +
+  '</div>';
+}
+
+function bindManualEvents(){
+  var main = document.getElementById('main');
+  // 目次・本文内アンカー
+  main.querySelectorAll('[data-goto]').forEach(function(a){
+    a.addEventListener('click', function(){
+      var el = document.getElementById(this.dataset.goto);
+      if (el) el.scrollIntoView({behavior:'smooth', block:'start'});
+    });
+  });
+  // 先頭へ
+  var top = document.getElementById('man-backtop');
+  if (top) top.addEventListener('click', function(){ main.scrollTo({top:0, behavior:'smooth'}); });
+  // 画像クリックで拡大（ライトボックス）
+  main.querySelectorAll('img[data-lb]').forEach(function(img){
+    img.addEventListener('click', function(){
+      var lb = document.createElement('div');
+      lb.className = 'man-lb';
+      lb.innerHTML = '<img src="'+this.src+'">';
+      lb.addEventListener('click', function(){ lb.remove(); });
+      document.body.appendChild(lb);
+    });
+  });
 }
 
 // ─── Form helpers ─────────────────────────────────────────

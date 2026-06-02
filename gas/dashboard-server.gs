@@ -1,7 +1,13 @@
 // ─── doGet ───────────────────────────────────────────────────────────────────
 
 function doGet() {
-  return HtmlService.createHtmlOutputFromFile('dashboard')
+  const out = HtmlService.createHtmlOutputFromFile('dashboard');
+  // マニュアル用スクリーンショット（base64）を後段に読み込む。
+  // dashboard 内の renderManual() が window.MANUAL_IMG を参照する。
+  try {
+    out.append(HtmlService.createHtmlOutputFromFile('manual-images').getContent());
+  } catch (e) { /* manual-images が無くてもダッシュボードは動作する */ }
+  return out
     .setTitle('Roots DB ダッシュボード')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
