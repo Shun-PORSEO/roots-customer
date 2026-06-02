@@ -586,3 +586,81 @@ function runSetupRemindTrigger() {
     return { ok: true };
   } catch (e) { throw new Error(e.message); }
 }
+
+// ─── Schedule / Calendar ─────────────────────────────────────────────────────
+// 全カップル × 全タスクの期限を計算し、期間内のエントリを返す。
+// calcDueDate() は reminders.js に既に存在するのでそれを利用する。
+
+function getDashboardSchedule(venueId, fromIso, toIso) {
+  try {
+    const customers = _readCustomers(venueId || null);
+    const allTasks  = _readTaskSheet(false); // is_active=true のみ
+    const venues    = getVenues();
+    const venueMap  = {};
+    venues.forEach(function (v) { venueMap[v.venue_id] = v.venue_name; });
+
+    const progSheet = _s('task_progress');
+    const progData  = progSheet ? progSheet.getDataRange().getValues() : [];
+    const doneMap   = {}; // key: line_id + '|' + task_id
+    for (let i = 1; i < progData.length; i++) {
+      if (progData[i][0] && _bool(progData[i][2])) {
+        doneMap[String(progData[i][0]) + '|' + String(progData[i][1])] = true;
+      }
+    }
+
+    const hidSheet = _s('user_hidden_tasks');
+    const hidData  = hidSheet ? hidSheet.getDataRange().getValues() : [];
+    const hiddenSet = new Set();
+    for (let i = 1; i < hidData.length; i++) {
+      if (hidData[i][0]) hiddenSet.add(String(hidData[i][0]) + '|' + String(hidData[i][1]));
+    }
+
+    const from = fromIso ? new Date(fromIso + 'T00:00:00') : null;
+    const to   = toIso   ? new Date(toIso   + 'T23:59:59') : null;
+
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+
+    const entries = [];
+    customers.forEach(function (c) {
+      if (!c.wedding_date) return;
+      const name = [c.name1_kana, c.name2_kana].filter(Boolean).join(' & ') || c.line_id;
+
+      allTasks.forEach(function (t) {
+        // target_line_id 指定があれば対象カップルだけ
+        if (t.target_line_id && t.target_line_id !== c.line_id) return;
+        // 式場別タスクはそのカップルの venue と一致するもののみ
+        if (!t.target_line_id && t.venue_id && t.venue_id !== c.venue_id) return;
+        // 非表示タスクは除外
+        if (hiddenSet.has(c.line_id + '|' + t.task_id)) return;
+        if (!t.due_formula) return;
+
+        const dueDate = calcDueDate(t.due_formula, c.wedding_date);
+        if (!dueDate) return;
+        if (from && dueDate < from) return;
+        if (to   && dueDate > to)   return;
+
+        const dueIso = _isoDate(dueDate);
+        const daysUntil = Math.round((dueDate.getTime() - today.getTime()) / 86400000);
+        const isDone = doneMap[c.line_id + '|' + t.task_id] === true;
+
+        entries.push({
+          task_id:      t.task_id,
+          task_content: t.task_content,
+          category:     t.category,
+          due_estimate: t.due_estimate,
+          due_date:     dueIso,
+          days_until:   daysUntil,
+          is_done:      isDone,
+          line_id:      c.line_id,
+          couple_name:  name,
+          venue_id:     c.venue_id,
+          venue_name:   venueMap[c.venue_id] || c.venue_id,
+          wedding_date: c.wedding_date,
+        });
+      });
+    });
+
+    entries.sort(function (a, b) { return a.due_date < b.due_date ? -1 : a.due_date > b.due_date ? 1 : 0; });
+    return entries;
+  } catch (e) { throw new Error(e.message); }
+}

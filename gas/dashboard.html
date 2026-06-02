@@ -245,6 +245,52 @@ a:hover{text-decoration:underline}
 .info-row{display:flex;gap:12px;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px}
 .info-row:last-child{border-bottom:none}
 .info-row__label{min-width:120px;color:var(--text-sub);font-size:12px}
+
+/* ─── Schedule / Calendar ─────────────────────────────── */
+.sched-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:20px}
+@media (max-width:1100px){.sched-grid{grid-template-columns:1fr}}
+.sched-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden}
+.sched-panel__head{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.sched-panel__title{font-size:14px;font-weight:600;letter-spacing:-.01em}
+.sched-panel__sub{font-size:11px;color:var(--text-sub);margin-top:2px}
+.sched-panel__body{padding:8px 0;max-height:560px;overflow-y:auto}
+
+.upcoming-row{display:flex;align-items:flex-start;gap:12px;padding:11px 18px;border-bottom:1px solid var(--border);cursor:pointer;transition:background-color .12s}
+.upcoming-row:last-child{border-bottom:none}
+.upcoming-row:hover{background:var(--primary-bg)}
+.upcoming-row__date{flex-shrink:0;width:62px;text-align:center;border:1px solid var(--border);border-radius:6px;padding:4px 0;background:#fff;font-variant-numeric:tabular-nums}
+.upcoming-row__date .m{font-size:10px;color:var(--text-sub);display:block;line-height:1}
+.upcoming-row__date .d{font-size:18px;font-weight:600;display:block;line-height:1.1;margin-top:2px}
+.upcoming-row__date.is-overdue{background:#FEE2E2;border-color:#fecaca;color:#991B1B}
+.upcoming-row__date.is-overdue .m{color:#991B1B}
+.upcoming-row__date.is-soon{background:#FEF3C7;border-color:#fde68a;color:#92400E}
+.upcoming-row__date.is-soon .m{color:#92400E}
+.upcoming-row__body{flex:1;min-width:0}
+.upcoming-row__top{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.upcoming-row__title{font-size:13px;font-weight:500;line-height:1.35}
+.upcoming-row__meta{font-size:11px;color:var(--text-sub);margin-top:3px;display:flex;gap:8px;flex-wrap:wrap}
+.upcoming-row.is-done .upcoming-row__title{text-decoration:line-through;color:var(--text-sub)}
+
+/* Calendar grid */
+.cal-nav{display:flex;align-items:center;gap:6px}
+.cal-nav__title{font-size:13px;font-weight:600;min-width:96px;text-align:center;font-variant-numeric:tabular-nums}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);border-top:1px solid var(--border);border-left:1px solid var(--border)}
+.cal-dow{padding:6px 0;text-align:center;font-size:11px;font-weight:600;color:var(--text-sub);background:var(--bg);border-right:1px solid var(--border);border-bottom:1px solid var(--border)}
+.cal-dow.sun{color:#DC2626}
+.cal-dow.sat{color:#2563EB}
+.cal-cell{min-height:84px;padding:5px 6px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);background:#fff;cursor:pointer;transition:background-color .12s;position:relative;overflow:hidden}
+.cal-cell:hover{background:var(--primary-bg)}
+.cal-cell.is-other{background:#FAFAFA;color:#A1A1AA;cursor:default}
+.cal-cell.is-other:hover{background:#FAFAFA}
+.cal-cell.is-today{background:#EFF6FF}
+.cal-cell.is-today:hover{background:#DBEAFE}
+.cal-cell__num{font-size:11px;font-weight:600;font-variant-numeric:tabular-nums}
+.cal-cell.sun .cal-cell__num{color:#DC2626}
+.cal-cell.sat .cal-cell__num{color:#2563EB}
+.cal-cell__chip{display:block;font-size:10px;line-height:1.25;padding:2px 5px;margin-top:3px;border-radius:4px;background:var(--primary-bg);color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border:1px solid var(--border)}
+.cal-cell__chip.is-overdue{background:#FEE2E2;border-color:#fecaca;color:#991B1B}
+.cal-cell__chip.is-done{background:#DCFCE7;border-color:#bbf7d0;color:#166534;text-decoration:line-through}
+.cal-cell__more{font-size:10px;color:var(--text-sub);margin-top:2px}
 </style>
 </head>
 <body>
@@ -252,7 +298,8 @@ a:hover{text-decoration:underline}
   <nav class="sidebar">
     <div class="sidebar__logo">Roots <span>admin</span></div>
     <ul class="sidebar__nav" id="nav-list">
-      <li class="sidebar__item active" data-s="venues">🏛 式場管理 <span class="stale-dot" id="dot-venues"></span></li>
+      <li class="sidebar__item active" data-s="schedule">📅 タスクカレンダー <span class="stale-dot" id="dot-schedule"></span></li>
+      <li class="sidebar__item" data-s="venues">🏛 式場管理 <span class="stale-dot" id="dot-venues"></span></li>
       <li class="sidebar__item" data-s="tasks">📋 タスクマスター <span class="stale-dot" id="dot-tasks"></span></li>
       <li class="sidebar__item" data-s="customers">💍 カップル管理 <span class="stale-dot" id="dot-customers"></span></li>
       <li class="sidebar__item" data-s="logs">📨 送信ログ <span class="stale-dot" id="dot-logs"></span></li>
@@ -349,12 +396,18 @@ function apiSWR(fn, args, cacheKey, onData) {
 
 // ─── State ────────────────────────────────────────────────
 var state = {
-  section: 'venues',
+  section: 'schedule',
   venues: [],
   taskFilter: { venueId: '', showInactive: false },
   customerFilter: { venueId: '' },
   logFilter: { venueId: '', date: todayStr() },
+  scheduleFilter: { venueId: '', month: thisMonthStr(), hideDone: true },
 };
+
+function thisMonthStr() {
+  var d = new Date();
+  return d.getFullYear() + '-' + pad(d.getMonth()+1);
+}
 
 function todayStr() {
   var d = new Date();
@@ -438,11 +491,285 @@ document.addEventListener('keydown', function(e){
 function renderSection(s) {
   var m = document.getElementById('main');
   m.innerHTML = '<div class="section"><div class="empty"><div class="spinner" style="margin:0 auto 12px"></div></div></div>';
+  if (s==='schedule')  renderSchedule();
   if (s==='venues')    renderVenues();
   if (s==='tasks')     renderTasks();
   if (s==='customers') renderCustomers();
   if (s==='logs')      renderLogs();
   if (s==='system')    renderSystem();
+}
+
+// ═══════════════════════════════════════════════════════════
+// ⓪ タスクカレンダー（管理者ホーム）
+// ═══════════════════════════════════════════════════════════
+function renderSchedule() {
+  apiSWR('getDashboardVenues', [], 'venues', function(venues, isStale){
+    state.venues = venues || [];
+    loadAndRenderSchedule(isStale);
+  });
+}
+
+// 月の範囲 (今月の前後を含めるためカレンダー表示用に拡張) を計算
+function monthRange(monthStr) {
+  // monthStr: YYYY-MM
+  var parts = monthStr.split('-');
+  var y = parseInt(parts[0],10), m = parseInt(parts[1],10);
+  var first = new Date(y, m-1, 1);
+  var last  = new Date(y, m,   0);
+  // カレンダーグリッド用に前後の空白日も含める
+  var gridFrom = new Date(first); gridFrom.setDate(gridFrom.getDate() - first.getDay());
+  var gridTo   = new Date(last);  gridTo.setDate(gridTo.getDate() + (6 - last.getDay()));
+  return { y:y, m:m, first:first, last:last, gridFrom:gridFrom, gridTo:gridTo };
+}
+
+function isoFromDate(d){
+  return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+}
+
+function loadAndRenderSchedule(parentStale) {
+  var venueId = state.scheduleFilter.venueId;
+  var range = monthRange(state.scheduleFilter.month);
+  // カレンダー範囲 + 直近14日を確実にカバーするため、開始を min(gridFrom, today) にする
+  var today = new Date(); today.setHours(0,0,0,0);
+  var fromDate = range.gridFrom < today ? range.gridFrom : today;
+  // 終了は max(gridTo, today+14)
+  var soon = new Date(today); soon.setDate(soon.getDate()+14);
+  var toDate = range.gridTo > soon ? range.gridTo : soon;
+  // overdueも見たいので、十分過去から取得（180日前）
+  var deepFrom = new Date(today); deepFrom.setDate(deepFrom.getDate()-180);
+  if (deepFrom < fromDate) fromDate = deepFrom;
+
+  var fromIso = isoFromDate(fromDate);
+  var toIso   = isoFromDate(toDate);
+  var cacheKey = 'sched_'+(venueId||'all')+'_'+fromIso+'_'+toIso;
+
+  apiSWR('getDashboardSchedule', [venueId||null, fromIso, toIso], cacheKey, function(entries, isStale){
+    renderScheduleUI(entries||[], range, isStale||parentStale);
+  });
+}
+
+function renderScheduleUI(entries, range, isStale) {
+  var today = new Date(); today.setHours(0,0,0,0);
+  var todayIso = isoFromDate(today);
+  var soonIso  = isoFromDate(new Date(today.getTime() + 14*86400000));
+
+  // 直近: 期限切れ未完了 + 今日〜14日以内の未完了
+  var upcoming = entries.filter(function(e){
+    if (e.is_done) return false;
+    return e.due_date <= soonIso; // 過去〜14日以内
+  }).sort(function(a,b){ return a.due_date < b.due_date ? -1 : a.due_date > b.due_date ? 1 : 0; });
+
+  // カレンダー: 現在表示中の月のグリッド範囲
+  var calFromIso = isoFromDate(range.gridFrom);
+  var calToIso   = isoFromDate(range.gridTo);
+  var calEntries = entries.filter(function(e){ return e.due_date >= calFromIso && e.due_date <= calToIso; });
+  var byDate = {};
+  calEntries.forEach(function(e){ (byDate[e.due_date]||(byDate[e.due_date]=[])).push(e); });
+
+  var overdueCount = upcoming.filter(function(e){return e.due_date < todayIso;}).length;
+  var todayCount   = upcoming.filter(function(e){return e.due_date === todayIso;}).length;
+  var soonCount    = upcoming.length - overdueCount - todayCount;
+
+  var m = document.getElementById('main');
+  m.innerHTML =
+    '<div class="section">' +
+      staleBanner() +
+      '<div class="section__header">' +
+        '<div><h1 class="section__title">タスクカレンダー</h1><p class="section__sub">期限切れ <strong style="color:var(--danger)">'+overdueCount+'</strong> ／ 今日 '+todayCount+' ／ 14日以内 '+soonCount+'</p></div>' +
+      '</div>' +
+      '<div class="filter-bar">' +
+        '<select id="sched-venue-filter">'+venueOptions(state.venues, state.scheduleFilter.venueId)+'</select>' +
+        '<label><input type="checkbox" id="sched-hide-done"'+(state.scheduleFilter.hideDone?' checked':'')+'>完了を隠す</label>' +
+      '</div>' +
+
+      '<div class="sched-grid">' +
+        // 左: 直近の手配タスク
+        '<div class="sched-panel">' +
+          '<div class="sched-panel__head">' +
+            '<div><div class="sched-panel__title">🚨 直近の手配タスク</div><div class="sched-panel__sub">期限切れ・今日〜14日以内の未完了</div></div>' +
+          '</div>' +
+          '<div class="sched-panel__body">' + renderUpcomingRows(upcoming, todayIso) + '</div>' +
+        '</div>' +
+
+        // 右: 月カレンダー
+        '<div class="sched-panel">' +
+          '<div class="sched-panel__head">' +
+            '<div><div class="sched-panel__title">📅 月カレンダー</div><div class="sched-panel__sub">日付クリックで詳細</div></div>' +
+            '<div class="cal-nav">' +
+              '<button class="btn btn--outline btn--xs" id="cal-prev">‹</button>' +
+              '<span class="cal-nav__title">'+range.y+'年 '+range.m+'月</span>' +
+              '<button class="btn btn--outline btn--xs" id="cal-next">›</button>' +
+              '<button class="btn btn--ghost btn--xs" id="cal-today" style="margin-left:4px">今日</button>' +
+            '</div>' +
+          '</div>' +
+          '<div class="sched-panel__body" style="padding:0;max-height:none;overflow:visible">' +
+            renderCalendarGrid(range, byDate, todayIso) +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+
+  if (isStale) document.getElementById('stale-banner').classList.add('show');
+  bindScheduleEvents(entries, byDate, range);
+}
+
+function renderUpcomingRows(upcoming, todayIso) {
+  var rows = state.scheduleFilter.hideDone ? upcoming.filter(function(e){return !e.is_done;}) : upcoming;
+  if (!rows.length) return '<p class="empty" style="padding:32px 18px">直近で対応が必要なタスクはありません</p>';
+  return rows.map(function(e){
+    var dateClass = '';
+    if (e.due_date < todayIso) dateClass = 'is-overdue';
+    else if (e.due_date <= isoFromDate(new Date(Date.now()+3*86400000))) dateClass = 'is-soon';
+    var dParts = e.due_date.split('-');
+    var diffBadge;
+    if (e.days_until < 0)      diffBadge = '<span class="badge badge--red">'+(-e.days_until)+'日超過</span>';
+    else if (e.days_until===0) diffBadge = '<span class="badge badge--orange">今日</span>';
+    else                       diffBadge = '<span class="badge badge--grey">あと'+e.days_until+'日</span>';
+    return '<div class="upcoming-row'+(e.is_done?' is-done':'')+'" data-line-id="'+esc(e.line_id)+'" data-venue-id="'+esc(e.venue_id)+'">' +
+      '<div class="upcoming-row__date '+dateClass+'">' +
+        '<span class="m">'+parseInt(dParts[1],10)+'月</span>' +
+        '<span class="d">'+parseInt(dParts[2],10)+'</span>' +
+      '</div>' +
+      '<div class="upcoming-row__body">' +
+        '<div class="upcoming-row__top">' +
+          '<span class="upcoming-row__title">'+esc(e.task_content)+'</span>' +
+          diffBadge +
+        '</div>' +
+        '<div class="upcoming-row__meta">' +
+          '<span>💍 '+esc(e.couple_name)+'</span>' +
+          (e.venue_name?'<span>🏛 '+esc(e.venue_name)+'</span>':'') +
+          (e.category?'<span>'+esc(e.category)+'</span>':'') +
+          (e.due_estimate?'<span class="text-sub">'+esc(e.due_estimate)+'</span>':'') +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function renderCalendarGrid(range, byDate, todayIso) {
+  var dows = ['日','月','火','水','木','金','土'];
+  var html = '<div class="cal-grid">';
+  dows.forEach(function(d,i){
+    var cls = i===0?'cal-dow sun':i===6?'cal-dow sat':'cal-dow';
+    html += '<div class="'+cls+'">'+d+'</div>';
+  });
+  var cur = new Date(range.gridFrom);
+  while (cur <= range.gridTo) {
+    var iso = isoFromDate(cur);
+    var inMonth = (cur.getMonth()+1) === range.m;
+    var dow = cur.getDay();
+    var classes = 'cal-cell';
+    if (!inMonth) classes += ' is-other';
+    if (iso === todayIso) classes += ' is-today';
+    if (dow===0) classes += ' sun';
+    if (dow===6) classes += ' sat';
+
+    var list = byDate[iso] || [];
+    var hideDone = state.scheduleFilter.hideDone;
+    var visible = hideDone ? list.filter(function(e){return !e.is_done;}) : list;
+    var maxChips = 3;
+    var chips = visible.slice(0, maxChips).map(function(e){
+      var c = 'cal-cell__chip';
+      if (e.is_done) c += ' is-done';
+      else if (e.due_date < todayIso) c += ' is-overdue';
+      return '<span class="'+c+'" title="'+esc(e.couple_name+' / '+e.task_content)+'">'+esc(e.couple_name.split(' & ')[0]||e.couple_name)+' · '+esc(e.task_content)+'</span>';
+    }).join('');
+    var more = visible.length > maxChips ? '<div class="cal-cell__more">+'+(visible.length-maxChips)+' 件</div>' : '';
+
+    html += '<div class="'+classes+'" data-iso="'+iso+'">' +
+      '<div class="cal-cell__num">'+cur.getDate()+'</div>' +
+      chips + more +
+    '</div>';
+    cur.setDate(cur.getDate()+1);
+  }
+  html += '</div>';
+  return html;
+}
+
+function bindScheduleEvents(entries, byDate, range) {
+  document.getElementById('sched-venue-filter').addEventListener('change', function(){
+    state.scheduleFilter.venueId = this.value;
+    loadAndRenderSchedule();
+  });
+  document.getElementById('sched-hide-done').addEventListener('change', function(){
+    state.scheduleFilter.hideDone = this.checked;
+    loadAndRenderSchedule();
+  });
+  document.getElementById('cal-prev').addEventListener('click', function(){
+    state.scheduleFilter.month = shiftMonth(state.scheduleFilter.month, -1);
+    loadAndRenderSchedule();
+  });
+  document.getElementById('cal-next').addEventListener('click', function(){
+    state.scheduleFilter.month = shiftMonth(state.scheduleFilter.month, +1);
+    loadAndRenderSchedule();
+  });
+  document.getElementById('cal-today').addEventListener('click', function(){
+    state.scheduleFilter.month = thisMonthStr();
+    loadAndRenderSchedule();
+  });
+  // セルクリックで日別ドロワー
+  document.querySelectorAll('.cal-cell[data-iso]').forEach(function(cell){
+    cell.addEventListener('click', function(){
+      if (this.classList.contains('is-other')) return;
+      openDayDrawer(this.dataset.iso, byDate[this.dataset.iso] || []);
+    });
+  });
+  // 直近リスト行クリックでカップル詳細ドロワー
+  document.querySelectorAll('.upcoming-row[data-line-id]').forEach(function(row){
+    row.addEventListener('click', function(){
+      openCustomerDrawer(this.dataset.lineId, this.dataset.venueId || '');
+    });
+  });
+}
+
+function shiftMonth(monthStr, delta) {
+  var parts = monthStr.split('-');
+  var d = new Date(parseInt(parts[0],10), parseInt(parts[1],10)-1+delta, 1);
+  return d.getFullYear()+'-'+pad(d.getMonth()+1);
+}
+
+function openDayDrawer(iso, entries) {
+  var dParts = iso.split('-');
+  var label = parseInt(dParts[0],10)+'年 '+parseInt(dParts[1],10)+'月 '+parseInt(dParts[2],10)+'日';
+  var todayIso = isoFromDate((function(){var d=new Date();d.setHours(0,0,0,0);return d;})());
+  var list = state.scheduleFilter.hideDone ? entries.filter(function(e){return !e.is_done;}) : entries;
+
+  var body = '';
+  if (!list.length) {
+    body = '<p class="text-sub" style="font-size:12px">この日のタスクはありません</p>';
+  } else {
+    body = list.map(function(e){
+      var diffBadge;
+      if (e.days_until < 0)      diffBadge = '<span class="badge badge--red">'+(-e.days_until)+'日超過</span>';
+      else if (e.days_until===0) diffBadge = '<span class="badge badge--orange">今日</span>';
+      else                       diffBadge = '<span class="badge badge--grey">あと'+e.days_until+'日</span>';
+      return '<div class="task-item'+(e.is_done?' task-done':'')+'" data-line-id="'+esc(e.line_id)+'" data-venue-id="'+esc(e.venue_id)+'" style="cursor:pointer">' +
+        '<div class="task-item__header">' +
+          '<div class="task-item__body">' +
+            '<div class="task-item__title">'+esc(e.task_content)+'</div>' +
+            '<div class="task-item__meta">' +
+              '<span>💍 '+esc(e.couple_name)+'</span>' +
+              (e.venue_name?'<span>🏛 '+esc(e.venue_name)+'</span>':'') +
+              (e.category?'<span>'+esc(e.category)+'</span>':'') +
+              diffBadge +
+              (e.is_done?'<span class="badge badge--green">完了</span>':'') +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  openDrawer(
+    '<div class="drawer__title"><span>📅 '+esc(label)+'</span><button class="btn btn--sm btn--outline" onclick="closeDrawer()">閉じる</button></div>' +
+    '<div class="drawer__section"><div class="drawer__section-label">'+list.length+'件のタスク</div>' + body + '</div>'
+  );
+  document.querySelectorAll('#drawer-body .task-item[data-line-id]').forEach(function(item){
+    item.addEventListener('click', function(){
+      closeDrawer();
+      openCustomerDrawer(this.dataset.lineId, this.dataset.venueId || '');
+    });
+  });
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1332,7 +1659,7 @@ function ir(label,value){
 }
 
 // ─── Boot ─────────────────────────────────────────────────
-renderSection('venues');
+renderSection('schedule');
 
 })();
 </script>
