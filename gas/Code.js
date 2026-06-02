@@ -261,6 +261,9 @@ function doPost(e) {
                 return responseJSON({ status: "error", message: "URLは http(s):// で始めてください" });
             }
             const ok = updateTaskManualUrl(taskId, manualUrl);
+            if (!ok) return responseJSON({ status: "error", message: "Task not found" });
+            return responseJSON({ status: "updated" });
+        }
         return responseJSON({ status: "error", message: "Invalid action" });
     }
     catch (error) {
