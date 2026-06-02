@@ -149,3 +149,42 @@ body {
 .animate-slide-up {
   animation: slide-up 300ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
+
+/* ─── Spinner (wedding-ring motif) ── */
+@keyframes spin-cw  { to { transform: rotate(360deg); } }
+@keyframes spin-ccw { to { transform: rotate(-360deg); } }
+
+/* gentle opacity breathing for the label + center bead */
+@keyframes breathe {
+  0%, 100% { opacity: 0.45; }
+  50%      { opacity: 1; }
+}
+
+/* arc length pulses so the sweep feels alive, not mechanical */
+@keyframes arc-sweep {
+  0%   { stroke-dasharray: 1 200;   stroke-dashoffset: 0; }
+  50%  { stroke-dasharray: 90 200;  stroke-dashoffset: -35; }
+  100% { stroke-dasharray: 1 200;   stroke-dashoffset: -124; }
+}
+
+.spinner-ring-outer {
+  transform-origin: center;
+  animation: spin-cw 1.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+.spinner-ring-inner {
+  transform-origin: center;
+  animation: spin-ccw 1.9s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+.spinner-arc {
+  animation: arc-sweep 1.6s ease-in-out infinite;
+}
+.spinner-bead  { animation: breathe 1.6s ease-in-out infinite; }
+.spinner-label { animation: breathe 1.8s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner-ring-outer,
+  .spinner-ring-inner { animation: spin-cw 2.4s linear infinite; }
+  .spinner-arc,
+  .spinner-bead,
+  .spinner-label { animation: none; }
+}
