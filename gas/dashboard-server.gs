@@ -664,3 +664,47 @@ function getDashboardSchedule(venueId, fromIso, toIso) {
     return entries;
   } catch (e) { throw new Error(e.message); }
 }
+
+// GAS エディタから手動実行して状態を確認するデバッグ関数。
+// 「タスクが出ない」原因切り分け用。
+function debugSchedule() {
+  const customers = _readCustomers(null);
+  const tasks = _readTaskSheet(false);
+  const sample = customers.slice(0, 3).map(function (c) {
+    return { line_id: c.line_id, venue_id: c.venue_id, wedding_date: c.wedding_date, hasWedding: !!c.wedding_date };
+  });
+  const taskSample = tasks.slice(0, 5).map(function (t) {
+    return { task_id: t.task_id, venue_id: t.venue_id, due_formula: t.due_formula, hasFormula: !!t.due_formula };
+  });
+  const today = new Date();
+  const from = new Date(today); from.setDate(from.getDate()-180);
+  const to   = new Date(today); to.setDate(to.getDate()+180);
+  const entries = getDashboardSchedule(null, _isoDate(from), _isoDate(to));
+
+  // formula で何件 due_date が計算できたか
+  let dueOk = 0, dueNull = 0;
+  customers.forEach(function (c) {
+    if (!c.wedding_date) return;
+    tasks.forEach(function (t) {
+      if (!t.due_formula) return;
+      if (t.target_line_id && t.target_line_id !== c.line_id) return;
+      if (!t.target_line_id && t.venue_id && t.venue_id !== c.venue_id) return;
+      const d = calcDueDate(t.due_formula, c.wedding_date);
+      if (d) dueOk++; else dueNull++;
+    });
+  });
+
+  const summary = {
+    customers_total: customers.length,
+    customers_with_wedding_date: customers.filter(function(c){return !!c.wedding_date;}).length,
+    tasks_active_total: tasks.length,
+    tasks_with_formula: tasks.filter(function(t){return !!t.due_formula;}).length,
+    schedule_entries_returned: entries.length,
+    due_calc_success: dueOk,
+    due_calc_null: dueNull,
+    sample_customers: sample,
+    sample_tasks: taskSample,
+  };
+  console.log(JSON.stringify(summary, null, 2));
+  return summary;
+}

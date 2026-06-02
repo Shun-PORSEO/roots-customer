@@ -25,16 +25,30 @@ function calcDueDate(formula, weddingDateStr) {
     if (parts.length !== 3)
         return null;
     const wedding = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-    const dayMatch = formula.match(/挙式日\s*[-−]\s*(\d+)\s*日/);
-    if (dayMatch) {
+    // 挙式前: 挙式日 - N日 / Nヶ月
+    const dayMinus = formula.match(/挙式日\s*[-−]\s*(\d+)\s*日/);
+    if (dayMinus) {
         const result = new Date(wedding);
-        result.setDate(result.getDate() - parseInt(dayMatch[1]));
+        result.setDate(result.getDate() - parseInt(dayMinus[1]));
         return result;
     }
-    const monthMatch = formula.match(/挙式日\s*[-−]\s*(\d+)\s*[ヶか]月/);
-    if (monthMatch) {
+    const monthMinus = formula.match(/挙式日\s*[-−]\s*(\d+)\s*[ヶか]月/);
+    if (monthMinus) {
         const result = new Date(wedding);
-        result.setMonth(result.getMonth() - parseInt(monthMatch[1]));
+        result.setMonth(result.getMonth() - parseInt(monthMinus[1]));
+        return result;
+    }
+    // 挙式後(後手配): 挙式日 + N日 / Nヶ月
+    const dayPlus = formula.match(/挙式日\s*[+＋]\s*(\d+)\s*日/);
+    if (dayPlus) {
+        const result = new Date(wedding);
+        result.setDate(result.getDate() + parseInt(dayPlus[1]));
+        return result;
+    }
+    const monthPlus = formula.match(/挙式日\s*[+＋]\s*(\d+)\s*[ヶか]月/);
+    if (monthPlus) {
+        const result = new Date(wedding);
+        result.setMonth(result.getMonth() + parseInt(monthPlus[1]));
         return result;
     }
     if (formula.trim() === "挙式日")
