@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { apiClient } from "@/lib/api";
+import { getAdminLineId } from "@/hooks/useAdminAuth";
 import { IVenue, ITask, ITaskItem } from "@/lib/types";
 import { Spinner } from "@/components/Spinner";
 import { Field, inputCls, inputStyle } from "@/components/admin/Field";
@@ -51,7 +52,7 @@ export default function TasksPage() {
   const [newTask, setNewTask] = useState<Partial<TaskMaster>>(NEW_TASK);
 
   useEffect(() => {
-    apiClient.get("getVenues", "admin").then((res) => {
+    apiClient.get("getVenues", getAdminLineId()).then((res) => {
       if (res.venues) setVenues(res.venues);
     });
   }, []);
@@ -61,7 +62,7 @@ export default function TasksPage() {
     try {
       const res = await apiClient.post({
         action: "getVenueTasks",
-        line_id: "admin",
+        line_id: getAdminLineId(),
         venue_id: selectedVenue || undefined,
       });
       if (res.tasks) setTasks(res.tasks as TaskMaster[]);
@@ -109,7 +110,7 @@ export default function TasksPage() {
     apiClient
       .post({
         action: "getTaskItemTemplates",
-        line_id: "admin",
+        line_id: getAdminLineId(),
         task_id: t.task_id,
       })
       .then((res) => {
@@ -127,7 +128,7 @@ export default function TasksPage() {
     try {
       const res = await apiClient.post({
         action: "addTaskItemTemplate",
-        line_id: "admin",
+        line_id: getAdminLineId(),
         task_id: selectedTask.task_id,
         item_name: name,
         quantity: parseInt(tplDraft.qty, 10) || 1,
@@ -147,7 +148,7 @@ export default function TasksPage() {
     try {
       await apiClient.post({
         action: "deleteTaskItem",
-        line_id: "admin",
+        line_id: getAdminLineId(),
         item_id: item.item_id,
       });
     } catch (e: any) {
@@ -161,7 +162,7 @@ export default function TasksPage() {
     try {
       await apiClient.post({
         action: "updateTaskMaster",
-        line_id: "admin",
+        line_id: getAdminLineId(),
         task_id: selectedTask.task_id,
         patch: draft,
       });
@@ -179,7 +180,7 @@ export default function TasksPage() {
     try {
       await apiClient.post({
         action: "updateTaskMaster",
-        line_id: "admin",
+        line_id: getAdminLineId(),
         task_id: t.task_id,
         patch: { is_active: !(t.is_active !== false) },
       });
@@ -198,7 +199,7 @@ export default function TasksPage() {
     try {
       await apiClient.post({
         action: "testSendTask",
-        line_id: "admin",
+        line_id: getAdminLineId(),
         venue_id: selectedVenue,
         task_id: t.task_id,
       });
@@ -217,7 +218,7 @@ export default function TasksPage() {
     try {
       await apiClient.post({
         action: "addTaskMaster",
-        line_id: "admin",
+        line_id: getAdminLineId(),
         venue_id: selectedVenue || undefined,
         task: newTask,
       });

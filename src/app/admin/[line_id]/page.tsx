@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { apiClient } from "@/lib/api";
+import { getAdminLineId } from "@/hooks/useAdminAuth";
 import { ITask, ITaskItem, ICustomer } from "@/lib/types";
 import { Spinner } from "@/components/Spinner";
 import { ErrorMessage } from "@/components/ErrorMessage";
@@ -45,12 +46,12 @@ export default function AdminUserTaskPage({
       const [tasksRes, itemsRes, userRes] = await Promise.all([
         apiClient.post({
           action: "getAdminUserTasks",
-          line_id: "admin",
+          line_id: getAdminLineId(),
           target_line_id: lineId,
         }),
         apiClient.post({
           action: "getTaskItems",
-          line_id: "admin",
+          line_id: getAdminLineId(),
           target_line_id: lineId,
         }),
         apiClient.post({ action: "getUser", line_id: lineId }).catch(() => null),
@@ -101,7 +102,7 @@ export default function AdminUserTaskPage({
     try {
       const res = await apiClient.post({
         action: "addTaskItem",
-        line_id: "admin",
+        line_id: getAdminLineId(),
         target_line_id: lineId,
         task_id: taskId,
         item_name: name,
@@ -126,7 +127,7 @@ export default function AdminUserTaskPage({
     try {
       await apiClient.post({
         action: "updateTaskItem",
-        line_id: "admin",
+        line_id: getAdminLineId(),
         item_id: item.item_id,
         patch: { is_done: next },
       });
@@ -151,7 +152,7 @@ export default function AdminUserTaskPage({
     try {
       await apiClient.post({
         action: "updateTaskItem",
-        line_id: "admin",
+        line_id: getAdminLineId(),
         item_id: item.item_id,
         patch: { quantity: qty },
       });
@@ -169,7 +170,7 @@ export default function AdminUserTaskPage({
     try {
       await apiClient.post({
         action: "updateTaskItem",
-        line_id: "admin",
+        line_id: getAdminLineId(),
         item_id: item.item_id,
         patch: { item_name: name },
       });
@@ -184,7 +185,7 @@ export default function AdminUserTaskPage({
     try {
       await apiClient.post({
         action: "deleteTaskItem",
-        line_id: "admin",
+        line_id: getAdminLineId(),
         item_id: item.item_id,
       });
     } catch (e: any) {
@@ -198,7 +199,7 @@ export default function AdminUserTaskPage({
     try {
       await apiClient.post({
         action: "toggleTaskVisibility",
-        line_id: "admin",
+        line_id: getAdminLineId(),
         target_line_id: lineId,
         task_id: taskId,
         is_visible: !current,
@@ -222,7 +223,7 @@ export default function AdminUserTaskPage({
     try {
       await apiClient.post({
         action: "addCustomTask",
-        line_id: "admin",
+        line_id: getAdminLineId(),
         target_line_id: lineId,
         task: newTask,
       });
@@ -242,7 +243,7 @@ export default function AdminUserTaskPage({
     try {
       await apiClient.post({
         action: "deleteCustomTask",
-        line_id: "admin",
+        line_id: getAdminLineId(),
         task_id: taskId,
       });
       setTasks((cur) => cur.filter((t) => t.task_id !== taskId));

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiClient } from "@/lib/api";
+import { getAdminLineId } from "@/hooks/useAdminAuth";
 import { InlineApiError } from "@/components/ErrorMessage";
 import { useAdminGate } from "@/hooks/useAdminGate";
 import { Spinner } from "@/components/Spinner";
@@ -30,7 +31,7 @@ export default function NewVenuePage() {
     setSaving(true);
     setError(null);
     try {
-      await apiClient.post({ action: "createVenue", line_id: "admin", ...form });
+      await apiClient.post({ action: "createVenue", line_id: getAdminLineId(), ...form });
       router.push("/admin/venues");
     } catch (err) {
       setError(err);

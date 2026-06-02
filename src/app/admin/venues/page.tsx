@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiClient } from "@/lib/api";
+import { getAdminLineId } from "@/hooks/useAdminAuth";
 import { IVenue } from "@/lib/types";
 import { Spinner } from "@/components/Spinner";
 import { Dialog } from "@/components/admin/Dialog";
@@ -66,7 +67,7 @@ export default function VenuesPage() {
   const fetchVenues = async () => {
     setLoading(true);
     try {
-      const res = await apiClient.get("getVenues", "admin");
+      const res = await apiClient.get("getVenues", getAdminLineId());
       if (res.venues) setVenues(res.venues);
     } finally {
       setLoading(false);
@@ -104,7 +105,7 @@ export default function VenuesPage() {
     try {
       await apiClient.post({
         action: "createVenue",
-        line_id: "admin",
+        line_id: getAdminLineId(),
         venue_id: nextVenueId(venues),
         ...form,
       });
@@ -125,7 +126,7 @@ export default function VenuesPage() {
     try {
       await apiClient.post({
         action: "updateVenue",
-        line_id: "admin",
+        line_id: getAdminLineId(),
         venue_id: editing.venue_id,
         patch: {
           venue_name: form.venue_name,
@@ -147,7 +148,7 @@ export default function VenuesPage() {
     try {
       await apiClient.post({
         action: "updateVenueStatus",
-        line_id: "admin",
+        line_id: getAdminLineId(),
         venue_id: v.venue_id,
         active: !v.active,
       });

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiClient } from "@/lib/api";
+import { getAdminLineId } from "@/hooks/useAdminAuth";
 import { IVenue, IUserProgress, ITaskMaster } from "@/lib/types";
 import { getDaysFromToday } from "@/lib/utils";
 import { Spinner } from "@/components/Spinner";
@@ -30,8 +31,8 @@ export default function VenueDetailPage({ params }: { params: { venue_id: string
   useEffect(() => {
     if (!authorized) return;
     Promise.all([
-      apiClient.post({ action: "getVenueDetail", line_id: "admin", venue_id: venueId }),
-      apiClient.post({ action: "getVenueTasks", line_id: "admin", venue_id: venueId }),
+      apiClient.post({ action: "getVenueDetail", line_id: getAdminLineId(), venue_id: venueId }),
+      apiClient.post({ action: "getVenueTasks", line_id: getAdminLineId(), venue_id: venueId }),
     ])
       .then(([detailRes, tasksRes]) => {
         if (detailRes.status === "error") throw new Error(detailRes.message);
@@ -56,7 +57,7 @@ export default function VenueDetailPage({ params }: { params: { venue_id: string
       const url = (urlDraft[taskId] || "").trim();
       const res = await apiClient.post({
         action: "updateTaskManualUrl",
-        line_id: "admin",
+        line_id: getAdminLineId(),
         venue_id: venueId,
         task_id: taskId,
         manual_url: url,

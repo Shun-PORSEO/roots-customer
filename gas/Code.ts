@@ -52,7 +52,15 @@ function doGetLiff(e: any) {
     }
 
     if (action === "getVenues") {
-      const venues = getVenues();
+      // line_channel_access_token は未認証ユーザーにも返されるため除外する
+      const venues = getVenues().map((v) => ({
+        venue_id: v.venue_id,
+        venue_name: v.venue_name,
+        planner_line_user_id: v.planner_line_user_id,
+        line_liff_id: v.line_liff_id,
+        active: v.active,
+        created_at: v.created_at,
+      }));
       return responseJSON({ status: "ok", venues });
     }
 

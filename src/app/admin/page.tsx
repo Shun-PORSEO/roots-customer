@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiClient } from "@/lib/api";
+import { getAdminLineId } from "@/hooks/useAdminAuth";
 import { IUserProgress } from "@/lib/types";
 import { getDaysFromToday } from "@/lib/utils";
 import { Spinner } from "@/components/Spinner";
@@ -116,7 +117,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     setLoading(true);
     apiClient
-      .post({ action: "getUsersWithProgress", line_id: "admin" })
+      .post({ action: "getUsersWithProgress", line_id: getAdminLineId() })
       .then((res) => {
         if (res.users) setUsers(res.users as IUserProgress[]);
       })

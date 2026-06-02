@@ -1,10 +1,18 @@
 "use client";
 
+import { createContext, useContext } from "react";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import { Spinner } from "@/components/Spinner";
 
+const AdminContext = createContext<string>("");
+
+/** 認証済み管理者の LINE ID を返す。AuthGate 配下のコンポーネントで使用。 */
+export function useAdminLineId(): string {
+  return useContext(AdminContext);
+}
+
 export function AuthGate({ children }: { children: React.ReactNode }) {
-  const { authed, checked } = useAdminAuth();
+  const { authed, checked, lineId } = useAdminAuth();
 
   if (!checked) {
     return <Spinner fullScreen />;
@@ -36,5 +44,9 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     );
   }
 
-  return <>{children}</>;
+  return (
+    <AdminContext.Provider value={lineId || ""}>
+      {children}
+    </AdminContext.Provider>
+  );
 }

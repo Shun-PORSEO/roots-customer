@@ -16,7 +16,7 @@ export const useLiff = () => {
   useEffect(() => {
     const initLiff = async () => {
       try {
-        if (typeof window !== "undefined") {
+        if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
           const liffMock = (window as any).__LIFF_MOCK__;
           const lsId = localStorage.getItem("mock_line_id");
           const lsName = localStorage.getItem("mock_nickname");

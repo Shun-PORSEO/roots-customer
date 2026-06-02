@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { apiClient } from "@/lib/api";
+import { getAdminLineId } from "@/hooks/useAdminAuth";
 import { IMessageDraft, IVenue } from "@/lib/types";
 import { Spinner } from "@/components/Spinner";
 import {
@@ -48,7 +49,7 @@ export default function MessagesPage() {
   const [selected, setSelected] = useState<IMessageDraft | null>(null);
 
   useEffect(() => {
-    apiClient.get("getVenues", "admin").then((res) => {
+    apiClient.get("getVenues", getAdminLineId()).then((res) => {
       if (res.venues) setVenues(res.venues);
     });
   }, []);
@@ -58,7 +59,7 @@ export default function MessagesPage() {
     apiClient
       .post({
         action: "getMessageDrafts",
-        line_id: "admin",
+        line_id: getAdminLineId(),
         venue_id: venueFilter || undefined,
       })
       .then((res) => {

@@ -688,6 +688,19 @@ function deleteTaskItem(itemId: string): boolean {
   return false;
 }
 
+/** task_item の所有者 line_id を返す。存在しない場合は null。 */
+function getTaskItemLineId(itemId: string): string | null {
+  const sheet = ensureTaskItemsSheet();
+  if (!sheet) return null;
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === itemId) {
+      return String(data[i][2]); // C列 = line_id
+    }
+  }
+  return null;
+}
+
 // テンプレ手配物（line_id="" の task_items を task_id で取得）
 function getTaskItemTemplates(taskId: string): ITaskItem[] {
   const sheet = ensureTaskItemsSheet();

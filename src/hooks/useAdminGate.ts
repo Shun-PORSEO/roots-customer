@@ -28,5 +28,5 @@ export function useAdminGate() {
     setAuthChecked(true);
   }, [isLiffReady, profile]);
 
-  return { authorized, authChecked };
+  return { authorized, authChecked, lineId: profile?.userId || null };
 }
