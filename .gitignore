@@ -4,3 +4,6 @@ test-results/
 .env.local
 .env
 
+# macOS
+.DS_Store
+
