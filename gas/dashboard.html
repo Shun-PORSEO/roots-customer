@@ -1,0 +1,1189 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>Roots DB ダッシュボード</title>
+<style>
+/* ─── Variables ──────────────────────────────────────────── */
+:root {
+  --c-primary: #2E7D32;
+  --c-primary-light: #4CAF50;
+  --c-primary-dark: #1B5E20;
+  --c-bg: #FFFFFF;
+  --c-surface: #F5F5F5;
+  --c-border: #E0E0E0;
+  --c-text: #212121;
+  --c-text-sub: #757575;
+  --c-accent: #ECEFF1;
+  --c-success: #2E7D32;
+  --c-error: #C62828;
+  --c-warning: #F57F17;
+  --c-info: #1565C0;
+  --sidebar-w: 220px;
+  --radius: 6px;
+  --shadow: 0 2px 8px rgba(0,0,0,.12);
+}
+
+/* ─── Reset ──────────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:14px;color:var(--c-text);background:var(--c-bg);height:100vh;overflow:hidden}
+button{cursor:pointer;font:inherit;border:none;background:none}
+input,textarea,select{font:inherit;color:inherit}
+table{border-collapse:collapse;width:100%}
+a{color:var(--c-primary);text-decoration:none}
+
+/* ─── Layout ─────────────────────────────────────────────── */
+.layout{display:flex;height:100vh}
+
+/* ─── Sidebar ────────────────────────────────────────────── */
+.sidebar{width:var(--sidebar-w);background:var(--c-primary-dark);color:#fff;display:flex;flex-direction:column;flex-shrink:0}
+.sidebar__logo{padding:20px 18px 14px;font-size:18px;font-weight:700;letter-spacing:.5px;border-bottom:1px solid rgba(255,255,255,.15)}
+.sidebar__nav{list-style:none;flex:1;padding:10px 0}
+.sidebar__item{padding:12px 18px;cursor:pointer;border-left:3px solid transparent;transition:background .15s,border-color .15s;font-size:13px}
+.sidebar__item:hover{background:rgba(255,255,255,.1)}
+.sidebar__item.active{background:rgba(255,255,255,.18);border-left-color:#fff;font-weight:600}
+.sidebar__footer{padding:14px 18px;font-size:11px;color:rgba(255,255,255,.5)}
+
+/* ─── Main ───────────────────────────────────────────────── */
+.main{flex:1;overflow:auto;background:var(--c-accent)}
+.section{padding:24px;min-height:100%}
+.section__header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.section__title{font-size:18px;font-weight:600}
+.section__actions{display:flex;gap:8px;align-items:center}
+
+/* ─── Buttons ────────────────────────────────────────────── */
+.btn{padding:7px 14px;border-radius:var(--radius);font-size:13px;display:inline-flex;align-items:center;gap:5px;transition:opacity .15s,background .15s}
+.btn--primary{background:var(--c-primary);color:#fff}
+.btn--primary:hover{background:var(--c-primary-light)}
+.btn--outline{border:1px solid var(--c-border);background:#fff;color:var(--c-text)}
+.btn--outline:hover{background:var(--c-accent)}
+.btn--danger{background:var(--c-error);color:#fff}
+.btn--danger:hover{opacity:.85}
+.btn--sm{padding:4px 10px;font-size:12px}
+.btn--icon{padding:4px 7px;font-size:15px;border-radius:4px}
+.btn:disabled{opacity:.45;pointer-events:none}
+
+/* ─── Cards ──────────────────────────────────────────────── */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
+.card{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;border:1px solid var(--c-border)}
+.card__head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px}
+.card__id{font-size:11px;color:var(--c-text-sub);font-weight:500;text-transform:uppercase;letter-spacing:.5px}
+.card__name{font-weight:600;font-size:15px;margin:2px 0 6px}
+.card__meta{font-size:12px;color:var(--c-text-sub);display:flex;gap:12px;flex-wrap:wrap}
+.card__actions{display:flex;gap:6px;margin-top:12px;align-items:center}
+
+/* ─── Badge ──────────────────────────────────────────────── */
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
+.badge--green{background:#E8F5E9;color:#2E7D32}
+.badge--grey{background:#EEEEEE;color:#757575}
+.badge--blue{background:#E3F2FD;color:#1565C0}
+.badge--red{background:#FFEBEE;color:#C62828}
+.badge--orange{background:#FFF3E0;color:#E65100}
+
+/* ─── Toggle switch ──────────────────────────────────────── */
+.toggle{position:relative;width:40px;height:22px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0;position:absolute}
+.toggle__slider{position:absolute;inset:0;background:#ccc;border-radius:22px;cursor:pointer;transition:background .2s}
+.toggle__slider::before{content:'';position:absolute;width:16px;height:16px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:transform .2s}
+.toggle input:checked + .toggle__slider{background:var(--c-primary)}
+.toggle input:checked + .toggle__slider::before{transform:translateX(18px)}
+
+/* ─── Table ──────────────────────────────────────────────── */
+.table-wrap{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);overflow:auto;border:1px solid var(--c-border)}
+.tbl th{background:var(--c-accent);font-size:12px;font-weight:600;color:var(--c-text-sub);text-transform:uppercase;letter-spacing:.4px;padding:9px 12px;white-space:nowrap;text-align:left;border-bottom:1px solid var(--c-border)}
+.tbl td{padding:9px 12px;border-bottom:1px solid var(--c-border);vertical-align:middle}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:hover td{background:#FAFAFA}
+.tbl tr.clickable{cursor:pointer}
+.tbl .actions{display:flex;gap:4px;white-space:nowrap}
+
+/* Progress bar */
+.progress{background:#E0E0E0;border-radius:10px;height:7px;min-width:70px}
+.progress__fill{background:var(--c-primary);border-radius:10px;height:100%;transition:width .3s}
+
+/* Inline edit */
+.editable-cell{cursor:text;min-width:60px}
+.editable-cell:hover{background:#F1F8E9;border-radius:3px}
+.editable-input{width:100%;border:1px solid var(--c-primary);border-radius:3px;padding:2px 5px;font:inherit;outline:none}
+
+/* ─── Filter bar ─────────────────────────────────────────── */
+.filter-bar{display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
+.filter-bar select,.filter-bar input{padding:6px 10px;border:1px solid var(--c-border);border-radius:var(--radius);background:#fff;font-size:13px}
+.filter-bar label{font-size:13px;display:flex;gap:5px;align-items:center;cursor:pointer}
+
+/* ─── Modal ──────────────────────────────────────────────── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:100}
+.modal-card{background:#fff;border-radius:var(--radius);box-shadow:0 8px 32px rgba(0,0,0,.2);padding:24px;min-width:400px;max-width:560px;width:90%;max-height:90vh;overflow-y:auto;position:relative}
+.modal-card h2{font-size:16px;font-weight:600;margin-bottom:18px;padding-right:28px}
+.modal-close{position:absolute;top:14px;right:14px;font-size:18px;color:var(--c-text-sub);padding:4px 8px;border-radius:4px}
+.modal-close:hover{background:var(--c-accent)}
+
+/* ─── Drawer ─────────────────────────────────────────────── */
+.drawer-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:90;display:flex;justify-content:flex-end}
+.drawer{width:480px;max-width:95vw;background:#fff;height:100%;overflow-y:auto;box-shadow:-4px 0 20px rgba(0,0,0,.15);padding:24px}
+.drawer__title{font-size:16px;font-weight:600;margin-bottom:18px;display:flex;justify-content:space-between;align-items:center}
+.drawer__section{margin-bottom:22px}
+.drawer__section-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--c-text-sub);margin-bottom:8px}
+
+/* ─── Confirm dialog ─────────────────────────────────────── */
+.confirm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:110}
+.confirm-card{background:#fff;border-radius:var(--radius);box-shadow:0 8px 32px rgba(0,0,0,.2);padding:24px;min-width:320px;max-width:420px}
+.confirm-card p{margin-bottom:18px;line-height:1.5}
+.confirm-actions{display:flex;justify-content:flex-end;gap:8px}
+
+/* ─── Toast ──────────────────────────────────────────────── */
+.toast-wrap{position:fixed;bottom:20px;right:20px;display:flex;flex-direction:column;gap:8px;z-index:200}
+.toast{padding:10px 16px;border-radius:var(--radius);color:#fff;font-size:13px;box-shadow:var(--shadow);animation:slideIn .2s ease;max-width:320px}
+.toast--success{background:var(--c-success)}
+.toast--error{background:var(--c-error)}
+.toast--info{background:var(--c-info)}
+@keyframes slideIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+/* ─── Loading overlay ────────────────────────────────────── */
+.loading-overlay{position:fixed;inset:0;background:rgba(255,255,255,.6);display:flex;align-items:center;justify-content:center;z-index:150}
+.spinner{width:36px;height:36px;border:4px solid var(--c-border);border-top-color:var(--c-primary);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ─── Form ───────────────────────────────────────────────── */
+.form-group{margin-bottom:14px}
+.form-group label{display:block;font-size:12px;font-weight:600;color:var(--c-text-sub);margin-bottom:4px}
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:7px 10px;border:1px solid var(--c-border);border-radius:var(--radius);font:inherit;transition:border-color .15s}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{outline:none;border-color:var(--c-primary)}
+.form-group textarea{resize:vertical;min-height:70px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.form-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px;padding-top:14px;border-top:1px solid var(--c-border)}
+
+/* ─── System cards ───────────────────────────────────────── */
+.sys-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
+.sys-card{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;border:1px solid var(--c-border)}
+.sys-card__icon{font-size:28px;margin-bottom:10px}
+.sys-card__title{font-weight:600;margin-bottom:6px;font-size:15px}
+.sys-card__desc{font-size:12px;color:var(--c-text-sub);margin-bottom:14px;line-height:1.5}
+.sys-result{margin-top:10px;padding:8px 12px;border-radius:var(--radius);font-size:12px}
+.sys-result--ok{background:#E8F5E9;color:#2E7D32}
+.sys-result--err{background:#FFEBEE;color:#C62828}
+
+/* ─── Summary bar ────────────────────────────────────────── */
+.summary-bar{background:#fff;border-radius:var(--radius);padding:12px 16px;margin-bottom:14px;box-shadow:var(--shadow);font-size:13px;display:flex;gap:18px;align-items:center;flex-wrap:wrap;border:1px solid var(--c-border)}
+.summary-bar strong{color:var(--c-primary)}
+
+/* ─── Task list in drawer ────────────────────────────────── */
+.task-item{display:flex;align-items:flex-start;gap:8px;padding:9px 0;border-bottom:1px solid var(--c-border)}
+.task-item:last-child{border-bottom:none}
+.task-item__check{flex-shrink:0;margin-top:2px;accent-color:var(--c-primary);width:15px;height:15px}
+.task-item__body{flex:1;min-width:0}
+.task-item__title{font-size:13px}
+.task-item__meta{font-size:11px;color:var(--c-text-sub);margin-top:2px;display:flex;gap:8px}
+.task-item__actions{display:flex;gap:4px;flex-shrink:0}
+.task-done .task-item__title{text-decoration:line-through;color:var(--c-text-sub)}
+.hidden{display:none!important}
+
+/* ─── Misc ───────────────────────────────────────────────── */
+.text-sub{color:var(--c-text-sub)}
+.mt-10{margin-top:10px}
+.empty{text-align:center;padding:40px;color:var(--c-text-sub);font-size:13px}
+.tag{display:inline-block;background:var(--c-accent);border-radius:3px;padding:1px 6px;font-size:11px;color:var(--c-text-sub)}
+.divider{border:none;border-top:1px solid var(--c-border);margin:14px 0}
+</style>
+</head>
+<body>
+<div class="layout">
+  <nav class="sidebar">
+    <div class="sidebar__logo">Roots DB</div>
+    <ul class="sidebar__nav" id="nav-list">
+      <li class="sidebar__item active" data-s="venues">🏛 式場管理</li>
+      <li class="sidebar__item" data-s="tasks">📋 タスクマスター</li>
+      <li class="sidebar__item" data-s="customers">💍 カップル管理</li>
+      <li class="sidebar__item" data-s="logs">📨 送信ログ</li>
+      <li class="sidebar__item" data-s="system">⚙️ システム操作</li>
+    </ul>
+    <div class="sidebar__footer">Roots DB Admin</div>
+  </nav>
+  <main class="main" id="main"></main>
+</div>
+
+<!-- Modal -->
+<div id="modal-ov" class="modal-overlay hidden">
+  <div class="modal-card">
+    <button class="modal-close" id="modal-close-btn">✕</button>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<!-- Drawer -->
+<div id="drawer-ov" class="drawer-overlay hidden">
+  <aside class="drawer" id="drawer-panel">
+    <div id="drawer-body"></div>
+  </aside>
+</div>
+
+<!-- Confirm -->
+<div id="confirm-ov" class="confirm-overlay hidden">
+  <div class="confirm-card">
+    <p id="confirm-msg"></p>
+    <div class="confirm-actions">
+      <button class="btn btn--outline" id="confirm-cancel">キャンセル</button>
+      <button class="btn btn--danger" id="confirm-ok">実行</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div class="toast-wrap" id="toasts"></div>
+
+<!-- Loading -->
+<div class="loading-overlay hidden" id="loading"></div>
+
+<script>
+(function () {
+'use strict';
+
+// ─── State ────────────────────────────────────────────────
+const state = {
+  section: 'venues',
+  venues: [],
+  taskFilter: { venueId: '', showInactive: false },
+  customerFilter: { venueId: '' },
+  logFilter: { venueId: '', date: todayStr() },
+};
+
+function todayStr() {
+  const d = new Date();
+  return d.getFullYear() + '-' +
+    String(d.getMonth() + 1).padStart(2,'0') + '-' +
+    String(d.getDate()).padStart(2,'0');
+}
+
+// ─── API wrapper ──────────────────────────────────────────
+function api(fn, args, onOk, onErr) {
+  showLoading();
+  const runner = google.script.run
+    .withSuccessHandler(function(r){hideLoading();onOk(r);})
+    .withFailureHandler(function(e){hideLoading();toast((e&&e.message)||'エラーが発生しました','error');if(onErr)onErr(e);});
+  runner[fn].apply(runner, args || []);
+}
+
+// ─── UI helpers ───────────────────────────────────────────
+
+function showLoading()  { document.getElementById('loading').classList.remove('hidden'); }
+function hideLoading()  { document.getElementById('loading').classList.add('hidden'); }
+
+function toast(msg, type) {
+  type = type || 'info';
+  const el = document.createElement('div');
+  el.className = 'toast toast--' + type;
+  el.textContent = msg;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(function(){el.remove();}, 3200);
+}
+
+function openModal(contentHtml) {
+  document.getElementById('modal-body').innerHTML = contentHtml;
+  document.getElementById('modal-ov').classList.remove('hidden');
+}
+function closeModal() {
+  document.getElementById('modal-ov').classList.add('hidden');
+}
+
+function openDrawer(contentHtml) {
+  document.getElementById('drawer-body').innerHTML = contentHtml;
+  document.getElementById('drawer-ov').classList.remove('hidden');
+}
+function closeDrawer() {
+  document.getElementById('drawer-ov').classList.add('hidden');
+}
+
+function confirm(msg, onOk) {
+  document.getElementById('confirm-msg').textContent = msg;
+  document.getElementById('confirm-ov').classList.remove('hidden');
+  document.getElementById('confirm-ok').onclick = function() {
+    document.getElementById('confirm-ov').classList.add('hidden');
+    onOk();
+  };
+  document.getElementById('confirm-cancel').onclick = function() {
+    document.getElementById('confirm-ov').classList.add('hidden');
+  };
+}
+
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function trunc(s, n) { return s && s.length > n ? s.slice(0, n) + '…' : (s||''); }
+
+function badgeStatus(status) {
+  const map = { sent:'green', pending:'orange', failed:'red' };
+  return '<span class="badge badge--' + (map[status]||'grey') + '">' + esc(status) + '</span>';
+}
+
+function selectVenueOptions(venues, selected) {
+  return '<option value="">全式場</option>' +
+    venues.map(function(v){
+      return '<option value="'+esc(v.venue_id)+'"'+(v.venue_id===selected?' selected':'')+'>' +
+        esc(v.venue_name)+'</option>';
+    }).join('');
+}
+
+// ─── Navigation ───────────────────────────────────────────
+
+document.getElementById('nav-list').addEventListener('click', function(e){
+  const li = e.target.closest('[data-s]');
+  if (!li) return;
+  document.querySelectorAll('.sidebar__item').forEach(function(el){el.classList.remove('active');});
+  li.classList.add('active');
+  state.section = li.dataset.s;
+  renderSection(state.section);
+});
+
+document.getElementById('modal-close-btn').addEventListener('click', closeModal);
+document.getElementById('modal-ov').addEventListener('click', function(e){
+  if (e.target === this) closeModal();
+});
+document.getElementById('drawer-ov').addEventListener('click', function(e){
+  if (e.target === this) closeDrawer();
+});
+document.addEventListener('keydown', function(e){
+  if (e.key === 'Escape') { closeModal(); closeDrawer(); document.getElementById('confirm-ov').classList.add('hidden'); }
+});
+
+function renderSection(s) {
+  const m = document.getElementById('main');
+  m.innerHTML = '<div class="section"><div class="empty">読み込み中…</div></div>';
+  if (s === 'venues')    renderVenues();
+  if (s === 'tasks')     renderTasks();
+  if (s === 'customers') renderCustomers();
+  if (s === 'logs')      renderLogs();
+  if (s === 'system')    renderSystem();
+}
+
+// ═══════════════════════════════════════════════════════════
+// ① 式場管理
+// ═══════════════════════════════════════════════════════════
+
+function renderVenues() {
+  api('getDashboardVenues', [], function(venues){
+    state.venues = venues || [];
+    const m = document.getElementById('main');
+    m.innerHTML =
+      '<div class="section">' +
+        '<div class="section__header">' +
+          '<h1 class="section__title">式場管理</h1>' +
+          '<div class="section__actions"><button class="btn btn--primary" id="add-venue-btn">＋ 式場を追加</button></div>' +
+        '</div>' +
+        '<div class="cards" id="venue-cards">' + renderVenueCards(venues) + '</div>' +
+      '</div>';
+    bindVenueEvents();
+  });
+}
+
+function renderVenueCards(venues) {
+  if (!venues.length) return '<p class="empty">式場が登録されていません</p>';
+  return venues.map(function(v){
+    return '<div class="card" data-venue-id="' + esc(v.venue_id) + '">' +
+      '<div class="card__head">' +
+        '<span class="card__id">' + esc(v.venue_id) + '</span>' +
+        '<label class="toggle">' +
+          '<input type="checkbox" class="venue-toggle" data-venue-id="' + esc(v.venue_id) + '"' + (v.active?' checked':'') + '>' +
+          '<span class="toggle__slider"></span>' +
+        '</label>' +
+      '</div>' +
+      '<div class="card__name">' + esc(v.venue_name) + '</div>' +
+      '<div class="card__meta">' +
+        '<span>👫 ' + (v.couple_count||0) + ' 組</span>' +
+        '<span>📬 未送信 ' + (v.pending_drafts||0) + '</span>' +
+        '<span class="badge ' + (v.active?'badge--green':'badge--grey') + '">' + (v.active?'有効':'無効') + '</span>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function bindVenueEvents() {
+  document.getElementById('add-venue-btn').addEventListener('click', openAddVenueModal);
+
+  document.querySelectorAll('.venue-toggle').forEach(function(chk){
+    chk.addEventListener('change', function(){
+      const vid = this.dataset.venueId;
+      const active = this.checked;
+      api('toggleVenueActive', [vid, active], function(){
+        toast(active?'有効にしました':'無効にしました', 'success');
+        renderVenues();
+      });
+    });
+  });
+
+  document.querySelectorAll('.card[data-venue-id]').forEach(function(card){
+    card.addEventListener('click', function(e){
+      if (e.target.closest('.toggle')) return;
+      openVenueDrawer(this.dataset.venueId);
+    });
+  });
+}
+
+function openAddVenueModal() {
+  openModal(
+    '<h2>式場を追加</h2>' +
+    '<form id="add-venue-form">' +
+      formGroup('venue_id', '式場 ID *', 'text', '', 'RC001') +
+      formGroup('venue_name', '式場名 *', 'text') +
+      formGroup('planner_line_user_id', 'プランナー LINE User ID', 'text') +
+      formGroup('line_channel_access_token', 'LINEチャネルアクセストークン', 'text') +
+      formGroup('line_liff_id', 'LIFF ID', 'text') +
+      '<div class="form-actions">' +
+        '<button type="button" class="btn btn--outline" onclick="closeModal()">キャンセル</button>' +
+        '<button type="submit" class="btn btn--primary">追加 + タスク初期化</button>' +
+      '</div>' +
+    '</form>'
+  );
+  document.getElementById('add-venue-form').addEventListener('submit', function(e){
+    e.preventDefault();
+    const d = formData(this);
+    if (!d.venue_id || !d.venue_name) { toast('式場ID・名前は必須です','error'); return; }
+    api('createDashboardVenue', [d], function(r){
+      closeModal();
+      toast('式場を追加しました（タスク追加: '+r.added+'件）', 'success');
+      renderVenues();
+    });
+  });
+}
+
+function openVenueDrawer(venueId) {
+  const v = state.venues.find(function(x){return x.venue_id===venueId;});
+  if (!v) return;
+  openDrawer(
+    '<div class="drawer__title"><span>🏛 ' + esc(v.venue_name) + '</span><button class="btn btn--sm btn--outline" onclick="closeDrawer()">閉じる</button></div>' +
+    '<div class="drawer__section">' +
+      '<div class="drawer__section-label">基本情報</div>' +
+      infoRow('式場ID', v.venue_id) +
+      infoRow('プランナー LINE ID', v.planner_line_user_id||'—') +
+      infoRow('LIFF ID', v.line_liff_id||'—') +
+      infoRow('登録日', v.created_at ? v.created_at.slice(0,10) : '—') +
+    '</div>' +
+    '<div class="drawer__section">' +
+      '<div class="drawer__section-label">統計</div>' +
+      infoRow('カップル数', v.couple_count + ' 組') +
+      infoRow('未送信ドラフト', v.pending_drafts + ' 件') +
+    '</div>'
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// ② タスクマスター管理
+// ═══════════════════════════════════════════════════════════
+
+function renderTasks() {
+  api('getDashboardVenues', [], function(venues){
+    state.venues = venues || [];
+    loadAndRenderTasks();
+  });
+}
+
+function loadAndRenderTasks() {
+  const venueId = state.taskFilter.venueId;
+  api('getDashboardTasks', [venueId || null], function(tasks){
+    const filtered = state.taskFilter.showInactive ? tasks : tasks.filter(function(t){return t.is_active;});
+    renderTasksUI(filtered);
+  });
+}
+
+function renderTasksUI(tasks) {
+  const m = document.getElementById('main');
+  m.innerHTML =
+    '<div class="section">' +
+      '<div class="section__header">' +
+        '<h1 class="section__title">タスクマスター管理</h1>' +
+        '<div class="section__actions">' +
+          '<button class="btn btn--outline btn--sm" id="btn-sync-base">🔄 全式場に同期</button>' +
+          '<button class="btn btn--outline btn--sm" id="btn-add-venue-task">＋ 式場別タスク追加</button>' +
+          '<button class="btn btn--primary btn--sm" id="btn-add-base-task">＋ base task 追加</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="filter-bar">' +
+        '<select id="task-venue-filter">' +
+          '<option value="">base task（全共通）</option>' +
+          state.venues.map(function(v){return '<option value="'+esc(v.venue_id)+'"'+(state.taskFilter.venueId===v.venue_id?' selected':'')+'>' + esc(v.venue_name)+'</option>';}).join('') +
+        '</select>' +
+        '<label><input type="checkbox" id="task-show-inactive"'+(state.taskFilter.showInactive?' checked':'')+'>停止タスクを含む</label>' +
+      '</div>' +
+      '<div class="table-wrap">' +
+        '<table class="tbl" id="tasks-table">' +
+          '<thead><tr>' +
+            '<th>task_id</th><th>venue_id</th><th>カテゴリ</th><th>タスク内容</th><th>期限目安</th>' +
+            '<th>リマインド文(抜粋)</th><th>URL</th><th>状態</th><th>操作</th>' +
+          '</tr></thead>' +
+          '<tbody>' + renderTaskRows(tasks) + '</tbody>' +
+        '</table>' +
+      '</div>' +
+    '</div>';
+
+  document.getElementById('task-venue-filter').addEventListener('change', function(){
+    state.taskFilter.venueId = this.value;
+    loadAndRenderTasks();
+  });
+  document.getElementById('task-show-inactive').addEventListener('change', function(){
+    state.taskFilter.showInactive = this.checked;
+    loadAndRenderTasks();
+  });
+  document.getElementById('btn-add-base-task').addEventListener('click', openAddBaseTaskModal);
+  document.getElementById('btn-add-venue-task').addEventListener('click', openAddVenueTaskModal);
+  document.getElementById('btn-sync-base').addEventListener('click', function(){
+    confirm('base task を全式場に同期します。既存の式場別タスクはスキップされます。実行しますか？', function(){
+      api('syncBaseTasks', [], function(r){
+        toast('同期完了: 追加 ' + r.added + '件 / スキップ ' + r.skipped + '件', 'success');
+        loadAndRenderTasks();
+      });
+    });
+  });
+  bindTaskTableEvents();
+}
+
+function renderTaskRows(tasks) {
+  if (!tasks.length) return '<tr><td colspan="9" class="empty">タスクがありません</td></tr>';
+  return tasks.map(function(t){
+    const isCustom = t.task_id.startsWith('CUST-') || t.task_id.includes('-CUST-');
+    return '<tr data-task-id="' + esc(t.task_id) + '">' +
+      '<td><span class="tag">' + esc(t.task_id) + '</span></td>' +
+      '<td>' + (t.venue_id ? '<span class="tag">'+esc(t.venue_id)+'</span>' : '<span class="text-sub">—</span>') + '</td>' +
+      '<td class="editable-cell" data-field="category">' + esc(t.category) + '</td>' +
+      '<td class="editable-cell" data-field="task_content" style="max-width:200px">' + esc(trunc(t.task_content,50)) + '</td>' +
+      '<td class="editable-cell" data-field="due_estimate">' + esc(t.due_estimate) + '</td>' +
+      '<td class="editable-cell" data-field="reminder_message" style="max-width:180px">' + esc(trunc(t.reminder_message,30)) + '</td>' +
+      '<td>' + (t.manual_url ? '<a href="'+esc(t.manual_url)+'" target="_blank">あり</a>' : '<span class="editable-cell text-sub" data-field="manual_url">—</span>') + '</td>' +
+      '<td>' + (t.is_active ?
+        '<span class="badge badge--green">有効</span>' :
+        '<span class="badge badge--grey">停止</span>') + '</td>' +
+      '<td><div class="actions">' +
+        '<button class="btn btn--icon btn--outline task-toggle-btn" title="'+(t.is_active?'停止':'有効化')+'">' + (t.is_active?'⏸':'▶') + '</button>' +
+        '<button class="btn btn--icon btn--outline task-test-btn"' + (!t.venue_id?' disabled title="base taskはテスト送信不可"':'') + ' title="LINEテスト送信">💌</button>' +
+        (isCustom ? '<button class="btn btn--icon btn--outline task-del-btn" title="削除">🗑</button>' : '') +
+      '</div></td>' +
+    '</tr>';
+  }).join('');
+}
+
+function bindTaskTableEvents() {
+  const tbody = document.querySelector('#tasks-table tbody');
+  if (!tbody) return;
+
+  // Inline edit
+  tbody.addEventListener('click', function(e){
+    const cell = e.target.closest('.editable-cell');
+    if (!cell || cell.querySelector('input, textarea')) return;
+    const field = cell.dataset.field;
+    const taskId = cell.closest('tr').dataset.taskId;
+    const orig = cell.textContent.trim();
+    const isLong = ['task_content','reminder_message','memo'].indexOf(field) >= 0;
+    if (isLong) {
+      // Fetch full value for textarea
+      cell.innerHTML = '<textarea class="editable-input" rows="3">' + esc(orig) + '</textarea>';
+    } else {
+      cell.innerHTML = '<input class="editable-input" value="' + esc(orig) + '">';
+    }
+    const input = cell.querySelector('input,textarea');
+    input.focus();
+    input.addEventListener('keydown', function(ev){
+      if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); this.blur(); }
+      if (ev.key === 'Escape') { cell.textContent = orig; }
+    });
+    input.addEventListener('blur', function(){
+      const val = this.value;
+      if (val === orig) { cell.textContent = orig; return; }
+      api('updateTaskField', [taskId, field, val], function(){
+        cell.textContent = field === 'reminder_message' ? trunc(val,30) : val;
+        toast('保存しました','success');
+      }, function(){ cell.textContent = orig; });
+    });
+  });
+
+  // Toggle active
+  tbody.addEventListener('click', function(e){
+    const btn = e.target.closest('.task-toggle-btn');
+    if (!btn) return;
+    const tr = btn.closest('tr');
+    const taskId = tr.dataset.taskId;
+    const isActive = tr.querySelector('.badge--green') !== null;
+    api('toggleTaskActive', [taskId, !isActive], function(){
+      toast(isActive?'タスクを停止しました':'タスクを有効化しました','success');
+      loadAndRenderTasks();
+    });
+  });
+
+  // Test send
+  tbody.addEventListener('click', function(e){
+    const btn = e.target.closest('.task-test-btn');
+    if (!btn || btn.disabled) return;
+    const taskId = btn.closest('tr').dataset.taskId;
+    const venueId = state.taskFilter.venueId;
+    if (!venueId) { toast('式場を選択してください','error'); return; }
+    confirm('プランナーにテスト送信しますか？（'+taskId+'）', function(){
+      api('testLineSend', [taskId, venueId], function(r){
+        toast(r.message || '送信しました', r.ok?'success':'error');
+      });
+    });
+  });
+
+  // Delete custom task
+  tbody.addEventListener('click', function(e){
+    const btn = e.target.closest('.task-del-btn');
+    if (!btn) return;
+    const taskId = btn.closest('tr').dataset.taskId;
+    confirm('タスク「'+taskId+'」を削除（無効化）しますか？', function(){
+      api('toggleTaskActive', [taskId, false], function(){
+        toast('削除しました','success');
+        loadAndRenderTasks();
+      });
+    });
+  });
+}
+
+function openAddBaseTaskModal() {
+  openModal(
+    '<h2>base task を追加</h2>' +
+    '<form id="add-base-task-form">' +
+      formGroup('category','カテゴリ *','text') +
+      formGroup('task_content','タスク内容 *','textarea') +
+      '<div class="form-row">' +
+        formGroup('due_formula','期限式','text','','挙式日 - 30日') +
+        formGroup('due_estimate','期限目安','text','','挙式1ヶ月前') +
+      '</div>' +
+      formGroup('reminder_message','リマインドメッセージ','textarea') +
+      formGroup('manual_url','マニュアルURL','text') +
+      formGroup('memo','メモ','textarea') +
+      '<div class="form-actions">' +
+        '<button type="button" class="btn btn--outline" onclick="closeModal()">キャンセル</button>' +
+        '<button type="submit" class="btn btn--primary">追加</button>' +
+      '</div>' +
+    '</form>'
+  );
+  document.getElementById('add-base-task-form').addEventListener('submit', function(e){
+    e.preventDefault();
+    const d = formData(this);
+    if (!d.category || !d.task_content) { toast('カテゴリ・内容は必須です','error'); return; }
+    api('addBaseTask', [d], function(r){
+      closeModal();
+      toast('base task を追加しました: '+r.task_id,'success');
+      loadAndRenderTasks();
+    });
+  });
+}
+
+function openAddVenueTaskModal() {
+  if (!state.venues.length) { toast('先に式場を登録してください','error'); return; }
+  openModal(
+    '<h2>式場別タスクを追加</h2>' +
+    '<form id="add-venue-task-form">' +
+      '<div class="form-group"><label>式場 *</label>' +
+        '<select id="vt-venue-sel">' +
+          state.venues.map(function(v){return '<option value="'+esc(v.venue_id)+'">'+esc(v.venue_name)+'</option>';}).join('') +
+        '</select></div>' +
+      formGroup('category','カテゴリ *','text') +
+      formGroup('task_content','タスク内容 *','textarea') +
+      '<div class="form-row">' +
+        formGroup('due_formula','期限式','text') +
+        formGroup('due_estimate','期限目安','text') +
+      '</div>' +
+      formGroup('reminder_message','リマインドメッセージ','textarea') +
+      formGroup('manual_url','マニュアルURL','text') +
+      '<div class="form-actions">' +
+        '<button type="button" class="btn btn--outline" onclick="closeModal()">キャンセル</button>' +
+        '<button type="submit" class="btn btn--primary">追加</button>' +
+      '</div>' +
+    '</form>'
+  );
+  document.getElementById('add-venue-task-form').addEventListener('submit', function(e){
+    e.preventDefault();
+    const venueId = document.getElementById('vt-venue-sel').value;
+    const d = formData(this);
+    if (!d.category || !d.task_content) { toast('カテゴリ・内容は必須です','error'); return; }
+    api('addVenueTask', [venueId, d], function(r){
+      closeModal();
+      toast('式場別タスクを追加しました: '+r.task_id,'success');
+      loadAndRenderTasks();
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// ③ カップル管理
+// ═══════════════════════════════════════════════════════════
+
+function renderCustomers() {
+  api('getDashboardVenues', [], function(venues){
+    state.venues = venues || [];
+    loadAndRenderCustomers();
+  });
+}
+
+function loadAndRenderCustomers() {
+  api('getDashboardCustomers', [state.customerFilter.venueId || null], function(customers){
+    renderCustomersUI(customers);
+  });
+}
+
+function renderCustomersUI(customers) {
+  const m = document.getElementById('main');
+  m.innerHTML =
+    '<div class="section">' +
+      '<div class="section__header">' +
+        '<h1 class="section__title">カップル管理</h1>' +
+        '<button class="btn btn--primary" id="add-customer-btn">＋ カップルを追加</button>' +
+      '</div>' +
+      '<div class="filter-bar">' +
+        '<select id="cust-venue-filter">' +
+          selectVenueOptions(state.venues, state.customerFilter.venueId) +
+        '</select>' +
+      '</div>' +
+      '<div class="table-wrap">' +
+        '<table class="tbl" id="cust-table">' +
+          '<thead><tr><th>カップル名</th><th>挙式日</th><th>式場</th><th>進捗</th><th>完了</th></tr></thead>' +
+          '<tbody>' + renderCustomerRows(customers) + '</tbody>' +
+        '</table>' +
+      '</div>' +
+    '</div>';
+
+  document.getElementById('cust-venue-filter').addEventListener('change', function(){
+    state.customerFilter.venueId = this.value;
+    loadAndRenderCustomers();
+  });
+  document.getElementById('add-customer-btn').addEventListener('click', openAddCustomerModal);
+  document.querySelector('#cust-table tbody').addEventListener('click', function(e){
+    const tr = e.target.closest('tr[data-line-id]');
+    if (!tr) return;
+    openCustomerDrawer(tr.dataset.lineId, tr.dataset.venueId);
+  });
+}
+
+function renderCustomerRows(customers) {
+  if (!customers.length) return '<tr><td colspan="5" class="empty">カップルがいません</td></tr>';
+  return customers.map(function(c){
+    const name = [(c.name1_kana||''), (c.name2_kana||'')].filter(Boolean).join(' & ') || c.line_id;
+    const total = c.total_tasks || 0;
+    const done  = c.done_tasks  || 0;
+    const pct   = total ? Math.round(done/total*100) : 0;
+    const venue = state.venues.find(function(v){return v.venue_id === c.venue_id;});
+    return '<tr class="clickable" data-line-id="'+esc(c.line_id)+'" data-venue-id="'+esc(c.venue_id)+'">' +
+      '<td><strong>' + esc(name) + '</strong><br><span class="text-sub" style="font-size:11px">'+esc(c.line_id)+'</span></td>' +
+      '<td>' + esc(c.wedding_date||'—') + '</td>' +
+      '<td>' + (venue ? esc(venue.venue_name) : (c.venue_id ? esc(c.venue_id) : '—')) + '</td>' +
+      '<td style="min-width:110px"><div class="progress"><div class="progress__fill" style="width:'+pct+'%"></div></div><span style="font-size:11px;color:var(--c-text-sub)">'+pct+'%</span></td>' +
+      '<td>' + done + ' / ' + total + '</td>' +
+    '</tr>';
+  }).join('');
+}
+
+function openAddCustomerModal() {
+  openModal(
+    '<h2>カップルを追加</h2>' +
+    '<form id="add-cust-form">' +
+      formGroup('line_id','LINE ID *','text') +
+      formGroup('wedding_date','挙式日 *','date') +
+      '<div class="form-row">' +
+        formGroup('name1_kana','花嫁カナ','text') +
+        formGroup('name2_kana','花婿カナ','text') +
+      '</div>' +
+      '<div class="form-group"><label>式場</label><select id="add-cust-venue">' +
+        '<option value="">未設定</option>' +
+        state.venues.map(function(v){return '<option value="'+esc(v.venue_id)+'">'+esc(v.venue_name)+'</option>';}).join('') +
+      '</select></div>' +
+      '<div class="form-actions">' +
+        '<button type="button" class="btn btn--outline" onclick="closeModal()">キャンセル</button>' +
+        '<button type="submit" class="btn btn--primary">追加</button>' +
+      '</div>' +
+    '</form>'
+  );
+  document.getElementById('add-cust-form').addEventListener('submit', function(e){
+    e.preventDefault();
+    const d = formData(this);
+    d.venue_id = document.getElementById('add-cust-venue').value;
+    if (!d.line_id || !d.wedding_date) { toast('LINE ID・挙式日は必須です','error'); return; }
+    api('addCustomer', [d], function(){
+      closeModal();
+      toast('カップルを追加しました','success');
+      loadAndRenderCustomers();
+    });
+  });
+}
+
+function openCustomerDrawer(lineId, venueId) {
+  api('getCustomerTasks', [lineId, venueId||null], function(tasks){
+    // Find customer from loaded data
+    api('getDashboardCustomers', [null], function(allCust){
+      const c = allCust.find(function(x){return x.line_id===lineId;}) || {line_id:lineId,venue_id:venueId||'',name1_kana:'',name2_kana:'',wedding_date:''};
+      const name = [(c.name1_kana||''),(c.name2_kana||'')].filter(Boolean).join(' & ') || c.line_id;
+      const venue = state.venues.find(function(v){return v.venue_id===c.venue_id;});
+
+      openDrawer(
+        '<div class="drawer__title"><span>💍 ' + esc(name) + '</span><button class="btn btn--sm btn--outline" onclick="closeDrawer()">閉じる</button></div>' +
+
+        '<div class="drawer__section">' +
+          '<div class="drawer__section-label">基本情報</div>' +
+          '<form id="cust-edit-form">' +
+            '<div class="form-row">' +
+              formGroup('name1_kana','花嫁カナ','text', c.name1_kana||'') +
+              formGroup('name2_kana','花婿カナ','text', c.name2_kana||'') +
+            '</div>' +
+            formGroup('wedding_date','挙式日','date', c.wedding_date||'') +
+            '<div class="form-group"><label>式場</label><select id="cust-venue-sel">' +
+              '<option value="">未設定</option>' +
+              state.venues.map(function(v){return '<option value="'+esc(v.venue_id)+'"'+(v.venue_id===c.venue_id?' selected':'')+'>' +esc(v.venue_name)+'</option>';}).join('') +
+            '</select></div>' +
+            '<div class="form-actions" style="margin-top:8px">' +
+              '<button type="submit" class="btn btn--primary btn--sm">保存</button>' +
+            '</div>' +
+          '</form>' +
+        '</div>' +
+
+        '<div class="drawer__section">' +
+          '<div class="drawer__section-label">タスク一覧 (' + tasks.length + '件)</div>' +
+          '<div id="cust-tasks-list">' + renderCustomerTaskList(tasks, lineId) + '</div>' +
+          '<div class="mt-10"><details><summary style="cursor:pointer;font-size:12px;color:var(--c-primary)">＋ このカップルにタスクを追加</summary>' +
+            '<form id="add-cust-task-form" class="mt-10">' +
+              '<div class="form-row">' +
+                formGroup('category','カテゴリ','text','','追加タスク') +
+                formGroup('due_estimate','期限目安','text') +
+              '</div>' +
+              formGroup('task_content','タスク内容 *','textarea') +
+              formGroup('due_formula','期限式','text','','挙式日 - 30日') +
+              '<button type="submit" class="btn btn--primary btn--sm">追加</button>' +
+            '</form>' +
+          '</details></div>' +
+        '</div>' +
+
+        '<div class="drawer__section">' +
+          '<button class="btn btn--outline btn--sm" id="cust-reset-btn" style="border-color:var(--c-error);color:var(--c-error)">⚠ 進捗リセット</button>' +
+        '</div>'
+      );
+
+      // Edit form
+      document.getElementById('cust-edit-form').addEventListener('submit', function(e){
+        e.preventDefault();
+        const d = formData(this);
+        d.venue_id = document.getElementById('cust-venue-sel').value;
+        api('updateCustomer', [lineId, d], function(){
+          toast('保存しました','success');
+          loadAndRenderCustomers();
+        });
+      });
+
+      // Task checkboxes
+      document.getElementById('cust-tasks-list').addEventListener('change', function(e){
+        const chk = e.target.closest('.task-item__check');
+        if (!chk) return;
+        const taskId = chk.dataset.taskId;
+        api('updateCustomer', [lineId, {}], function(){}, function(){});
+        // Use the existing updateOrCreateTaskProgress via a workaround — call server function
+        api('toggleCustomerTaskVisibility', [lineId, taskId, true], function(){}, function(){});
+        // Actual done toggle: call updateTaskField equivalent
+        // We call a dedicated wrapper — re-use toggleCustomerTaskVisibility logic won't work
+        // Call google.script.run directly for progress update
+        showLoading();
+        google.script.run
+          .withSuccessHandler(function(){hideLoading();toast('更新しました','success');})
+          .withFailureHandler(function(err){hideLoading();toast(err.message||'エラー','error');chk.checked=!chk.checked;})
+          .updateOrCreateTaskProgress(lineId, taskId, chk.checked);
+      });
+
+      // Visibility toggles
+      document.getElementById('cust-tasks-list').addEventListener('change', function(e){
+        const tog = e.target.closest('.vis-toggle');
+        if (!tog) return;
+        const taskId = tog.dataset.taskId;
+        api('toggleCustomerTaskVisibility', [lineId, taskId, tog.checked], function(){
+          toast('表示設定を更新しました','success');
+        });
+      });
+
+      // Delete custom task
+      document.getElementById('cust-tasks-list').addEventListener('click', function(e){
+        const btn = e.target.closest('.cust-task-del');
+        if (!btn) return;
+        const taskId = btn.dataset.taskId;
+        confirm('このタスクを削除しますか？', function(){
+          api('removeCustomTaskFromCustomer', [taskId], function(){
+            toast('削除しました','success');
+            api('getCustomerTasks', [lineId, venueId||null], function(newTasks){
+              document.getElementById('cust-tasks-list').innerHTML = renderCustomerTaskList(newTasks, lineId);
+            });
+          });
+        });
+      });
+
+      // Add custom task
+      document.getElementById('add-cust-task-form').addEventListener('submit', function(e){
+        e.preventDefault();
+        const d = formData(this);
+        if (!d.task_content) { toast('タスク内容は必須です','error'); return; }
+        api('addTaskToCustomer', [lineId, c.venue_id||'', d], function(){
+          toast('タスクを追加しました','success');
+          this.reset();
+          api('getCustomerTasks', [lineId, venueId||null], function(newTasks){
+            document.getElementById('cust-tasks-list').innerHTML = renderCustomerTaskList(newTasks, lineId);
+          });
+        }.bind(this));
+      });
+
+      // Reset progress
+      document.getElementById('cust-reset-btn').addEventListener('click', function(){
+        confirm('「'+name+'」の全進捗を削除します。この操作は取り消せません。実行しますか？', function(){
+          api('resetCustomerProgress', [lineId], function(r){
+            toast('リセットしました（'+r.deleted+'件削除）','success');
+            loadAndRenderCustomers();
+            api('getCustomerTasks', [lineId, venueId||null], function(newTasks){
+              document.getElementById('cust-tasks-list').innerHTML = renderCustomerTaskList(newTasks, lineId);
+            });
+          });
+        });
+      });
+    });
+  });
+}
+
+function renderCustomerTaskList(tasks, lineId) {
+  if (!tasks.length) return '<p class="text-sub" style="font-size:12px">タスクがありません</p>';
+  return tasks.map(function(t){
+    const doneClass = t.is_done ? ' task-done' : '';
+    return '<div class="task-item' + doneClass + '">' +
+      '<input type="checkbox" class="task-item__check" data-task-id="'+esc(t.task_id)+'"'+(t.is_done?' checked':'')+' title="完了チェック">' +
+      '<div class="task-item__body">' +
+        '<div class="task-item__title">' + esc(t.task_content) + '</div>' +
+        '<div class="task-item__meta">' +
+          '<span>' + esc(t.category) + '</span>' +
+          '<span>📅 ' + esc(t.due_estimate||'—') + '</span>' +
+          (t.is_custom ? '<span class="badge badge--blue" style="font-size:10px">カスタム</span>' : '') +
+          (!t.is_visible ? '<span class="badge badge--grey" style="font-size:10px">非表示</span>' : '') +
+        '</div>' +
+      '</div>' +
+      '<div class="task-item__actions">' +
+        '<label class="toggle" title="表示/非表示" style="width:32px;height:18px">' +
+          '<input type="checkbox" class="vis-toggle" data-task-id="'+esc(t.task_id)+'"'+(t.is_visible?' checked':'')+' style="width:0;height:0;opacity:0;position:absolute">' +
+          '<span class="toggle__slider" style="border-radius:18px"></span>' +
+        '</label>' +
+        (t.is_custom ? '<button class="btn btn--icon btn--outline cust-task-del" data-task-id="'+esc(t.task_id)+'" title="削除">🗑</button>' : '') +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════
+// ④ 送信ログ
+// ═══════════════════════════════════════════════════════════
+
+function renderLogs() {
+  api('getDashboardVenues', [], function(venues){
+    state.venues = venues || [];
+    loadAndRenderLogs();
+  });
+}
+
+function loadAndRenderLogs() {
+  api('getDashboardDrafts', [state.logFilter.venueId||null, state.logFilter.date||null], function(drafts){
+    renderLogsUI(drafts);
+  });
+}
+
+function renderLogsUI(drafts) {
+  const total = drafts.length;
+  const sent  = drafts.filter(function(d){return d.status==='sent';}).length;
+  const pending = drafts.filter(function(d){return d.status==='pending';}).length;
+
+  const m = document.getElementById('main');
+  m.innerHTML =
+    '<div class="section">' +
+      '<div class="section__header"><h1 class="section__title">送信ログ</h1></div>' +
+      '<div class="filter-bar">' +
+        '<select id="log-venue-filter">' + selectVenueOptions(state.venues, state.logFilter.venueId) + '</select>' +
+        '<input type="date" id="log-date-filter" value="' + esc(state.logFilter.date) + '">' +
+        '<button class="btn btn--outline btn--sm" id="log-clear-date">日付クリア</button>' +
+      '</div>' +
+      '<div class="summary-bar">' +
+        '合計 <strong>' + total + '</strong> 件 ／ ' +
+        '送信済 <strong>' + sent + '</strong> 件 ／ ' +
+        '未送信 <strong>' + pending + '</strong> 件' +
+      '</div>' +
+      '<div class="table-wrap">' +
+        '<table class="tbl" id="log-table">' +
+          '<thead><tr><th>カップル</th><th>task_id</th><th>メッセージ抜粋</th><th>状態</th><th>作成日時</th></tr></thead>' +
+          '<tbody>' + renderLogRows(drafts) + '</tbody>' +
+        '</table>' +
+      '</div>' +
+    '</div>';
+
+  document.getElementById('log-venue-filter').addEventListener('change', function(){
+    state.logFilter.venueId = this.value;
+    loadAndRenderLogs();
+  });
+  document.getElementById('log-date-filter').addEventListener('change', function(){
+    state.logFilter.date = this.value;
+    loadAndRenderLogs();
+  });
+  document.getElementById('log-clear-date').addEventListener('click', function(){
+    state.logFilter.date = '';
+    document.getElementById('log-date-filter').value = '';
+    loadAndRenderLogs();
+  });
+  document.querySelector('#log-table tbody').addEventListener('click', function(e){
+    const tr = e.target.closest('tr[data-draft-id]');
+    if (!tr) return;
+    openDraftDrawer(tr.dataset.draftId, drafts);
+  });
+}
+
+function renderLogRows(drafts) {
+  if (!drafts.length) return '<tr><td colspan="5" class="empty">データがありません</td></tr>';
+  return drafts.map(function(d){
+    return '<tr class="clickable" data-draft-id="'+esc(d.draft_id)+'">' +
+      '<td>' + esc(d.couple_name || d.couple_id) + '</td>' +
+      '<td><span class="tag">'+esc(d.task_id)+'</span></td>' +
+      '<td style="max-width:220px">' + esc(trunc(d.draft_message,50)) + '</td>' +
+      '<td>' + badgeStatus(d.status) + '</td>' +
+      '<td>' + esc(d.created_at ? d.created_at.slice(0,16).replace('T',' ') : '—') + '</td>' +
+    '</tr>';
+  }).join('');
+}
+
+function openDraftDrawer(draftId, drafts) {
+  const d = drafts.find(function(x){return x.draft_id===draftId;});
+  if (!d) return;
+  openDrawer(
+    '<div class="drawer__title"><span>📨 ドラフト詳細</span><button class="btn btn--sm btn--outline" onclick="closeDrawer()">閉じる</button></div>' +
+    '<div class="drawer__section">' +
+      infoRow('draft_id', d.draft_id) +
+      infoRow('カップル', d.couple_name || d.couple_id) +
+      infoRow('task_id',  d.task_id) +
+      infoRow('状態',     d.status) +
+      infoRow('作成日時', d.created_at ? d.created_at.slice(0,16).replace('T',' ') : '—') +
+      infoRow('送信日時', d.sent_at   ? d.sent_at.slice(0,16).replace('T',' ')   : '—') +
+    '</div>' +
+    '<div class="drawer__section">' +
+      '<div class="drawer__section-label">メッセージ</div>' +
+      '<textarea id="draft-msg-edit" style="width:100%;min-height:140px;padding:8px;border:1px solid var(--c-border);border-radius:var(--radius);font:inherit;resize:vertical">' + esc(d.draft_message) + '</textarea>' +
+      '<div style="margin-top:8px"><button class="btn btn--primary btn--sm" id="draft-save-btn">保存</button></div>' +
+    '</div>' +
+    '<div class="drawer__section">' +
+      '<div class="drawer__section-label">状態変更</div>' +
+      '<select id="draft-status-sel">' +
+        ['pending','sent','failed'].map(function(s){return '<option value="'+s+'"'+(s===d.status?' selected':'')+'>'+s+'</option>';}).join('') +
+      '</select>' +
+      '<button class="btn btn--outline btn--sm" id="draft-status-btn" style="margin-left:8px">変更</button>' +
+    '</div>'
+  );
+  document.getElementById('draft-save-btn').addEventListener('click', function(){
+    const msg = document.getElementById('draft-msg-edit').value;
+    api('editDraftMessage', [draftId, msg], function(){
+      toast('メッセージを保存しました','success');
+      d.draft_message = msg;
+    });
+  });
+  document.getElementById('draft-status-btn').addEventListener('click', function(){
+    const status = document.getElementById('draft-status-sel').value;
+    api('changeDraftStatus', [draftId, status], function(){
+      toast('状態を「'+status+'」に変更しました','success');
+      d.status = status;
+      loadAndRenderLogs();
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// ⑤ システム操作
+// ═══════════════════════════════════════════════════════════
+
+function renderSystem() {
+  const m = document.getElementById('main');
+  m.innerHTML =
+    '<div class="section">' +
+      '<div class="section__header"><h1 class="section__title">システム操作</h1></div>' +
+      '<div class="sys-cards">' +
+        sysCard('sys-remind','📨','手動リマインド実行',
+          '現在すべての登録カップルに対し、期限3日以内の未完了タスクのリマインド通知を LINE で送信します。',
+          '全カップルに送信','btn--danger') +
+        sysCard('sys-setup','🔧','初期セットアップ (setupEnvironment)',
+          '6つのシート（customers / task_master / task_progress / user_hidden_tasks / task_items / message_drafts）のヘッダーを初期化します。初回のみ実行してください。',
+          'セットアップを実行','btn--outline') +
+        sysCard('sys-trigger','⏰','リマインドトリガーを登録（毎朝9時）',
+          'sendReminders() を毎日9:00に自動実行するトリガーを登録します。既存のトリガーは削除して再登録されます。',
+          'トリガーを登録','btn--outline') +
+      '</div>' +
+    '</div>';
+
+  document.getElementById('sys-remind-btn').addEventListener('click', function(){
+    confirm('本当に全カップルにリマインドを送信しますか？\nLINEに即時送信されます。', function(){
+      api('runSendReminders', [], function(){
+        toast('リマインド送信が完了しました','success');
+        showSysResult('sys-remind', '✅ リマインド送信が完了しました', true);
+      }, function(e){
+        showSysResult('sys-remind', '❌ ' + (e&&e.message||'失敗しました'), false);
+      });
+    });
+  });
+  document.getElementById('sys-setup-btn').addEventListener('click', function(){
+    confirm('シートのヘッダーを初期化します。既存データは変更されません。実行しますか？', function(){
+      api('runSetupEnvironment', [], function(){
+        toast('セットアップが完了しました','success');
+        showSysResult('sys-setup','✅ セットアップ完了', true);
+      }, function(e){
+        showSysResult('sys-setup','❌ '+(e&&e.message||'失敗'), false);
+      });
+    });
+  });
+  document.getElementById('sys-trigger-btn').addEventListener('click', function(){
+    confirm('毎朝9時の自動リマインドトリガーを登録します。実行しますか？', function(){
+      api('runSetupRemindTrigger', [], function(){
+        toast('トリガーを登録しました','success');
+        showSysResult('sys-trigger','✅ トリガー登録完了（毎日 9:00）', true);
+      }, function(e){
+        showSysResult('sys-trigger','❌ '+(e&&e.message||'失敗'), false);
+      });
+    });
+  });
+}
+
+function sysCard(id, icon, title, desc, btnLabel, btnClass) {
+  return '<div class="sys-card">' +
+    '<div class="sys-card__icon">' + icon + '</div>' +
+    '<div class="sys-card__title">' + esc(title) + '</div>' +
+    '<div class="sys-card__desc">' + esc(desc) + '</div>' +
+    '<button class="btn btn--sm ' + btnClass + '" id="' + id + '-btn">' + esc(btnLabel) + '</button>' +
+    '<div id="' + id + '-result"></div>' +
+  '</div>';
+}
+
+function showSysResult(id, msg, ok) {
+  const el = document.getElementById(id + '-result');
+  if (!el) return;
+  el.className = 'sys-result ' + (ok ? 'sys-result--ok' : 'sys-result--err');
+  el.textContent = msg;
+}
+
+// ─── Form helpers ─────────────────────────────────────────
+
+function formGroup(name, label, type, value, placeholder) {
+  value = value !== undefined ? value : '';
+  placeholder = placeholder || '';
+  const isTextarea = type === 'textarea';
+  return '<div class="form-group">' +
+    '<label>' + esc(label) + '</label>' +
+    (isTextarea
+      ? '<textarea name="' + name + '" placeholder="' + esc(placeholder) + '">' + esc(value) + '</textarea>'
+      : '<input type="' + type + '" name="' + name + '" value="' + esc(value) + '" placeholder="' + esc(placeholder) + '">') +
+  '</div>';
+}
+
+function formData(form) {
+  const d = {};
+  new FormData(form).forEach(function(v,k){ d[k] = v; });
+  return d;
+}
+
+function infoRow(label, value) {
+  return '<div style="display:flex;gap:10px;padding:5px 0;border-bottom:1px solid var(--c-border);font-size:13px">' +
+    '<span style="min-width:110px;color:var(--c-text-sub);font-size:12px">' + esc(label) + '</span>' +
+    '<span>' + esc(value) + '</span></div>';
+}
+
+// ─── Boot ─────────────────────────────────────────────────
+
+renderSection('venues');
+
+})();
+</script>
+</body>
+</html>

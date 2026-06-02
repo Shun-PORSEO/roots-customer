@@ -5,7 +5,7 @@ const responseJSON = (data: any) => {
   return ContentService.createTextOutput(JSON.stringify(data)).setMimeType(ContentService.MimeType.JSON);
 };
 
-function doGet(e: any) {
+function doGetLiff(e: any) {
   try {
     const action = e.parameter.action;
     const lineId = e.parameter.line_id;
