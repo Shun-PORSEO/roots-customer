@@ -513,6 +513,12 @@ function openSheet(html) {
 }
 function closeSheet() { document.getElementById('sheet-ov').classList.add('hidden'); }
 
+// このスクリプトは IIFE 内なので、HTML の inline onclick から呼べるよう
+// 閉じる系関数を明示的にグローバル公開する（onclick はグローバルスコープで評価される）
+window.closeModal = closeModal;
+window.closeDrawer = closeDrawer;
+window.closeSheet = closeSheet;
+
 function confirmDialog(msg, onOk) {
   document.getElementById('confirm-msg').textContent = msg;
   document.getElementById('confirm-ov').classList.remove('hidden');
