@@ -64,6 +64,10 @@ export const apiClient = {
         MOCK_TASKS = MOCK_TASKS.map(t => t.task_id === payload.task_id ? { ...t, is_done: payload.is_done } : t);
         return { status: "updated" };
       }
+      if (payload.action === "updateTaskComment") {
+        MOCK_TASKS = MOCK_TASKS.map(t => t.task_id === payload.task_id ? { ...t, comment: payload.comment } : t);
+        return { status: "updated" };
+      }
       if (payload.action === "getUser") {
         const date = localStorage.getItem("mock_wedding_date");
         if (date) return {

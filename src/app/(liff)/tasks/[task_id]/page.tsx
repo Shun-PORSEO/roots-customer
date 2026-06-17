@@ -18,6 +18,53 @@ export default function TaskDetailPage({ params }: { params: { task_id: string }
   const [updating, setUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // タスクごとのコメント（カップル→プランナー）
+  const [comment, setComment] = useState("");
+  const [commentInit, setCommentInit] = useState(false);
+  const [savingComment, setSavingComment] = useState(false);
+  const [commentMsg, setCommentMsg] = useState<string | null>(null);
+
+  // タスクが初めて読み込めたら、保存済みコメントを入力欄へ反映（1回だけ）。
+  // 以降のネットワーク再取得では上書きしない（入力中の文字を消さないため）。
+  useEffect(() => {
+    if (task && !commentInit) {
+      setComment(task.comment || "");
+      setCommentInit(true);
+    }
+  }, [task, commentInit]);
+
+  const saveComment = async () => {
+    if (!profile || !task) return;
+    setSavingComment(true);
+    setCommentMsg(null);
+    try {
+      await apiClient.post({
+        action: "updateTaskComment",
+        line_id: profile.userId,
+        task_id: task.task_id,
+        comment,
+      });
+      // ダッシュボードと共有しているキャッシュにも反映しておく
+      const cacheKey = `roots_dashboard_${profile.userId}`;
+      try {
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          const tasks = (parsed.tasks || []).map((t: ITask) =>
+            t.task_id === task.task_id ? { ...t, comment } : t
+          );
+          localStorage.setItem(cacheKey, JSON.stringify({ ...parsed, tasks }));
+        }
+      } catch {}
+      setCommentMsg("コメントを保存しました");
+      setTimeout(() => setCommentMsg(null), 2500);
+    } catch (e: any) {
+      setCommentMsg("保存に失敗しました。時間をおいて再度お試しください。");
+    } finally {
+      setSavingComment(false);
+    }
+  };
+
   useEffect(() => {
     const fetchTask = async () => {
       if (!profile) return;
@@ -185,6 +232,36 @@ export default function TaskDetailPage({ params }: { params: { task_id: string }
             <p className="text-body-lg text-on-surface whitespace-pre-wrap bg-neutral-98 p-md rounded-md border border-border min-h-[4rem]">
               {task.memo || "特になし"}
             </p>
+          </div>
+
+          <div className="h-px bg-border w-full" />
+
+          <div>
+            <h3 className="text-label-caps text-neutral-50 mb-xs">
+              コメント / ご要望
+            </h3>
+            <p className="text-body-sm text-neutral-50 mb-xs">
+              プランナーへの連絡やご要望があれば入力してください。
+            </p>
+            <textarea
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              placeholder="例: ドレスの色は白を希望しています"
+              rows={4}
+              className="w-full text-body-lg text-on-surface whitespace-pre-wrap bg-neutral-98 p-md rounded-md border border-border outline-none resize-none focus:border-primary-40"
+            />
+            <div className="flex items-center gap-sm mt-sm">
+              <button
+                onClick={saveComment}
+                disabled={savingComment}
+                className="btn-secondary"
+              >
+                {savingComment ? "保存中…" : "コメントを保存"}
+              </button>
+              {commentMsg && (
+                <span className="text-body-sm text-primary-70">{commentMsg}</span>
+              )}
+            </div>
           </div>
 
           <button

@@ -99,7 +99,7 @@ function setupEnvironment() {
     if (!taskProgressSheet) {
         taskProgressSheet = ss.insertSheet("task_progress");
     }
-    taskProgressSheet.getRange("A1:E1").setValues([["line_id", "task_id", "is_done", "updated_at", "is_visible"]]);
+    taskProgressSheet.getRange("A1:F1").setValues([["line_id", "task_id", "is_done", "updated_at", "is_visible", "comment"]]);
     // 5. user_hidden_tasks シートの作成とヘッダー
     let userHiddenTasksSheet = ss.getSheetByName("user_hidden_tasks");
     if (!userHiddenTasksSheet) {

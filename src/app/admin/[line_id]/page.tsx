@@ -41,6 +41,10 @@ export default function AdminUserTaskPage({
   const [showCustomForm, setShowCustomForm] = useState(false);
   const [newTask, setNewTask] = useState(EMPTY_CUSTOM_TASK);
 
+  // 手配物の「確定」確認ポップアップ対象（チェックを入れようとしている手配物）
+  const [confirmItem, setConfirmItem] = useState<ITaskItem | null>(null);
+  const [confirming, setConfirming] = useState(false);
+
   const fetchAll = async () => {
     try {
       const [tasksRes, itemsRes, userRes] = await Promise.all([
@@ -119,17 +123,41 @@ export default function AdminUserTaskPage({
     }
   };
 
-  const toggleItemDone = async (item: ITaskItem) => {
-    const next = !item.is_done;
+  const toggleItemDone = (item: ITaskItem) => {
+    if (!item.is_done) {
+      // 未チェック→チェック = 「確定」。発注確定としてカップルへLINE通知するので、
+      // 誤操作防止に確認ポップアップを挟む。
+      setConfirmItem(item);
+      return;
+    }
+    // チェックを外す（確定解除）は通知なしでそのまま反映。
+    commitItemDone(item, false, false);
+  };
+
+  // 手配物の is_done を実際に更新する。notify=true のときだけ確定LINEをカップルへ送る。
+  const commitItemDone = async (
+    item: ITaskItem,
+    next: boolean,
+    notify: boolean
+  ) => {
     setItems((cur) =>
       cur.map((i) => (i.item_id === item.item_id ? { ...i, is_done: next } : i))
     );
     try {
+      const task = tasks.find((t) => t.task_id === item.task_id);
       await apiClient.post({
         action: "updateTaskItem",
         line_id: getAdminLineId(),
         item_id: item.item_id,
         patch: { is_done: next },
+        ...(notify
+          ? {
+              notify: true,
+              target_line_id: lineId,
+              item_name: item.item_name,
+              task_content: task?.task_content || "",
+            }
+          : {}),
       });
     } catch (e: any) {
       // rollback
@@ -139,6 +167,19 @@ export default function AdminUserTaskPage({
         )
       );
       alert("更新に失敗: " + e.message);
+    }
+  };
+
+  // 確認ポップアップで「確定する」を押したとき
+  const handleConfirmItem = async () => {
+    if (!confirmItem) return;
+    const item = confirmItem;
+    setConfirming(true);
+    try {
+      await commitItemDone(item, true, true);
+    } finally {
+      setConfirming(false);
+      setConfirmItem(null);
     }
   };
 
@@ -451,6 +492,15 @@ export default function AdminUserTaskPage({
                       </div>
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
+                      {task.comment && (
+                        <span
+                          className="text-[11px] font-bold px-2 py-0.5 rounded-full"
+                          style={{ background: "#EFF6FF", color: "#1E40AF" }}
+                          title={task.comment}
+                        >
+                          💬 コメント
+                        </span>
+                      )}
                       {taskItems.length > 0 && (
                         <span
                           className="text-[11px] font-bold px-2 py-0.5 rounded-full"
@@ -501,6 +551,22 @@ export default function AdminUserTaskPage({
                       className="px-4 pb-4 pt-1 pl-10"
                       style={{ background: "#FAFBFC" }}
                     >
+                      {task.comment && (
+                        <div
+                          className="mb-3 px-3 py-2 rounded-lg text-[12px] flex gap-2"
+                          style={{
+                            background: "#EFF6FF",
+                            border: "1px solid #BFDBFE",
+                            color: "#1E40AF",
+                          }}
+                        >
+                          <span className="shrink-0">💬</span>
+                          <span className="whitespace-pre-wrap">
+                            <span className="font-bold">カップルからのコメント：</span>
+                            {task.comment}
+                          </span>
+                        </div>
+                      )}
                       {taskItems.length === 0 ? (
                         <p className="text-[12px] text-gray-400 mb-3 italic">
                           まだ手配物は登録されていません
@@ -657,6 +723,39 @@ export default function AdminUserTaskPage({
           </div>
         </div>
       )}
+
+      {/* 手配物の確定 確認ダイアログ */}
+      <Dialog
+        open={!!confirmItem}
+        onClose={() => (confirming ? null : setConfirmItem(null))}
+        title="この手配物を確定しますか？"
+        size="sm"
+        footer={
+          <>
+            <Button
+              variant="ghost"
+              onClick={() => setConfirmItem(null)}
+              disabled={confirming}
+            >
+              キャンセル
+            </Button>
+            <Button onClick={handleConfirmItem} disabled={confirming}>
+              {confirming ? "確定中…" : "確定する"}
+            </Button>
+          </>
+        }
+      >
+        <div className="text-[13px] leading-relaxed" style={{ color: "var(--colorText)" }}>
+          <p className="mb-2">
+            「<span className="font-bold">{confirmItem?.item_name}</span>」を確定します。
+          </p>
+          <p className="text-gray-600">
+            確定するとカップルへLINEで通知され、
+            <span className="font-bold">確定後24時間は変更できません</span>。
+            よろしいですか？
+          </p>
+        </div>
+      </Dialog>
 
       {/* Add custom task dialog */}
       <Dialog

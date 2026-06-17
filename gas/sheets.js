@@ -302,6 +302,7 @@ function getTaskProgress(lineId) {
             is_done: data[i][2] === true || String(data[i][2]).toLowerCase() === "true",
             updated_at: updatedAt,
             is_visible: data[i][4] === true || String(data[i][4]).toLowerCase() === "true" || data[i][4] === "",
+            comment: String(data[i][5] || ""), // F列 = カップルのコメント（無い場合は空文字）
         };
         const prev = latest.get(taskId);
         if (!prev || updatedAt > prev.updated_at) {
@@ -349,6 +350,38 @@ function updateOrCreateTaskProgress(lineId, taskId, isDone) {
             for (let j = matchedRows.length - 1; j >= 1; j--) {
                 sheet.deleteRow(matchedRows[j]);
             }
+        }
+        CacheService.getScriptCache().remove("progress_" + lineId);
+    }
+    finally {
+        lock.releaseLock();
+    }
+}
+;
+// カップルがタスクごとに残すコメントを task_progress の F列に保存する。
+// is_done と同じ (line_id, task_id) 行を共有し、進捗行が無ければ作る。is_done は触らない。
+function updateTaskComment(lineId, taskId, comment) {
+    const lock = LockService.getDocumentLock();
+    lock.waitLock(10000);
+    try {
+        const sheet = getSheet("task_progress");
+        if (!sheet)
+            return;
+        const data = sheet.getDataRange().getValues();
+        let targetRow = -1;
+        for (let i = 1; i < data.length; i++) {
+            if (String(data[i][0]) === String(lineId) && String(data[i][1]) === String(taskId)) {
+                targetRow = i + 1; // setRange は 1-indexed
+                break;
+            }
+        }
+        if (targetRow === -1) {
+            // 進捗行がまだ無ければ「未完了・コメントあり」で1行作る
+            sheet.appendRow([lineId, taskId, false, new Date().toISOString(), true, comment]);
+        }
+        else {
+            sheet.getRange(targetRow, 6).setValue(comment); // F列 = comment
+            sheet.getRange(targetRow, 4).setValue(new Date().toISOString());
         }
         CacheService.getScriptCache().remove("progress_" + lineId);
     }
@@ -677,6 +710,19 @@ function deleteTaskItem(itemId) {
         }
     }
     return false;
+}
+// 手配物IDから、その手配物が属するカップルの line_id を引く（確定通知の送信先用フォールバック）。
+function getTaskItemLineId(itemId) {
+    const sheet = ensureTaskItemsSheet();
+    if (!sheet)
+        return null;
+    const data = sheet.getDataRange().getValues();
+    for (let i = 1; i < data.length; i++) {
+        if (String(data[i][0]) === itemId) {
+            return String(data[i][2]); // C列 = line_id
+        }
+    }
+    return null;
 }
 // テンプレ手配物（line_id="" の task_items を task_id で取得）
 function getTaskItemTemplates(taskId) {

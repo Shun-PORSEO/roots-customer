@@ -38,6 +38,7 @@ function doGetLiff(e) {
                     is_visible: isVisible,
                     is_custom: !!task.target_line_id,
                     manual_url: task.manual_url || "",
+                    comment: prog ? (prog.comment || "") : "",
                 };
             }).filter(t => t.is_visible);
             if (action === "getTasksAndUser") return responseJSON({ status: "ok", tasks, wedding_date: customer.wedding_date, name1_kana: customer.name1_kana || "", name2_kana: customer.name2_kana || "", is_admin: customer.is_admin || false });
@@ -112,6 +113,15 @@ function doPost(e) {
             updateOrCreateTaskProgress(lineId, taskId, isDone);
             return responseJSON({ status: "updated" });
         }
+        // カップルがタスクごとにコメントを保存する（自分の line_id のみ）
+        if (action === "updateTaskComment") {
+            const taskId = postData.task_id;
+            const comment = String(postData.comment || "");
+            if (!taskId)
+                return responseJSON({ status: "error", message: "task_id is required" });
+            updateTaskComment(lineId, taskId, comment);
+            return responseJSON({ status: "updated" });
+        }
         // ─── プランナー向けアクション ─────────────────────────────────────
         if (action === "getUsers") {
             const users = getUsers(venueId || undefined);
@@ -127,13 +137,19 @@ function doPost(e) {
             const effectiveVenueId = (customer === null || customer === void 0 ? void 0 : customer.venue_id) || venueId || undefined;
             const allTasks = getActiveTasks(effectiveVenueId);
             const hiddenTasks = getHiddenTasks(targetId);
+            const progressData = getTaskProgress(targetId);
             const tasks = allTasks
                 .filter(task => !task.target_line_id || task.target_line_id === targetId)
-                .map(task => ({
-                ...task,
-                is_visible: !hiddenTasks.has(task.task_id),
-                is_custom: !!task.target_line_id,
-            }));
+                .map(task => {
+                const prog = progressData.find(p => p.task_id === task.task_id);
+                return {
+                    ...task,
+                    is_visible: !hiddenTasks.has(task.task_id),
+                    is_custom: !!task.target_line_id,
+                    is_done: prog ? prog.is_done : false,
+                    comment: prog ? (prog.comment || "") : "", // カップルが残したコメントをプランナーに見せる
+                };
+            });
             return responseJSON({ status: "ok", tasks });
         }
         if (action === "toggleTaskVisibility") {
@@ -199,6 +215,28 @@ function doPost(e) {
             if (patch.memo !== undefined) cleanPatch.memo = String(patch.memo);
             const ok = updateTaskItem(itemId, cleanPatch);
             if (!ok) return responseJSON({ status: "error", message: "Item not found" });
+            // 手配物を「確定」(is_done=true) にしたとき、カップルへLINEで確定案内を送る。
+            // notify フラグが立っているリクエストのみ送信（チェックを外す/数量変更などでは送らない）。
+            // LINE送信に失敗しても更新自体は成功扱いにする（通知はベストエフォート）。
+            if (cleanPatch.is_done === true && postData.notify) {
+                try {
+                    const targetLineId = postData.target_line_id || getTaskItemLineId(itemId);
+                    if (targetLineId) {
+                        const itemName = String(postData.item_name || "");
+                        const taskContent = String(postData.task_content || "");
+                        const customer = getCustomer(targetLineId);
+                        const venue = customer && customer.venue_id ? getVenue(customer.venue_id) : null;
+                        const token = venue ? venue.line_channel_access_token : "";
+                        const label = taskContent ? `「${taskContent}」のタスクの手配物` : "手配物";
+                        const namePart = itemName ? `「${itemName}」` : "";
+                        const msg = `${label}${namePart}が確定しました。\n確定後24時間は変更できませんのでご了承ください。`;
+                        pushLineMessage(targetLineId, msg, token);
+                    }
+                }
+                catch (e) {
+                    console.error("確定通知の送信に失敗:", e);
+                }
+            }
             return responseJSON({ status: "updated" });
         }
         if (action === "deleteTaskItem") {

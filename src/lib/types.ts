@@ -40,6 +40,7 @@ export interface ITask {
   is_done: boolean;
   is_visible: boolean;
   is_custom?: boolean;
+  comment?: string; // カップルがそのタスクに残したコメント（プランナーが管理画面で閲覧）
 }
 
 export interface ICustomer {

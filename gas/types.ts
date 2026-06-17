@@ -53,6 +53,7 @@ interface ITaskProgress {
   is_done: boolean;
   updated_at: string;
   is_visible: boolean; // Note: We might phase this out, but keep for type compatibility
+  comment?: string; // カップルがタスクごとに残すコメント（task_progress F列）。プランナーが管理画面で閲覧する。
 }
 
 interface IVenue {
@@ -99,4 +100,5 @@ interface ITaskResponse {
   is_custom?: boolean;
   venue_id?: string;
   manual_url?: string;
+  comment?: string; // カップルがそのタスクに残したコメント
 }
