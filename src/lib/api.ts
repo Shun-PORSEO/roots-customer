@@ -1,6 +1,37 @@
 import { IApiResponse } from "./types";
+import liff from "@line/liff";
 
 const GAS_ENDPOINT = process.env.NEXT_PUBLIC_GAS_ENDPOINT || "";
+// バックエンド切替（縦スライス）: "db" で新スタック(Supabase+Route Handlers)、既定は "gas"。
+// api.ts のシグネチャは変えないので呼び出し元(UI)の diff はゼロ = シーム維持の実証。
+const BACKEND = process.env.NEXT_PUBLIC_BACKEND || "gas";
+
+// LINE ID Token 検証 → httpOnly セッションを確立（初回 or セッション切れ時）。
+async function ensureLineSession(): Promise<void> {
+  const idToken = liff.getIDToken();
+  if (!idToken) throw new Error("[auth] LINE ID Token を取得できません");
+  const r = await fetch("/api/auth/line", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id_token: idToken }),
+    credentials: "include",
+  });
+  if (!r.ok) throw new Error("[auth] セッション確立に失敗しました");
+}
+
+// GET /api/tasks。401 なら画面にエラーを出す前にサイレント再認証→1回だけ透過リトライ
+// （Design critical: LIFF webview の Cookie ドロップでも「差し替えに気づかせない」）。
+async function dbGetTasksAndUser(): Promise<IApiResponse> {
+  const call = () => fetch("/api/tasks", { credentials: "include" });
+  let res = await call();
+  if (res.status === 401) {
+    await ensureLineSession();
+    res = await call();
+  }
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error?.message || "Failed to fetch data");
+  return data;
+}
 
 // Mock data list
 let MOCK_TASKS: any[] = [
@@ -26,6 +57,11 @@ let MOCK_DRAFTS: any[] = [
 
 export const apiClient = {
   get: async (action: string, lineId: string): Promise<IApiResponse> => {
+    // 縦スライス: db バックエンドでは getTasks(AndUser) を新エンドポイントへ。
+    // line_id は渡さない（サーバーが検証済みセッションから導出）。
+    if (BACKEND === "db" && (action === "getTasksAndUser" || action === "getTasks")) {
+      return dbGetTasksAndUser();
+    }
     if (!GAS_ENDPOINT || GAS_ENDPOINT === "YOUR_GAS_WEB_APP_URL_HERE") {
       if (action === "getTasks") {
         return { status: "ok", tasks: MOCK_TASKS };
