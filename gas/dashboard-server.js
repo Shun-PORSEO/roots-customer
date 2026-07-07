@@ -1,6 +1,16 @@
 // ─── doGet ───────────────────────────────────────────────────────────────────
 
 function doGet() {
+  // このGAS内蔵ダッシュボードは廃止方針（管理は Next.js の /admin に一本化）。
+  // かつては認証ゼロで全顧客PII・LINEチャネルトークンを露出していたため、オーナー以外には配信しない。
+  // 恒久的な封鎖は「ウェブアプリのデプロイ設定 → アクセスできるユーザー = 自分のみ」で担保すること。
+  const active = Session.getActiveUser().getEmail();
+  const owner = Session.getEffectiveUser().getEmail();
+  if (!active || active !== owner) {
+    return HtmlService
+      .createHtmlOutput('<meta name="viewport" content="width=device-width, initial-scale=1"><p style="font-family:sans-serif;padding:2em;line-height:1.7">この画面は現在ご利用いただけません。管理は <b>/admin</b> をご利用ください。</p>')
+      .setTitle('アクセスできません');
+  }
   const out = HtmlService.createHtmlOutputFromFile('dashboard');
   // マニュアル用スクリーンショット（base64）を後段に読み込む。
   // dashboard 内の renderManual() が window.MANUAL_IMG を参照する。
@@ -210,7 +220,9 @@ function getDashboardVenues() {
         venue_id:                v.venue_id,
         venue_name:              v.venue_name,
         planner_line_user_id:    v.planner_line_user_id   || '',
-        line_channel_access_token: v.line_channel_access_token || '',
+        // line_channel_access_token はクライアントに返さない（漏洩防止）。
+        // 送信はサーバー側（testLineSend / reminders）でのみトークンを参照する。
+        has_channel_token:       !!v.line_channel_access_token,
         line_liff_id:            v.line_liff_id            || '',
         active:                  v.active,
         created_at:              v.created_at              || '',

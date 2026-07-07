@@ -45,13 +45,23 @@ function doGetLiff(e) {
             return responseJSON({ tasks });
         }
         if (action === "getVenues") {
-            const venues = getVenues();
+            // line_channel_access_token は未認証ユーザーにも返るため除外する（Code.ts と一致）
+            const venues = getVenues().map((v) => ({
+                venue_id: v.venue_id,
+                venue_name: v.venue_name,
+                planner_line_user_id: v.planner_line_user_id,
+                line_liff_id: v.line_liff_id,
+                active: v.active,
+                created_at: v.created_at,
+            }));
             return responseJSON({ status: "ok", venues });
         }
         return responseJSON({ status: "error", message: "Invalid action" });
     }
     catch (error) {
-        return responseJSON({ status: "error", message: error.message });
+        // 生の例外メッセージはクライアントに返さない（内部情報の漏洩防止）。サーバーログにのみ残す。
+        console.error("API error:", (error && error.stack) ? error.stack : error);
+        return responseJSON({ status: "error", message: "サーバーでエラーが発生しました。時間をおいて再度お試しください。" });
     }
 }
 ;
@@ -63,6 +73,23 @@ function doPost(e) {
         const venueId = postData.venue_id || "";
         if (!lineId) {
             return responseJSON({ status: "error", message: "Unauthorized" });
+        }
+        // プランナー専用アクションは呼び出し元（line_id）が is_admin の顧客であることを要求する。
+        // カップルや匿名からの自己申告 line_id では通さない（IDOR/権限昇格の封じ込め）。
+        // 手配物(task_items)CRUD も管理者専用（カップル側UIからは呼ばれない）。
+        const ADMIN_ACTIONS = [
+            "getUsers", "getUsersWithProgress", "getAdminUserTasks",
+            "toggleTaskVisibility", "addCustomTask", "deleteCustomTask",
+            "getMessageDrafts", "updateDraftStatus", "updateDraftMessage",
+            "getVenueDetail", "updateTaskManualUrl", "getVenueTasks",
+            "updateTaskMaster", "getTaskItemTemplates", "addTaskItemTemplate",
+            "getTaskItems", "addTaskItem", "updateTaskItem", "deleteTaskItem",
+        ];
+        if (ADMIN_ACTIONS.includes(action)) {
+            const caller = getCustomer(lineId);
+            if (!caller || !caller.is_admin) {
+                return responseJSON({ status: "error", message: "Forbidden" });
+            }
         }
         if (action === "getUser") {
             const existing = getCustomer(lineId);
@@ -306,7 +333,9 @@ function doPost(e) {
         return responseJSON({ status: "error", message: "Invalid action" });
     }
     catch (error) {
-        return responseJSON({ status: "error", message: error.message });
+        // 生の例外メッセージはクライアントに返さない（内部情報の漏洩防止）。サーバーログにのみ残す。
+        console.error("API error:", (error && error.stack) ? error.stack : error);
+        return responseJSON({ status: "error", message: "サーバーでエラーが発生しました。時間をおいて再度お試しください。" });
     }
 }
 ;

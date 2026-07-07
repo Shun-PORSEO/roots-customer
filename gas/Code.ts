@@ -67,7 +67,9 @@ function doGetLiff(e: any) {
 
     return responseJSON({ status: "error", message: "Invalid action" });
   } catch (error: any) {
-    return responseJSON({ status: "error", message: error.message });
+    // 生の例外メッセージはクライアントに返さない（内部情報の漏洩防止）。サーバーログにのみ残す。
+    console.error("API error:", (error && error.stack) ? error.stack : error);
+    return responseJSON({ status: "error", message: "サーバーでエラーが発生しました。時間をおいて再度お試しください。" });
   }
 };
 
@@ -88,6 +90,8 @@ function doPost(e: any) {
       "getMessageDrafts", "updateDraftStatus", "updateDraftMessage",
       "getVenueDetail", "updateTaskManualUrl", "getVenueTasks",
       "updateTaskMaster", "getTaskItemTemplates", "addTaskItemTemplate",
+      // 手配物(task_items)CRUD も管理者専用（カップル側UIからは呼ばれない）。
+      "getTaskItems", "addTaskItem", "updateTaskItem", "deleteTaskItem",
     ];
     if (ADMIN_ACTIONS.includes(action)) {
       const caller = getCustomer(lineId);
@@ -362,6 +366,8 @@ function doPost(e: any) {
 
     return responseJSON({ status: "error", message: "Invalid action" });
   } catch (error: any) {
-    return responseJSON({ status: "error", message: error.message });
+    // 生の例外メッセージはクライアントに返さない（内部情報の漏洩防止）。サーバーログにのみ残す。
+    console.error("API error:", (error && error.stack) ? error.stack : error);
+    return responseJSON({ status: "error", message: "サーバーでエラーが発生しました。時間をおいて再度お試しください。" });
   }
 };
