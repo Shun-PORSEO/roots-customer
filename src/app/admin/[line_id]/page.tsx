@@ -65,7 +65,7 @@ export default function AdminUserTaskPage({
       if (userRes && (userRes.wedding_date || userRes.name1_kana)) {
         setCustomer({
           line_id: lineId,
-          wedding_date: userRes.wedding_date,
+          wedding_date: userRes.wedding_date || "",
           name1_kana: userRes.name1_kana,
           name2_kana: userRes.name2_kana,
         });

@@ -1,6 +1,15 @@
 import { IApiResponse } from "./types";
 import liff from "@line/liff";
 
+// 「症状 + 対処法」を持つ API エラー（ErrorMessage/InlineApiError が solution を展開する）。
+// db バックエンドの統一エラー DTO（{error:{message,hint}}）の hint を solution に載せる。
+export class ApiError extends Error {
+  constructor(message: string, public solution?: string) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
 const GAS_ENDPOINT = process.env.NEXT_PUBLIC_GAS_ENDPOINT || "";
 // バックエンド切替（縦スライス）: "db" で新スタック(Supabase+Route Handlers)、既定は "gas"。
 // api.ts のシグネチャは変えないので呼び出し元(UI)の diff はゼロ = シーム維持の実証。
@@ -19,19 +28,60 @@ async function ensureLineSession(): Promise<void> {
   if (!r.ok) throw new Error("[auth] セッション確立に失敗しました");
 }
 
-// GET /api/tasks。401 なら画面にエラーを出す前にサイレント再認証→1回だけ透過リトライ
+// 新スタック(Route Handlers)への共通 fetch。
+// 401 なら画面にエラーを出す前にサイレント再認証→1回だけ透過リトライ
 // （Design critical: LIFF webview の Cookie ドロップでも「差し替えに気づかせない」）。
-async function dbGetTasksAndUser(): Promise<IApiResponse> {
-  const call = () => fetch("/api/tasks", { credentials: "include" });
+async function dbFetch(path: string, init?: RequestInit): Promise<IApiResponse> {
+  const call = () => fetch(path, { credentials: "include", ...init });
   let res = await call();
   if (res.status === 401) {
     await ensureLineSession();
     res = await call();
   }
   const data = await res.json();
-  if (!res.ok) throw new Error(data?.error?.message || "Failed to fetch data");
+  if (!res.ok) {
+    throw new ApiError(
+      data?.error?.message || "Failed to fetch data",
+      data?.error?.hint
+    );
+  }
   return data;
 }
+
+function dbPost(path: string, body: unknown): Promise<IApiResponse> {
+  return dbFetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+// PATCH /api/tasks。旧 updateTask / updateTaskComment の書き込み経路（カップル自身）。
+function dbPatchTaskProgress(body: {
+  task_id: string;
+  is_done?: boolean;
+  comment?: string;
+}): Promise<IApiResponse> {
+  return dbFetch("/api/tasks", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+// プランナー/管理系アクション（POST /api/admin へそのまま中継。line_id は落とす）。
+// GAS の ADMIN_ACTIONS と同じ集合 + GAS 未実装だった式場/雛形 CRUD・テスト送信。
+const DB_ADMIN_ACTIONS = new Set([
+  "getVenues",
+  "createVenue", "updateVenue", "updateVenueStatus", "getVenueDetail",
+  "getVenueTasks", "updateTaskMaster", "addTaskMaster", "updateTaskManualUrl",
+  "testSendTask",
+  "getUsers", "getUsersWithProgress", "getAdminUserTasks",
+  "toggleTaskVisibility", "addCustomTask", "deleteCustomTask",
+  "getTaskItems", "addTaskItem", "updateTaskItem", "deleteTaskItem",
+  "getTaskItemTemplates", "addTaskItemTemplate",
+  "getMessageDrafts", "updateDraftStatus", "updateDraftMessage",
+]);
 
 // Mock data list
 let MOCK_TASKS: any[] = [
@@ -57,10 +107,15 @@ let MOCK_DRAFTS: any[] = [
 
 export const apiClient = {
   get: async (action: string, lineId: string): Promise<IApiResponse> => {
-    // 縦スライス: db バックエンドでは getTasks(AndUser) を新エンドポイントへ。
+    // db バックエンドでは新エンドポイントへ。
     // line_id は渡さない（サーバーが検証済みセッションから導出）。
-    if (BACKEND === "db" && (action === "getTasksAndUser" || action === "getTasks")) {
-      return dbGetTasksAndUser();
+    if (BACKEND === "db") {
+      if (action === "getTasksAndUser" || action === "getTasks") {
+        return dbFetch("/api/tasks");
+      }
+      if (action === "getVenues") {
+        return dbPost("/api/admin", { action: "getVenues" });
+      }
     }
     if (!GAS_ENDPOINT || GAS_ENDPOINT === "YOUR_GAS_WEB_APP_URL_HERE") {
       if (action === "getTasks") {
@@ -95,6 +150,38 @@ export const apiClient = {
   },
 
   post: async (payload: any): Promise<IApiResponse> => {
+    // db バックエンドでは全アクションを新エンドポイントへ。
+    // line_id は認証情報としては送らない（サーバーが検証済みセッションから導出）。
+    // 呼び出し元(UI)の diff はゼロ = api.ts シーム維持。
+    if (BACKEND === "db") {
+      if (payload.action === "updateTask") {
+        return dbPatchTaskProgress({ task_id: payload.task_id, is_done: payload.is_done });
+      }
+      if (payload.action === "updateTaskComment") {
+        return dbPatchTaskProgress({ task_id: payload.task_id, comment: payload.comment });
+      }
+      if (payload.action === "getUser") {
+        // 管理画面が他カップルを照会するケースのみ target を渡す（サーバー側で管理者チェック）。
+        // 自分自身の照会では line_id = セッションの本人なので target 指定と等価。
+        const target = payload.line_id
+          ? `?target_line_id=${encodeURIComponent(payload.line_id)}`
+          : "";
+        return dbFetch(`/api/user${target}`);
+      }
+      if (payload.action === "register") {
+        return dbPost("/api/user", {
+          wedding_date: payload.wedding_date,
+          name1_kana: payload.name1_kana,
+          name2_kana: payload.name2_kana,
+          venue_id: payload.venue_id,
+        });
+      }
+      if (DB_ADMIN_ACTIONS.has(payload.action)) {
+        const { line_id: _lineId, ...rest } = payload;
+        return dbPost("/api/admin", rest);
+      }
+      // ここまでに該当しないアクションは未知 → 既存経路(GAS/モック)にフォールスルーする。
+    }
     if (!GAS_ENDPOINT || GAS_ENDPOINT === "YOUR_GAS_WEB_APP_URL_HERE") {
       if (payload.action === "updateTask") {
         MOCK_TASKS = MOCK_TASKS.map(t => t.task_id === payload.task_id ? { ...t, is_done: payload.is_done } : t);
