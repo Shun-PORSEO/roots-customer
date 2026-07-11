@@ -47,7 +47,7 @@ const MILESTONES = [
 // timeline.kind: "コメント" | "状態変更" | "決定" | "コミット"
 const ISSUES = [
   {
-    id: "#8",
+    id: "#17",
     title: "env検証の遅延評価化: ビルド時にシークレットを要求していた問題",
     body: "next build の \"Collecting page data\" は route を import するだけだが、env/db/session がモジュール評価時に環境変数を読んでいたため、シークレット未設定ではビルド自体が通らず Vercel Preview が必ず失敗していた（Vercel に env を設定しても直らない設計上の問題）。\n\n- env.ts: load() を memo 化し Proxy 経由の遅延評価に（呼び出し側の env.X は無改修）\n- db.ts: postgres 接続を初回利用時に生成\n- session.ts: 署名鍵を初回利用時に解決\n\n検証は捨てず、最初に env を読む＝リクエスト処理時に fail-fast。本番混入ガード（NODE_ENV=production かつ ALLOW_DEV_LINE_BYPASS）も維持。\n受け入れ: 環境変数を一切与えない状態で next build が通る（確認済み・型エラー0件）。",
     specs: ["src/lib/server/env.ts", "src/lib/server/db.ts", "src/lib/server/session.ts"],
@@ -62,7 +62,7 @@ const ISSUES = [
     ],
   },
   {
-    id: "#7",
+    id: "#16",
     title: "本番ビルド復旧: 型エラー6件で main が全デプロイError",
     body: "Vercel の Production が Jun 以降ずっと全デプロイ Error だった原因は next build の型チェックで落ちる TypeScript 型エラー6件。\n\n- lib/api.ts: ApiError クラスが未export（ErrorMessage/InlineApiError が参照）\n- lib/types.ts: ITaskMaster interface が未定義（venues/[venue_id] が参照）\n- admin/[line_id]:68: wedding_date が string|undefined → \"\" フォールバック\n- admin/help: title に JSX Element を渡していた2箇所 → 文字列へ\n\n修正内容は feat/supabase ブランチ側の解決と一致させ後続マージ衝突を回避。tsc 0件 / next build 13ルート全生成で緑を確認しコミット→main へ push（Production 再デプロイ）。\n別件: LIFF Invalid LIFF ID は Vercel の NEXT_PUBLIC_LIFF_ID を正値に設定済み→同 push のビルドで焼き込み反映。",
     specs: ["src/lib/api.ts", "src/lib/types.ts", "src/app/admin/[line_id]/page.tsx", "src/app/admin/help/page.tsx"],
