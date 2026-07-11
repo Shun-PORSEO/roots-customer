@@ -43,6 +43,20 @@ export interface ITask {
   comment?: string; // カップルがそのタスクに残したコメント（プランナーが管理画面で閲覧）
 }
 
+export interface ITaskMaster {
+  task_id: string;
+  category: string;
+  task_content: string;
+  due_formula: string;
+  due_estimate: string;
+  memo: string;
+  is_active?: boolean;
+  manual_url?: string;
+  reminder_message?: string;
+  target_line_id?: string;
+  venue_id?: string;
+}
+
 export interface ICustomer {
   line_id: string;
   wedding_date: string;

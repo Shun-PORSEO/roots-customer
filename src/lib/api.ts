@@ -1,5 +1,13 @@
 import { IApiResponse } from "./types";
 
+// 「症状 + 対処法」を持つ API エラー（ErrorMessage/InlineApiError が solution を展開する）。
+export class ApiError extends Error {
+  constructor(message: string, public solution?: string) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
 const GAS_ENDPOINT = process.env.NEXT_PUBLIC_GAS_ENDPOINT || "";
 
 // Mock data list
