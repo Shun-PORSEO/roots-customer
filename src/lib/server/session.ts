@@ -1,13 +1,20 @@
 import "server-only";
 import { cookies } from "next/headers";
 import { SignJWT, jwtVerify } from "jose";
-import { env } from "./env";
+import { getEnv } from "./env";
 
 // カップルの軽量セッション。LINE ID Token 検証成功後に発行する httpOnly Cookie。
 // line_id は「検証済みセッション」からのみ導出し、リクエストボディからは絶対に受け取らない（IDOR 構造根絶）。
 const COOKIE = "rc_session";
 const TTL_SEC = 60 * 60; // 短命（1h）。切れたらフロントが liff.getIDToken() でサイレント再発行。
-const secret = new TextEncoder().encode(env.SESSION_SECRET);
+
+// 署名鍵も初回利用時に解決する（ビルド時に SESSION_SECRET を要求しないため）。
+let key: Uint8Array | null = null;
+
+function secret(): Uint8Array {
+  if (!key) key = new TextEncoder().encode(getEnv().SESSION_SECRET);
+  return key;
+}
 
 export type Session = { lineId: string };
 
@@ -16,7 +23,7 @@ export async function issueSession(lineId: string): Promise<void> {
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(`${TTL_SEC}s`)
-    .sign(secret);
+    .sign(secret());
 
   cookies().set(COOKIE, token, {
     httpOnly: true,
@@ -32,7 +39,7 @@ export async function readSession(): Promise<Session | null> {
   const raw = cookies().get(COOKIE)?.value;
   if (!raw) return null;
   try {
-    const { payload } = await jwtVerify(raw, secret);
+    const { payload } = await jwtVerify(raw, secret());
     const lineId = payload.lineId;
     if (typeof lineId !== "string" || !lineId) return null;
     return { lineId };

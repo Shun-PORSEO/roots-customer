@@ -21,7 +21,9 @@ const schema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 });
 
-function load() {
+export type Env = z.infer<typeof schema>;
+
+function load(): Env {
   const parsed = schema.safeParse(process.env);
   if (!parsed.success) {
     const missing = parsed.error.issues
@@ -41,4 +43,18 @@ function load() {
   return env;
 }
 
-export const env = load();
+// 遅延評価。next build の "Collecting page data" は route を import するだけなので、
+// モジュール評価時に検証すると「シークレット無しではビルドすら通らない」状態になる
+// （Vercel の Preview が env 未設定で必ず失敗する）。
+// 検証は捨てず、最初に env を読んだ時点＝リクエスト処理時に fail-fast させる。
+let cached: Env | null = null;
+
+export function getEnv(): Env {
+  if (!cached) cached = load();
+  return cached;
+}
+
+// 呼び出し側は従来どおり `env.X` で読める（初回アクセスで load() が走る）。
+export const env: Env = new Proxy({} as Env, {
+  get: (_target, prop) => getEnv()[prop as keyof Env],
+});
