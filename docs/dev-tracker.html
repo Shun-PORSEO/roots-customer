@@ -47,6 +47,22 @@ const MILESTONES = [
 // timeline.kind: "コメント" | "状態変更" | "決定" | "コミット"
 const ISSUES = [
   {
+    id: "#18",
+    title: "外部の管理者がLIFFを開けない（[POST getUser] Load failed）: GAS Web Appが要Googleログインだった",
+    body: "症状: 新しい公式LINEに繋ぎ直して以降、外部の管理者がLIFFを開くと「通信エラー / [POST getUser] Load failed」。shun（スクリプト所有者）は使えるため気づきにくかった。\n\n根本原因: gas/appsscript.json の webapp.access が \"ANYONE\"。これはGASでは『Googleアカウントを持つ全員』= 要ログインを意味する（誰でも到達可は \"ANYONE_ANONYMOUS\"）。公式LINE繋ぎ直しの際の再デプロイでこのマニフェスト設定が新デプロイに適用され、未ログインの第三者には 401 + HTML（CORSヘッダー無し）が返るようになった。ブラウザのfetchは中身を読む前にネットワークエラー化するため TypeError \"Load failed\" となり、api.ts:341 が [POST getUser] を前置して表示していた。所有者はGoogleセッションを持つため通ってしまう＝『自分だけ使える』状態。\n\n検証: 本番デプロイに匿名POST→401かつACAOヘッダー無し。旧デプロイ(@20)は302+ACAO。修正後は旧デプロイと同一挙動（302+ACAO / 匿名GET 200）。\n\n対応: appsscript.json を ANYONE_ANONYMOUS に修正し、既存デプロイ(AKfycbx9Hc…)を同一URLのまま更新（Vercelの環境変数変更・再デプロイ不要）。\n\n備考: これは以前の公開状態への復旧であり露出は増えていないが、GAS経路は line_id を自己申告する構造（IDOR）が残る。恒久対策はSupabase経路(NEXT_PUBLIC_BACKEND=db)への切替 = M1。",
+    specs: ["gas/appsscript.json", "src/lib/api.ts"],
+    labels: ["fix", "本番障害", "GAS"],
+    status: "完了",
+    milestone: null,
+    created: "2026-07-15",
+    updated: "2026-07-15",
+    timeline: [
+      { date: "2026-07-15", kind: "調査", text: "本番バンドルからGASエンドポイントを特定し匿名POST → 401/HTML/CORSヘッダー無しを確認。GASのdoPostは例外もJSONで返すため、Load failed はコード到達前の失敗と断定。" },
+      { date: "2026-07-15", kind: "決定", text: "appsscript.json の access を ANYONE_ANONYMOUS へ。Apps Script APIでマニフェストのみ差し替え（コードは無変更）→ 既存デプロイを@38として更新しURL維持。" },
+      { date: "2026-07-15", kind: "状態変更", text: "対照実験（旧正常デプロイ@20と同一の 302+ACAO / 匿名GET 200）で復旧を確認。実機LIFFでの最終確認は外部管理者の再読み込み待ち。" },
+    ],
+  },
+  {
     id: "#17",
     title: "env検証の遅延評価化: ビルド時にシークレットを要求していた問題",
     body: "next build の \"Collecting page data\" は route を import するだけだが、env/db/session がモジュール評価時に環境変数を読んでいたため、シークレット未設定ではビルド自体が通らず Vercel Preview が必ず失敗していた（Vercel に env を設定しても直らない設計上の問題）。\n\n- env.ts: load() を memo 化し Proxy 経由の遅延評価に（呼び出し側の env.X は無改修）\n- db.ts: postgres 接続を初回利用時に生成\n- session.ts: 署名鍵を初回利用時に解決\n\n検証は捨てず、最初に env を読む＝リクエスト処理時に fail-fast。本番混入ガード（NODE_ENV=production かつ ALLOW_DEV_LINE_BYPASS）も維持。\n受け入れ: 環境変数を一切与えない状態で next build が通る（確認済み・型エラー0件）。",
