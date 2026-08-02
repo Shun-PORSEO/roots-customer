@@ -29,4 +29,18 @@ export async function withLineScope<T>(
   return result as T;
 }
 
+// テナント管理者（Supabase Auth）の検証済み auth.users.id を GUC に注入して cb を実行する。
+// RLS の管理者ポリシー（app.is_admin() / app.current_company_id()）は tenant_admins を
+// この値で解決する。カップル用の request.line_id は設定しない（経路を混ぜない）。
+export async function withAdminScope<T>(
+  adminId: string,
+  cb: (tx: postgres.TransactionSql) => Promise<T>
+): Promise<T> {
+  const result = await sql().begin(async (tx) => {
+    await tx`select set_config('request.admin_id', ${adminId}, true)`;
+    return cb(tx);
+  });
+  return result as T;
+}
+
 export { sql };

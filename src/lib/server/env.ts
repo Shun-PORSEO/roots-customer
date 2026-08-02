@@ -11,6 +11,10 @@ const schema = z.object({
     .describe("postgres://app_couple:...@host:5432/postgres — 非特権ロール接続"),
   // LINE Login チャネル ID（ID Token の aud 検証に使う）
   LINE_LOGIN_CHANNEL_ID: z.string().min(1),
+  // Supabase Auth（テナント管理者のメールログイン）。未設定でもカップル経路は動くため
+  // optional にし、管理者認証エンドポイントの利用時に不足を fail-fast で伝える。
+  SUPABASE_URL: z.string().url().optional(),
+  SUPABASE_ANON_KEY: z.string().min(1).optional(),
   // セッション Cookie 署名鍵（32byte 以上推奨）
   SESSION_SECRET: z.string().min(32),
   // dev 専用 ID Token バイパス。本番ビルドでは必ず false。

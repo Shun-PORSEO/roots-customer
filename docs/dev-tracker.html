@@ -27,7 +27,7 @@ const PROJECT = {
   tagline: "結婚準備のカップルと式場プランナーを繋ぐタスク進行管理（LIFF）",
 };
 
-const LAST_UPDATED = "2026-07-12";
+const LAST_UPDATED = "2026-08-02";
 
 // gstack の計画＝マイルストーン。1つの計画（/spec・/autoplan の成果）が
 // 1マイルストーンになり、その計画で切り出した作業が配下の ISSUES になる。
@@ -39,6 +39,9 @@ const MILESTONES = [
   { id: "M2", title: "Supabase移行 Phase B / 本番切替",
     goal: "プランナー権限分離・リマインドエンジン・本番シークレット管理・Sheets→Postgres データ移行。実運用へ切り替える。",
     status: "計画中", created: "2026-07-08" },
+  { id: "M3", title: "式場向けマルチテナントSaaS横展開（Epic: GitHub #10）",
+    goal: "式場担当者が自力でサインアップ→LINE公式アカウント作成→キー入力→接続テスト→カップル招待まで完走できる SaaS 化。受け入れライン＝第三者のセルフサーブ完走。Stripe月額サブスク（仮: 9,800円/月・14日トライアル）、GAS完全廃止、Sheets移行スクリプト含む。GitHub Issues #10〜#19 と同期。",
+    status: "進行中", created: "2026-08-02" },
 ];
 
 // GitHub Issue 的な作業項目（＝生きた要件定義）。行は削除しない。
@@ -46,6 +49,134 @@ const MILESTONES = [
 // status: "未対応" | "対応中" | "完了" | "クローズ"
 // timeline.kind: "コメント" | "状態変更" | "決定" | "コミット"
 const ISSUES = [
+  {
+    id: "#19",
+    title: "C1: テナント管理者認証（Supabase Auth）+ tenant_admins + RLS更新",
+    body: "現行の「LINEログイン + customers.is_admin」を廃止し、テナント管理者はSupabase Auth（メール）でログインする。auth.users ↔ companies を紐づける tenant_admins テーブルを追加し、app.current_company_id() 相当の解決を tenant_admins 経由に更新。クロステナント遮断をRLSテストで証明する。既存カップルのLIFF認証は壊さない。\n\nGitHub: #11 / 優先度: Critical / 見積: 2-3日 / 依存: なし",
+    specs: ["supabase/migrations/", "src/lib/server/session.ts", "src/app/api/admin/route.ts"],
+    labels: ["feat", "認証", "セキュリティ", "SaaS化"],
+    status: "対応中",
+    milestone: "M3",
+    created: "2026-08-02",
+    updated: "2026-08-02",
+    timeline: [
+      { date: "2026-08-02", kind: "決定", text: "Phase 4 要件定義をユーザー承認。GitHub #11 として起票し、依存なしの先頭タスクとして着手。" },
+      { date: "2026-08-02", kind: "コメント", text: "実装完了: 0003_tenant_admins.sql（tenant_admins / request.admin_id GUC / app.is_admin()・current_company_id() を tenant_admins 経由に差し替え / provision_tenant 冪等関数）。関数差し替えだけで 0002 の管理者ポリシー全部が新モデルに切替。GoTrue REST 直呼び（SDK 依存なし・トークン非露出）→ 自前 httpOnly 管理者セッション（rc_admin_session）。/api/auth/admin（login/signup/確認/logout）、/api/admin と /api/user の認証を管理者セッションへ切替（旧 LINE+is_admin 廃止）。/login・/signup ページ新設、AuthGate/useAdminAuth を LIFF 非依存化（getAdminLineId は互換シムで UI 無改修）。seed に admin@example.com + B社テナント、supabase/tests/rls_c1.sql にクロステナント遮断テスト5本。" },
+      { date: "2026-08-02", kind: "状態変更", text: "tsc 0件 / next build 20ルート緑。残: supabase db reset + rls_c1.sql の実 DB 実行と curl 受け入れ（この環境は Docker/supabase CLI 無しのため未実行。手順は supabase/README.md C1 節）。" },
+    ],
+  },
+  {
+    id: "#20",
+    title: "C2: LINE マルチテナント化（キー4点・Webhook署名検証・テナント別ID Token検証・接続テストAPI）",
+    body: "venues に line_channel_secret / line_login_channel_id を追加しキー4点を揃える。/api/line/webhook/[venue_id] で venue 別の署名検証（不正署名401・venue未特定404）。ID Token 検証をグローバル env 固定から venue 別解決へ。接続テストAPI（bot/info・Webhook endpoint検証・LIFF整合）で各キーに「✓ 接続OK / ✗ エラーと直し方」を返す。\n\nGitHub: #12 / 優先度: Critical / 見積: 3-4日 / 依存: C1",
+    specs: ["supabase/migrations/", "src/app/api/line/", "src/lib/server/env.ts"],
+    labels: ["feat", "LINE", "セキュリティ", "SaaS化"],
+    status: "未対応",
+    milestone: "M3",
+    created: "2026-08-02",
+    updated: "2026-08-02",
+    timeline: [
+      { date: "2026-08-02", kind: "決定", text: "GitHub #12 として起票。" },
+    ],
+  },
+  {
+    id: "#21",
+    title: "C3: オンボーディングウィザード + スクショ付きマニュアル",
+    body: "/onboarding に4ステップウィザード（式場情報→LINEキー4点入力→接続テスト全緑→Stripe Checkout）。onboarding_progress で中断→再開可。マニュアルは gas/manual/ の画像資産を流用し、LINE公式アカウント作成→Messaging API有効化→Loginチャネル+LIFF作成→Webhook URL設定→応答メッセージOFF→キー取得をスクショ付きで案内。\n\nGitHub: #13 / 優先度: Critical / 見積: 3-4日 / 依存: C2",
+    specs: ["src/app/onboarding/", "gas/manual/"],
+    labels: ["feat", "オンボーディング", "SaaS化"],
+    status: "未対応",
+    milestone: "M3",
+    created: "2026-08-02",
+    updated: "2026-08-02",
+    timeline: [
+      { date: "2026-08-02", kind: "決定", text: "GitHub #13 として起票。" },
+    ],
+  },
+  {
+    id: "#22",
+    title: "C4: Stripe課金（Checkout/Portal/Webhook/機能ゲート）+ subscriptions",
+    body: "Checkout（14日トライアル・Price ID は env 差し替え可能・仮値 月9,800円1プラン）、Customer Portal 導線、/api/stripe/webhook での署名検証とsubscriptions 同期。trialing/active 以外は管理画面ブロック（データ保持）、Portal から復帰可能。\n\nGitHub: #14 / 優先度: High / 見積: 2-3日 / 依存: C1",
+    specs: ["supabase/migrations/", "src/app/api/stripe/"],
+    labels: ["feat", "課金", "SaaS化"],
+    status: "未対応",
+    milestone: "M3",
+    created: "2026-08-02",
+    updated: "2026-08-02",
+    timeline: [
+      { date: "2026-08-02", kind: "決定", text: "GitHub #14 として起票。" },
+    ],
+  },
+  {
+    id: "#23",
+    title: "C5: GAS廃止（リマインド Vercel Cron 化 + AI生成移植・レート制限付き）",
+    body: "毎朝9:00 JST の Vercel Cron で全アクティブ venue のリマインド送信（送信記録で冪等化・重複ゼロ）。AI メッセージ生成を Next.js に移植し、運営者の Claude API キー共通提供 + ai_usage テーブルでテナント別レート制限。GAS 依存コードを実行パスから排除。\n\nGitHub: #15 / 優先度: High / 見積: 2-3日 / 依存: C2",
+    specs: ["vercel.json", "src/app/api/cron/", "gas/"],
+    labels: ["feat", "GAS廃止", "SaaS化"],
+    status: "未対応",
+    milestone: "M3",
+    created: "2026-08-02",
+    updated: "2026-08-02",
+    timeline: [
+      { date: "2026-08-02", kind: "決定", text: "GitHub #15 として起票。" },
+    ],
+  },
+  {
+    id: "#24",
+    title: "C6: LP（ヒーロー/機能/料金/FAQ/CTA）",
+    body: "式場向けLPをトップ（/）に実装。CTA→/signup 導線。料金表示は変更に追従しやすい作り（1箇所集約）。モバイル崩れなし・既存管理画面/LIFFのルーティングを壊さない。\n\nGitHub: #16 / 優先度: High / 見積: 1-2日 / 依存: なし（独立）",
+    specs: ["src/app/page.tsx"],
+    labels: ["feat", "LP", "SaaS化"],
+    status: "未対応",
+    milestone: "M3",
+    created: "2026-08-02",
+    updated: "2026-08-02",
+    timeline: [
+      { date: "2026-08-02", kind: "決定", text: "GitHub #16 として起票。" },
+    ],
+  },
+  {
+    id: "#25",
+    title: "C7: Sheets→Supabase 移行スクリプト",
+    body: "現行 Sheets 運用顧客のデータ（venue・カップル・タスク進捗・タスクマスタ）を取り込む一回性CLI。件数照合レポート・冪等・ドライラン付き。\n\nGitHub: #17 / 優先度: Medium / 見積: 1-2日 / 依存: C1,C2",
+    specs: ["scripts/"],
+    labels: ["chore", "移行", "SaaS化"],
+    status: "未対応",
+    milestone: "M3",
+    created: "2026-08-02",
+    updated: "2026-08-02",
+    timeline: [
+      { date: "2026-08-02", kind: "決定", text: "GitHub #17 として起票。" },
+    ],
+  },
+  {
+    id: "#26",
+    title: "C8: 運営者コンソール（読み取り専用1画面）",
+    body: "/operator に運営者のみアクセス可能な読み取り専用画面。テナント一覧・契約状態（Stripe）・AI利用量を表示。書き込み操作なし。\n\nGitHub: #18 / 優先度: Medium / 見積: 1日 / 依存: C4",
+    specs: ["src/app/operator/"],
+    labels: ["feat", "運営", "SaaS化"],
+    status: "未対応",
+    milestone: "M3",
+    created: "2026-08-02",
+    updated: "2026-08-02",
+    timeline: [
+      { date: "2026-08-02", kind: "決定", text: "GitHub #18 として起票。" },
+    ],
+  },
+  {
+    id: "#27",
+    title: "C9: E2E検証（第三者セルフサーブ完走テスト + 仕上げ）",
+    body: "第三者の式場担当者が介助なしで LP→登録→LINE設定→接続テスト全緑→カップル招待→タスク配信まで完走できることを証明。クロステナント遮断テスト（RLS/API両層）、課金ゲート動作確認、つまずき箇所の改善を含む。\n\nGitHub: #19 / 優先度: Critical / 見積: 2日 / 依存: C1〜C8 全部",
+    specs: [],
+    labels: ["test", "受け入れ", "SaaS化"],
+    status: "未対応",
+    milestone: "M3",
+    created: "2026-08-02",
+    updated: "2026-08-02",
+    timeline: [
+      { date: "2026-08-02", kind: "決定", text: "GitHub #19 として起票。Epic の受け入れライン＝このイシューの完了。" },
+    ],
+  },
   {
     id: "#18",
     title: "外部の管理者がLIFFを開けない（[POST getUser] Load failed）: GAS Web Appが要Googleログインだった",

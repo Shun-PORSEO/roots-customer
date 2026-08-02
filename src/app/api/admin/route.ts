@@ -1,8 +1,8 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import type postgres from "postgres";
-import { readSession } from "@/lib/server/session";
-import { withLineScope } from "@/lib/server/db";
+import { readAdminSession } from "@/lib/server/session";
+import { withAdminScope } from "@/lib/server/db";
 import { ok, fail, newRequestId, type ErrorCode } from "@/lib/server/http";
 import { pushLineMessage } from "@/lib/server/line";
 import { env } from "@/lib/server/env";
@@ -10,8 +10,9 @@ import { env } from "@/lib/server/env";
 export const runtime = "nodejs";
 
 // POST /api/admin  → 旧 GAS doPost のプランナー向け全アクション（GAS と同じ action ディスパッチ形式）。
-// - 呼び出し元はセッション（検証済み line_id）で認証し、customers.is_admin を必須にする。
-// - 全クエリは app_couple + RLS（管理者ポリシー = 自社 company 内のみ）の下で実行される。
+// - 呼び出し元はテナント管理者セッション（Supabase Auth 検証済みの auth.users.id）で認証する（SaaS化 C1）。
+//   旧「LINE ログイン + customers.is_admin」方式は廃止（D4）。
+// - 全クエリは app_couple + RLS（管理者ポリシー = tenant_admins 経由で自社 company 内のみ）の下で実行される。
 //   → action 実装が WHERE を書き落としても他社データには届かない（多層防御）。
 // - venue_id は人間可読コード（RC001 形式 = venues.code）。DB 内部の uuid はここで解決する。
 
@@ -577,8 +578,13 @@ async function dispatch(tx: Tx, action: string, raw: unknown): Promise<HandlerRe
 export async function POST(req: NextRequest) {
   const rid = newRequestId();
 
-  const session = await readSession();
-  if (!session) return fail("AUTH_REQUIRED", rid);
+  const session = await readAdminSession();
+  if (!session) {
+    return fail("AUTH_REQUIRED", rid, {
+      message: "ログインが必要です",
+      hint: "/login からメールアドレスでログインしてください。",
+    });
+  }
 
   let raw: { action?: unknown } & Record<string, unknown>;
   try {
@@ -590,10 +596,10 @@ export async function POST(req: NextRequest) {
   if (!action) return fail("VALIDATION", rid);
 
   try {
-    const result = await withLineScope(session.lineId, async (tx) => {
-      // 管理者必須（GAS の ADMIN_ACTIONS ガード相当）。RLS は「自社内のみ」を二重で保証する。
-      const [me] = await tx`
-        select is_admin from customers where line_id = ${session.lineId}`;
+    const result = await withAdminScope(session.adminId, async (tx) => {
+      // tenant_admins に行があること（= テナント作成済み）を必須にする。
+      // RLS は「自社内のみ」を二重で保証する。
+      const [me] = await tx`select app.is_admin() as is_admin`;
       if (!me?.is_admin) throw new HttpError("FORBIDDEN_IDOR", "Forbidden");
       return dispatch(tx, action, raw);
     });

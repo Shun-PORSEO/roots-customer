@@ -1,33 +1,64 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { readSession } from "@/lib/server/session";
-import { withLineScope } from "@/lib/server/db";
+import { readSession, readAdminSession } from "@/lib/server/session";
+import { withLineScope, withAdminScope } from "@/lib/server/db";
 import { ok, fail, newRequestId } from "@/lib/server/http";
 
 export const runtime = "nodejs";
 
 // GET /api/user(?target_line_id=)  → 旧 GAS の getUser。
-// 自分自身の照会: exists / planner / not_found（LIFF ルートの振り分け・useAdminAuth の is_admin 判定）。
-// target_line_id 指定（管理画面がカップル情報を出すケース）は呼び出し元が管理者のときのみ許可。
-// line_id は常に検証済みセッション由来。target は「誰を見るか」の指定であって認証情報ではない。
+// 自分自身の照会（カップル）: exists / planner / not_found（LIFF ルートの振り分け）。
+// target_line_id 指定（管理画面がカップル情報を出すケース）はテナント管理者セッション
+// （Supabase Auth・SaaS化 C1）でのみ許可し、RLS が自社顧客に限定する。
+// カップルセッションでの他人指定は常に 403（旧 customers.is_admin 特例は廃止）。
 export async function GET(req: NextRequest) {
   const rid = newRequestId();
 
+  const targetParam = req.nextUrl.searchParams.get("target_line_id");
+
+  // ─ 管理画面からの照会（テナント管理者）─
+  const admin = await readAdminSession();
+  if (admin && targetParam) {
+    try {
+      const result = await withAdminScope(admin.adminId, async (tx) => {
+        // RLS: 管理者ポリシーで自社顧客の行だけが見える（他社は最初から不可視）
+        const [customer] = await tx`
+          select c.line_id,
+                 coalesce(v.code, '') as venue_code,
+                 coalesce(to_char(c.wedding_date, 'YYYY-MM-DD'), '') as wedding_date,
+                 c.name1_kana, c.name2_kana, c.is_admin
+          from customers c
+          left join venues v on v.id = c.venue_id
+          where c.line_id = ${targetParam}`;
+        if (!customer) return { status: "not_found" as const };
+        return {
+          status: "exists" as const,
+          venue_id: customer.venue_code,
+          wedding_date: customer.wedding_date,
+          name1_kana: customer.name1_kana ?? "",
+          name2_kana: customer.name2_kana ?? "",
+          is_admin: customer.is_admin ?? false,
+        };
+      });
+      return ok(result, rid);
+    } catch (e) {
+      return fail("INTERNAL", rid, { cause: e });
+    }
+  }
+
+  // ─ カップル自身の照会（LIFF）─
   const session = await readSession();
   if (!session) return fail("AUTH_REQUIRED", rid);
 
-  const target =
-    req.nextUrl.searchParams.get("target_line_id") || session.lineId;
+  const target = targetParam || session.lineId;
 
   try {
     const result = await withLineScope(session.lineId, async (tx) => {
       if (target !== session.lineId) {
-        const [me] = await tx`
-          select is_admin from customers where line_id = ${session.lineId}`;
-        if (!me?.is_admin) return { forbidden: true as const };
+        return { forbidden: true as const };
       }
 
-      // RLS: 自分の行、または（管理者なら）自社顧客の行だけが見える
+      // RLS: 自分の行だけが見える
       const [customer] = await tx`
         select c.line_id,
                coalesce(v.code, '') as venue_code,

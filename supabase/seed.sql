@@ -1,7 +1,8 @@
 -- ローカル開発シード（supabase db reset で migrations 後に実行される）。
 -- 縦スライス #1（getTasksAndUser）〜 #3（管理経路）が dev バイパス line_id で緑になる最小データ。
 --   カップル:  id_token="dev:Udev123"
---   管理者:    id_token="dev:Uadmin123"（/admin 一式を叩ける）
+--   テナント管理者（C1 以降）: admin@example.com / password123（/login からメールでログイン）
+--   ※ 旧 dev:Uadmin123（customers.is_admin）は C1 で権限の根拠から外れた（データのみ残置）
 
 -- app_couple にローカル用パスワードを付与（ローカル専用。prod では別途 Vault/Secrets で管理）
 alter role app_couple with password 'devpassword';
@@ -9,6 +10,51 @@ alter role app_couple with password 'devpassword';
 -- company / venue
 insert into companies (id, name) values
   ('00000000-0000-0000-0000-000000000001', 'サンプルウェディング社');
+
+-- ─── テナント管理者（Supabase Auth・ローカル専用）────────────────────────
+-- GoTrue がメール+パスワードでログインできる最小の auth.users / auth.identities 行。
+-- パスワードはどちらも password123。
+insert into auth.users (instance_id, id, aud, role, email, encrypted_password,
+                        email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
+                        created_at, updated_at)
+values
+  ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-00000000ad01',
+   'authenticated', 'authenticated', 'admin@example.com',
+   crypt('password123', gen_salt('bf')), now(),
+   '{"provider":"email","providers":["email"]}', '{}', now(), now()),
+  ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-00000000ad02',
+   'authenticated', 'authenticated', 'admin-b@example.com',
+   crypt('password123', gen_salt('bf')), now(),
+   '{"provider":"email","providers":["email"]}', '{}', now(), now());
+
+insert into auth.identities (id, user_id, identity_data, provider, provider_id,
+                             last_sign_in_at, created_at, updated_at)
+values
+  (gen_random_uuid(), '00000000-0000-0000-0000-00000000ad01',
+   jsonb_build_object('sub', '00000000-0000-0000-0000-00000000ad01', 'email', 'admin@example.com'),
+   'email', '00000000-0000-0000-0000-00000000ad01', now(), now(), now()),
+  (gen_random_uuid(), '00000000-0000-0000-0000-00000000ad02',
+   jsonb_build_object('sub', '00000000-0000-0000-0000-00000000ad02', 'email', 'admin-b@example.com'),
+   'email', '00000000-0000-0000-0000-00000000ad02', now(), now(), now());
+
+insert into tenant_admins (auth_user_id, company_id, email) values
+  ('00000000-0000-0000-0000-00000000ad01', '00000000-0000-0000-0000-000000000001', 'admin@example.com');
+
+-- ─── クロステナント検証用の第2テナント（B社）──────────────────────────
+-- 受け入れ基準「テナントAはテナントBのデータに到達できない」を supabase/tests/rls_c1.sql で証明する。
+insert into companies (id, name) values
+  ('00000000-0000-0000-0000-000000000002', 'B社ブライダル');
+
+insert into tenant_admins (auth_user_id, company_id, email) values
+  ('00000000-0000-0000-0000-00000000ad02', '00000000-0000-0000-0000-000000000002', 'admin-b@example.com');
+
+insert into venues (id, company_id, code, venue_name, planner_line_user_id, line_liff_id) values
+  ('00000000-0000-0000-0000-0000000000b1', '00000000-0000-0000-0000-000000000002',
+   'RB001', 'B社サンプル式場', '', '');
+
+insert into customers (line_id, company_id, venue_id, wedding_date, name1_kana, name2_kana, is_admin) values
+  ('UdevB123', '00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-0000000000b1',
+   date '2026-11-11', 'びい', 'はなこ', false);
 
 insert into venues (id, company_id, code, venue_name, planner_line_user_id, line_liff_id) values
   ('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-000000000001',

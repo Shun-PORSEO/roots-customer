@@ -35,7 +35,16 @@ async function dbFetch(path: string, init?: RequestInit): Promise<IApiResponse> 
   const call = () => fetch(path, { credentials: "include", ...init });
   let res = await call();
   if (res.status === 401) {
-    await ensureLineSession();
+    // LIFF 文脈ならサイレント再認証。管理画面（LIFF 外・メールログイン）では
+    // LIFF 再認証は成立しないので、/login への誘導をエラーとして返す。
+    try {
+      await ensureLineSession();
+    } catch {
+      throw new ApiError(
+        "セッションの有効期限が切れました",
+        "管理画面をご利用の場合は /login からログインし直してください。"
+      );
+    }
     res = await call();
   }
   const data = await res.json();

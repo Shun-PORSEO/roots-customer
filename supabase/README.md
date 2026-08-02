@@ -91,3 +91,43 @@ curl -s -X POST localhost:3000/api/admin -b /tmp/rc-admin.cookies \
 - プランナー専用ロール（現状は is_admin の全社管理。式場単位のプランナー権限分離は Phase B）
 - app_couple パスワードの本番管理（Vault/Secrets）
 - 本番切替時の Sheets → Postgres データ移行スクリプト
+
+---
+
+## SaaS化 C1 — テナント管理者認証（Supabase Auth）への置き換え（GitHub #11）
+
+管理者の認可モデルを「LINE ログイン + `customers.is_admin`」から
+**Supabase Auth（メール） + `tenant_admins`** に置き換えた（D4）。カップル経路（LIFF + `request.line_id`）は無変更。
+
+### 認可モデル（C1 以降）
+- `tenant_admins(auth_user_id ↔ company_id)` が管理者の根拠。`customers.is_admin` は deprecated（データのみ残置）。
+- 管理リクエストは `SET LOCAL request.admin_id`（検証済み管理者セッション由来の auth.users.id）。
+- `app.is_admin()` / `app.current_company_id()` は tenant_admins 経由に差し替え済み
+  → **0002 の管理者ポリシーは無改修で新モデルに切り替わる**（関数差し替えのみ）。
+- 接続は引き続き非特権ロール `app_couple`。service_role 不使用。
+- サインアップ直後のテナント作成は security definer 関数 `app.provision_tenant()` に限定（冪等）。
+
+### 追加ファイル
+```
+supabase/migrations/0003_tenant_admins.sql  tenant_admins / request.admin_id / is_admin差し替え / provision_tenant
+supabase/tests/rls_c1.sql                   クロステナント遮断の受け入れテスト（psql -f で実行）
+src/lib/server/supabaseAuth.ts              GoTrue REST 直呼び（SDK なし・トークンはクライアント非露出）
+src/app/api/auth/admin/route.ts             POST login/signup / GET セッション確認 / DELETE ログアウト
+src/app/login/page.tsx, src/app/signup/page.tsx  管理者ログイン/サインアップ（LIFF 非依存）
+```
+
+### 動かし方（追加分）
+```bash
+supabase db reset   # 0003 + seed（admin@example.com / password123、B社テナント含む）
+# .env.local に追加: SUPABASE_URL / SUPABASE_ANON_KEY（supabase status の値）
+
+# 管理者ログイン → 管理 API
+curl -i -X POST localhost:3000/api/auth/admin -H 'Content-Type: application/json' \
+  -d '{"mode":"login","email":"admin@example.com","password":"password123"}' -c /tmp/rc-admin.cookies
+curl -s -X POST localhost:3000/api/admin -b /tmp/rc-admin.cookies \
+  -H 'Content-Type: application/json' -d '{"action":"getVenues"}' | jq
+# → B社（RB001）が混ざらないこと。旧 dev:Uadmin123 の LINE セッションでは 401/403 になること。
+
+# RLS クロステナントテスト（受け入れ基準の証明）
+psql "postgres://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/rls_c1.sql
+```
