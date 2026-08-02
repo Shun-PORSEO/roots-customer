@@ -85,14 +85,16 @@ const ISSUES = [
     id: "#21",
     title: "C3: オンボーディングウィザード + スクショ付きマニュアル",
     body: "/onboarding に4ステップウィザード（式場情報→LINEキー4点入力→接続テスト全緑→Stripe Checkout）。onboarding_progress で中断→再開可。マニュアルは gas/manual/ の画像資産を流用し、LINE公式アカウント作成→Messaging API有効化→Loginチャネル+LIFF作成→Webhook URL設定→応答メッセージOFF→キー取得をスクショ付きで案内。\n\nGitHub: roots-concierge#4 / 優先度: Critical / 見積: 3-4日 / 依存: C2",
-    specs: ["src/app/onboarding/", "gas/manual/"],
+    specs: ["src/app/onboarding/", "src/components/onboarding/", "supabase/migrations/0005_onboarding.sql"],
     labels: ["feat", "オンボーディング", "SaaS化"],
-    status: "未対応",
+    status: "レビュー中",
     milestone: "M3",
     created: "2026-08-02",
     updated: "2026-08-02",
     timeline: [
       { date: "2026-08-02", kind: "決定", text: "roots-concierge#4 として起票。" },
+      { date: "2026-08-02", kind: "実装", text: "実装完了。onboarding_progress（0005）で中断→再開、Step3 全緑ゲートはサーバー記録（testLineConnection の実結果でのみ line_test_passed_at 更新）。signup→/onboarding、login は onboarding_pending で再開誘導。受け入れテスト onboarding_c3.sql 追加。tsc/build/ESLint/カスタムリンター緑。" },
+      { date: "2026-08-02", kind: "決定", text: "Step2 マニュアルは模式図（コンポーネント描画）で実装 — gas/manual/ の画像は旧GAS管理画面のスクショで LINE Developers の画面が無いため。実スクショ撮影後に差し替え可能な構造。Step4 は C4 未実装のためトライアル開始の確定のみ（Checkout 差し替え前提）。" },
     ],
   },
   {

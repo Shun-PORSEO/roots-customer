@@ -37,12 +37,24 @@ const Body = z.discriminatedUnion("mode", [
   }),
 ]);
 
-// tenant_admins の自社 company を解決（未プロビジョニングなら null）
-async function resolveCompany(adminId: string): Promise<string | null> {
+// tenant_admins の自社 company と、未完了オンボーディングの有無を解決する。
+// onboarding_pending は「進捗行があり completed_at が null」のときだけ true
+// （C3 ウィザード導入前からある既存テナントには行が無い → false のまま）。
+async function resolveCompany(
+  adminId: string
+): Promise<{ companyId: string | null; onboardingPending: boolean }> {
   return withAdminScope(adminId, async (tx) => {
     const [row] = await tx`
-      select company_id from tenant_admins where auth_user_id = app.current_admin_id()`;
-    return (row?.company_id as string | undefined) ?? null;
+      select ta.company_id,
+             exists (
+               select 1 from onboarding_progress op
+               where op.company_id = ta.company_id and op.completed_at is null
+             ) as onboarding_pending
+      from tenant_admins ta where ta.auth_user_id = app.current_admin_id()`;
+    return {
+      companyId: (row?.company_id as string | undefined) ?? null,
+      onboardingPending: !!row?.onboarding_pending,
+    };
   });
 }
 
@@ -61,9 +73,14 @@ export async function POST(req: NextRequest) {
     if (body.mode === "login") {
       const user = await signInWithPassword(body.email, body.password);
       await issueAdminSession(user.id, user.email || body.email);
-      const companyId = await resolveCompany(user.id);
+      const { companyId, onboardingPending } = await resolveCompany(user.id);
       return ok(
-        { status: "ok", email: user.email || body.email, provisioned: companyId !== null },
+        {
+          status: "ok",
+          email: user.email || body.email,
+          provisioned: companyId !== null,
+          onboarding_pending: onboardingPending,
+        },
         rid
       );
     }
@@ -92,9 +109,14 @@ export async function GET() {
     hint: "/login からメールアドレスでログインしてください。",
   });
   try {
-    const companyId = await resolveCompany(session.adminId);
+    const { companyId, onboardingPending } = await resolveCompany(session.adminId);
     return ok(
-      { status: "ok", email: session.email, provisioned: companyId !== null },
+      {
+        status: "ok",
+        email: session.email,
+        provisioned: companyId !== null,
+        onboarding_pending: onboardingPending,
+      },
       rid
     );
   } catch (e) {

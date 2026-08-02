@@ -87,6 +87,7 @@ function dbPatchTaskProgress(body: {
 const DB_ADMIN_ACTIONS = new Set([
   "getVenues",
   "createVenue", "updateVenue", "updateVenueStatus", "getVenueDetail", "testLineConnection",
+  "getOnboarding", "saveOnboarding",
   "getVenueTasks", "updateTaskMaster", "addTaskMaster", "updateTaskManualUrl",
   "testSendTask",
   "getUsers", "getUsersWithProgress", "getAdminUserTasks",
@@ -355,4 +356,21 @@ export const apiClient = {
     }
   },
 };
+
+// テナント管理者の認証（POST /api/auth/admin。SaaS化 C1/C3）。
+// login/signup ページ用の薄いラッパー（src/app 内で fetch を直接呼ばない規約のため）。
+// エラー表示はページ側が data.error.message/hint を読む既存フローのまま。
+export async function postAdminAuth(
+  body:
+    | { mode: "login"; email: string; password: string }
+    | { mode: "signup"; email: string; password: string; company_name: string }
+): Promise<{ ok: boolean; data: any }> {
+  const res = await fetch("/api/auth/admin", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(body),
+  });
+  return { ok: res.ok, data: await res.json() };
+}
 

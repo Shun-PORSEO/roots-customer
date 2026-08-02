@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { postAdminAuth } from "@/lib/api";
 
 // テナント管理者ログイン（SaaS化 C1）。Supabase Auth（メール）で認証し、
 // サーバーが httpOnly セッションを発行する（トークンはクライアントに残らない）。
@@ -16,21 +17,16 @@ export default function LoginPage() {
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch("/api/auth/admin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ mode: "login", email, password }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
+      const { ok, data } = await postAdminAuth({ mode: "login", email, password });
+      if (!ok) {
         setError({
           message: data?.error?.message || "ログインに失敗しました",
           hint: data?.error?.hint,
         });
         return;
       }
-      window.location.href = "/admin";
+      // オンボーディング（C3）を中断しているテナントはウィザードへ再開させる
+      window.location.href = data?.onboarding_pending ? "/onboarding" : "/admin";
     } catch {
       setError({ message: "通信に失敗しました", hint: "時間をおいて再度お試しください。" });
     } finally {

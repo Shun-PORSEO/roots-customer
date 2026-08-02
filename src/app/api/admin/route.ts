@@ -62,6 +62,12 @@ const Schemas = {
   }),
   updateVenueStatus: z.object({ venue_id: z.string().min(1), active: z.boolean() }),
   testLineConnection: z.object({ venue_id: z.string().min(1) }),
+  getOnboarding: z.object({}),
+  saveOnboarding: z.object({
+    step: z.coerce.number().int().min(1).max(4),
+    venue_id: z.string().optional(),
+    complete: z.boolean().optional(),
+  }),
   getVenueDetail: z.object({ venue_id: z.string().min(1) }),
   getVenueTasks: z.object({ venue_id: z.string().optional() }),
   updateTaskMaster: z.object({
@@ -305,6 +311,64 @@ async function dispatch(tx: Tx, action: string, raw: unknown): Promise<HandlerRe
           liffId: venue.line_liff_id ?? "",
         },
       };
+    }
+    // ── オンボーディング（SaaS化 C3）──────────────────────
+    case "getOnboarding": {
+      // 進捗行（無ければ Step1 相当の初期値）+ ウィザード対象式場の表示用情報。
+      // secret 系は値を返さず has_* フラグのみ（getVenueDetail と同じ方針）。
+      const [row] = await tx`
+        select current_step, venue_code,
+               (line_test_passed_at is not null) as line_test_passed,
+               (completed_at is not null) as completed
+        from onboarding_progress where company_id = app.current_company_id()`;
+      const onboarding = row ?? {
+        current_step: 1,
+        venue_code: "",
+        line_test_passed: false,
+        completed: false,
+      };
+      let venue: unknown = null;
+      if (onboarding.venue_code) {
+        const [v] = await tx`
+          select code as venue_id, venue_name, line_liff_id, line_login_channel_id,
+                 (line_channel_access_token <> '') as has_channel_access_token,
+                 (line_channel_secret <> '') as has_channel_secret
+          from venues where code = ${onboarding.venue_code} limit 1`;
+        venue = v ?? null;
+      }
+      return { status: "ok", onboarding, venue };
+    }
+    case "saveOnboarding": {
+      const p = parse(Schemas.saveOnboarding, raw);
+      if (p.venue_id) {
+        const venue = await venueByCode(tx, p.venue_id);
+        if (!venue) throw new HttpError("NOT_FOUND", "Venue not found");
+      }
+      const [current] = await tx`
+        select venue_code, line_test_passed_at from onboarding_progress
+        where company_id = app.current_company_id()`;
+      const venueCode = p.venue_id || current?.venue_code || "";
+      if (p.step >= 2 && !venueCode) {
+        throw new HttpError("VALIDATION", "先に式場情報を登録してください（Step1）");
+      }
+      // Step4 への進行・完了は「接続テスト4点全て✓」をサーバー記録で必須にする
+      // （line_test_passed_at は testLineConnection の実結果でのみ更新される）。
+      if ((p.step >= 4 || p.complete) && !current?.line_test_passed_at) {
+        throw new HttpError("VALIDATION", "LINE接続テストが全て✓になるまで先へ進めません（Step3）");
+      }
+      await tx`
+        insert into onboarding_progress (company_id, current_step, venue_code)
+        values (app.current_company_id(), ${p.step}, ${venueCode})
+        on conflict (company_id) do update set
+          current_step = excluded.current_step,
+          venue_code   = excluded.venue_code,
+          updated_at   = now()`;
+      if (p.complete) {
+        await tx`
+          update onboarding_progress set completed_at = now(), updated_at = now()
+          where company_id = app.current_company_id() and completed_at is null`;
+      }
+      return { status: "updated" };
     }
     case "updateVenueStatus": {
       const p = parse(Schemas.updateVenueStatus, raw);
@@ -664,7 +728,27 @@ export async function POST(req: NextRequest) {
     if (lineTest) {
       delete result.__lineTest;
       const expectedWebhookUrl = `${req.nextUrl.origin}/api/line/webhook/${lineTest.venueCode}`;
-      result.results = await runLineConnectionTest({ ...lineTest, expectedWebhookUrl });
+      const results = await runLineConnectionTest({ ...lineTest, expectedWebhookUrl });
+      result.results = results;
+      // オンボーディング（C3）のゲート: 4点全て✓の実結果だけが Step4 への進行を開く。
+      // クライアント申告では書けない（saveOnboarding は line_test_passed_at を参照するのみ）。
+      try {
+        const allOk = results.every((r) => r.ok);
+        await withAdminScope(session.adminId, async (tx) => {
+          if (allOk) {
+            await tx`
+              update onboarding_progress set line_test_passed_at = now(), updated_at = now()
+              where venue_code = ${lineTest.venueCode}`;
+          } else {
+            await tx`
+              update onboarding_progress set line_test_passed_at = null, updated_at = now()
+              where venue_code = ${lineTest.venueCode}`;
+          }
+        });
+      } catch (e) {
+        // 記録に失敗してもテスト結果自体は返す（次回のテスト実行で再記録される）
+        console.error(`[${rid}] オンボーディングの接続テスト結果記録に失敗:`, e);
+      }
     }
     return ok(result, rid);
   } catch (e) {

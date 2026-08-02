@@ -12,6 +12,14 @@ export interface IVenue {
   created_at?: string;
 }
 
+// オンボーディングウィザードの進捗（getOnboarding / saveOnboarding。SaaS化 C3）
+export interface IOnboarding {
+  current_step: number; // 1=式場情報 2=LINEキー入力 3=接続テスト 4=トライアル開始
+  venue_code: string;
+  line_test_passed: boolean;
+  completed: boolean;
+}
+
 // LINE 接続テスト（testLineConnection）の結果1件分（キー4点それぞれに返る）
 export interface ILineKeyCheck {
   key: "channel_access_token" | "channel_secret" | "login_channel_id" | "liff_id";

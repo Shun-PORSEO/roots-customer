@@ -179,3 +179,44 @@ curl -i -X POST localhost:3000/api/line/webhook/NOPE -d '{}'                   #
 # DB 層の受け入れテスト
 psql "postgres://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/line_c2.sql
 ```
+
+---
+
+## SaaS化 C3 — オンボーディングウィザード（roots-concierge#4）
+
+サインアップ後の `/onboarding` で、式場担当者がセルフサーブで
+**Step1 式場情報 → Step2 LINEキー4点入力（スクショ風マニュアル付き）→ Step3 接続テスト全緑 → Step4 利用開始**
+まで完走する。進捗は `onboarding_progress`（company 単位で1行）に保存され、中断→再開できる。
+
+### 設計の要点
+- **進捗保存**: `onboarding_progress(company_id PK, current_step, venue_code, line_test_passed_at, completed_at)`。
+  Step 内の入力値は venues 等の実体に保存されるため、この行は「どこまで進んだか」だけを持つ。
+- **偽装不可のゲート**: `line_test_passed_at` はクライアント申告では書かず、
+  `testLineConnection` の実結果（4点全て✓）を見て API サーバーが更新する。
+  `saveOnboarding` は Step4 進行・完了時にこの列を必須チェックする。
+- **RLS**: 既存の管理者ポリシーと同型（`app.is_admin()` + 自社 `company_id`）。security definer の例外は増やしていない。
+- **再開導線**: `GET/POST /api/auth/admin` が `onboarding_pending`（未完了行の有無）を返し、
+  ログイン後に `/onboarding` へ誘導。C3 以前からの既存テナント（行なし）は影響を受けない。
+- **Step4**: 現状は「トライアル開始」の確定のみ（D9 の料金表示つき）。
+  Stripe Checkout（C4 roots-concierge#5）が入ったら確定ボタンを Checkout リダイレクトに差し替える。
+
+### 追加ファイル
+```
+supabase/migrations/0005_onboarding.sql        onboarding_progress + RLS
+supabase/tests/onboarding_c3.sql               進捗保存とテナント分離の受け入れテスト
+src/app/onboarding/page.tsx                    ウィザード本体（Step1〜4・再開対応）
+src/components/onboarding/LineSetupManual.tsx  LINE設定マニュアル（模式図・Webhook URLコピー付き）
+```
+
+### 動かし方（追加分）
+```bash
+supabase db reset   # 0005 + seed
+
+# ウィザードの通し確認（ブラウザ）
+#   /signup で新規登録 → /onboarding に遷移 → Step1 で式場作成 →
+#   Step2 でキー4点入力 → Step3 でテスト（実 LINE チャネルが必要）→ Step4 で完了 → /admin
+#   途中でタブを閉じて /login からログインし直すと、保存済みステップから再開される。
+
+# DB 層の受け入れテスト
+psql "postgres://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/onboarding_c3.sql
+```

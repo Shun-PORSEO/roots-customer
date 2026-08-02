@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { postAdminAuth } from "@/lib/api";
 
 // テナント管理者サインアップ（SaaS化 C1）。
 // Supabase Auth でユーザー作成 → サーバーが httpOnly セッション発行 →
 // app.provision_tenant() が company + tenant_admins を作成（冪等）。
-// オンボーディングウィザード（C3）ができたら遷移先を /onboarding に切り替える。
+// 登録後はオンボーディングウィザード（/onboarding。SaaS化 C3）へ進む。
 export default function SignupPage() {
   const [companyName, setCompanyName] = useState("");
   const [email, setEmail] = useState("");
@@ -19,26 +20,20 @@ export default function SignupPage() {
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch("/api/auth/admin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          mode: "signup",
-          email,
-          password,
-          company_name: companyName,
-        }),
+      const { ok, data } = await postAdminAuth({
+        mode: "signup",
+        email,
+        password,
+        company_name: companyName,
       });
-      const data = await res.json();
-      if (!res.ok) {
+      if (!ok) {
         setError({
           message: data?.error?.message || "登録に失敗しました",
           hint: data?.error?.hint,
         });
         return;
       }
-      window.location.href = "/admin";
+      window.location.href = "/onboarding";
     } catch {
       setError({ message: "通信に失敗しました", hint: "時間をおいて再度お試しください。" });
     } finally {
