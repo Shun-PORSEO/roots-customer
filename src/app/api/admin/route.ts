@@ -5,6 +5,7 @@ import { readAdminSession } from "@/lib/server/session";
 import { withAdminScope } from "@/lib/server/db";
 import { ok, fail, newRequestId, type ErrorCode } from "@/lib/server/http";
 import { pushLineMessage } from "@/lib/server/line";
+import { runLineConnectionTest, type LineTestInput } from "@/lib/server/lineTest";
 import { env } from "@/lib/server/env";
 
 export const runtime = "nodejs";
@@ -27,10 +28,13 @@ class HttpError extends Error {
 
 const clampQty = (q: unknown) => Math.max(1, Math.floor(Number(q) || 1));
 
-// LINE push は DB トランザクションの外で行う（tx を長引かせない）。
+// LINE push / 接続テストの外部呼び出しは DB トランザクションの外で行う（tx を長引かせない）。
 // bestEffort=true（手配物確定通知）は失敗してもレスポンスは成功のまま（GAS と同じ）。
 type PushRequest = { to: string; text: string; token: string; bestEffort: boolean };
-type HandlerResult = Record<string, unknown> & { __push?: PushRequest };
+type HandlerResult = Record<string, unknown> & {
+  __push?: PushRequest;
+  __lineTest?: Omit<LineTestInput, "expectedWebhookUrl"> & { venueCode: string };
+};
 
 // ─── 入力スキーマ（action ごと）─────────────────────────────────────────
 const patchStr = z.string().optional();
@@ -42,6 +46,8 @@ const Schemas = {
     planner_line_user_id: z.string().optional(),
     line_liff_id: z.string().optional(),
     line_channel_access_token: z.string().optional(),
+    line_channel_secret: z.string().optional(),
+    line_login_channel_id: z.string().optional(),
   }),
   updateVenue: z.object({
     venue_id: z.string().min(1),
@@ -50,9 +56,12 @@ const Schemas = {
       planner_line_user_id: patchStr,
       line_liff_id: patchStr,
       line_channel_access_token: patchStr,
+      line_channel_secret: patchStr,
+      line_login_channel_id: patchStr,
     }),
   }),
   updateVenueStatus: z.object({ venue_id: z.string().min(1), active: z.boolean() }),
+  testLineConnection: z.object({ venue_id: z.string().min(1) }),
   getVenueDetail: z.object({ venue_id: z.string().min(1) }),
   getVenueTasks: z.object({ venue_id: z.string().optional() }),
   updateTaskMaster: z.object({
@@ -152,8 +161,13 @@ function parse<T extends z.ZodTypeAny>(schema: T, raw: unknown): z.infer<T> {
 }
 
 // ─── 共通クエリ ──────────────────────────────────────────────────────────
+// secret 系（channel secret / access token）は値を返さず設定済みフラグのみ返す
 const VENUE_COLS = (tx: Tx) => tx`
-  select code as venue_id, venue_name, planner_line_user_id, line_liff_id, active,
+  select code as venue_id, venue_name, planner_line_user_id, line_liff_id,
+         line_login_channel_id,
+         (line_channel_access_token <> '') as has_channel_access_token,
+         (line_channel_secret <> '') as has_channel_secret,
+         active,
          coalesce(to_char(created_at, 'YYYY-MM-DD'), '') as created_at
   from venues where code <> '' order by code`;
 
@@ -250,10 +264,12 @@ async function dispatch(tx: Tx, action: string, raw: unknown): Promise<HandlerRe
     case "createVenue": {
       const p = parse(Schemas.createVenue, raw);
       await tx`
-        insert into venues (company_id, code, venue_name, planner_line_user_id, line_liff_id, line_channel_access_token)
+        insert into venues (company_id, code, venue_name, planner_line_user_id, line_liff_id,
+                            line_channel_access_token, line_channel_secret, line_login_channel_id)
         values (app.current_company_id(), ${p.venue_id}, ${p.venue_name},
                 ${p.planner_line_user_id ?? ""}, ${p.line_liff_id ?? ""},
-                ${p.line_channel_access_token ?? ""})`;
+                ${p.line_channel_access_token ?? ""}, ${p.line_channel_secret ?? ""},
+                ${p.line_login_channel_id ?? ""})`;
       return { status: "created" };
     }
     case "updateVenue": {
@@ -263,10 +279,32 @@ async function dispatch(tx: Tx, action: string, raw: unknown): Promise<HandlerRe
           venue_name                = coalesce(${p.patch.venue_name ?? null}, venue_name),
           planner_line_user_id      = coalesce(${p.patch.planner_line_user_id ?? null}, planner_line_user_id),
           line_liff_id              = coalesce(${p.patch.line_liff_id ?? null}, line_liff_id),
-          line_channel_access_token = coalesce(${p.patch.line_channel_access_token ?? null}, line_channel_access_token)
+          line_channel_access_token = coalesce(${p.patch.line_channel_access_token ?? null}, line_channel_access_token),
+          line_channel_secret       = coalesce(${p.patch.line_channel_secret ?? null}, line_channel_secret),
+          line_login_channel_id     = coalesce(${p.patch.line_login_channel_id ?? null}, line_login_channel_id)
         where code = ${p.venue_id}`;
       if (r.count === 0) throw new HttpError("NOT_FOUND", "Venue not found");
       return { status: "updated" };
+    }
+    case "testLineConnection": {
+      const p = parse(Schemas.testLineConnection, raw);
+      // secret/token は tx 内で読むだけ（クライアントには返さない）。実際の外部呼び出しは
+      // __push と同じくトランザクション確定後に POST ハンドラ側で行う。
+      const [venue] = await tx`
+        select code, line_channel_access_token, line_channel_secret,
+               line_login_channel_id, line_liff_id
+        from venues where code = ${p.venue_id} limit 1`;
+      if (!venue) throw new HttpError("NOT_FOUND", "Venue not found");
+      return {
+        status: "ok",
+        __lineTest: {
+          venueCode: venue.code,
+          channelAccessToken: venue.line_channel_access_token ?? "",
+          channelSecret: venue.line_channel_secret ?? "",
+          loginChannelId: venue.line_login_channel_id ?? "",
+          liffId: venue.line_liff_id ?? "",
+        },
+      };
     }
     case "updateVenueStatus": {
       const p = parse(Schemas.updateVenueStatus, raw);
@@ -277,7 +315,11 @@ async function dispatch(tx: Tx, action: string, raw: unknown): Promise<HandlerRe
     case "getVenueDetail": {
       const p = parse(Schemas.getVenueDetail, raw);
       const [venue] = await tx`
-        select code as venue_id, venue_name, planner_line_user_id, line_liff_id, active,
+        select code as venue_id, venue_name, planner_line_user_id, line_liff_id,
+               line_login_channel_id,
+               (line_channel_access_token <> '') as has_channel_access_token,
+               (line_channel_secret <> '') as has_channel_secret,
+               active,
                coalesce(to_char(created_at, 'YYYY-MM-DD'), '') as created_at
         from venues where code = ${p.venue_id} limit 1`;
       if (!venue) throw new HttpError("NOT_FOUND", "Venue not found");
@@ -616,6 +658,13 @@ export async function POST(req: NextRequest) {
         }
         console.error(`[${rid}] 確定通知の送信に失敗（更新は成功扱い）:`, e);
       }
+    }
+    // 接続テストもトランザクション確定後に外部呼び出しする（LINE API 待ちで tx を塞がない）
+    const lineTest = result.__lineTest;
+    if (lineTest) {
+      delete result.__lineTest;
+      const expectedWebhookUrl = `${req.nextUrl.origin}/api/line/webhook/${lineTest.venueCode}`;
+      result.results = await runLineConnectionTest({ ...lineTest, expectedWebhookUrl });
     }
     return ok(result, rid);
   } catch (e) {

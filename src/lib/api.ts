@@ -16,13 +16,17 @@ const GAS_ENDPOINT = process.env.NEXT_PUBLIC_GAS_ENDPOINT || "";
 const BACKEND = process.env.NEXT_PUBLIC_BACKEND || "gas";
 
 // LINE ID Token 検証 → httpOnly セッションを確立（初回 or セッション切れ時）。
+// liff_id を添えて送り、サーバーが venue 別の Login チャネル ID で aud 検証する（SaaS化 C2）。
 async function ensureLineSession(): Promise<void> {
   const idToken = liff.getIDToken();
   if (!idToken) throw new Error("[auth] LINE ID Token を取得できません");
   const r = await fetch("/api/auth/line", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ id_token: idToken }),
+    body: JSON.stringify({
+      id_token: idToken,
+      liff_id: liff.id ?? process.env.NEXT_PUBLIC_LIFF_ID ?? undefined,
+    }),
     credentials: "include",
   });
   if (!r.ok) throw new Error("[auth] セッション確立に失敗しました");
@@ -82,7 +86,7 @@ function dbPatchTaskProgress(body: {
 // GAS の ADMIN_ACTIONS と同じ集合 + GAS 未実装だった式場/雛形 CRUD・テスト送信。
 const DB_ADMIN_ACTIONS = new Set([
   "getVenues",
-  "createVenue", "updateVenue", "updateVenueStatus", "getVenueDetail",
+  "createVenue", "updateVenue", "updateVenueStatus", "getVenueDetail", "testLineConnection",
   "getVenueTasks", "updateTaskMaster", "addTaskMaster", "updateTaskManualUrl",
   "testSendTask",
   "getUsers", "getUsersWithProgress", "getAdminUserTasks",

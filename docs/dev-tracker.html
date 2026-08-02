@@ -71,12 +71,14 @@ const ISSUES = [
     body: "venues に line_channel_secret / line_login_channel_id を追加しキー4点を揃える。/api/line/webhook/[venue_id] で venue 別の署名検証（不正署名401・venue未特定404）。ID Token 検証をグローバル env 固定から venue 別解決へ。接続テストAPI（bot/info・Webhook endpoint検証・LIFF整合）で各キーに「✓ 接続OK / ✗ エラーと直し方」を返す。\n\nGitHub: roots-concierge#3 / 優先度: Critical / 見積: 3-4日 / 依存: C1",
     specs: ["supabase/migrations/", "src/app/api/line/", "src/lib/server/env.ts"],
     labels: ["feat", "LINE", "セキュリティ", "SaaS化"],
-    status: "未対応",
+    status: "レビュー中",
     milestone: "M3",
     created: "2026-08-02",
     updated: "2026-08-02",
     timeline: [
       { date: "2026-08-02", kind: "決定", text: "roots-concierge#3 として起票。" },
+      { date: "2026-08-02", kind: "コメント", text: "実装完了: 0004_line_multitenant.sql（line_channel_secret / line_login_channel_id 追加でキー4点が揃う + 未認証経路用 security definer 関数 app.venue_line_config（access token は返さない最小権限））。/api/line/webhook/[venue_id] 新設（venue 別 secret で HMAC-SHA256 + timingSafeEqual 署名検証。venue未特定404 / secret未設定・署名不正401）。/api/auth/line が liff_id/venue_id から venue を解決し venue 別 login_channel_id で aud 検証（env はフォールバックに格下げ・optional化）。管理 API に testLineConnection 追加（トークン→bot/info、Webhook→LINE endpoint 検証 API で登録URL突合+署名検証まで end-to-end、Login チャネルID→形式、LIFF→Login チャネルとの整合。各キーに ✓/✗+直し方を式場担当者向け文言で返す）。式場詳細画面に「LINE接続テスト」カード、新規式場フォームにシークレット/Login チャネルID 欄追加。venues の secret 系はクライアントへ値を返さず has_* フラグのみ。" },
+      { date: "2026-08-02", kind: "状態変更", text: "tsc 0件 / next build 21ルート緑 / ESLint・カスタムリンター緑。supabase/tests/line_c2.sql に受け入れテスト5本（未認証で venues 直読み不可・code/liff_id 解決・空文字非マッチ・token 非露出）。残: 実 DB での line_c2.sql 実行と実 LINE チャネルでの接続テスト確認（この環境は Docker/supabase CLI 無し。手順は supabase/README.md C2 節）。" },
     ],
   },
   {

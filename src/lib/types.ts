@@ -4,8 +4,21 @@ export interface IVenue {
   planner_line_user_id?: string;
   line_channel_access_token?: string;
   line_liff_id?: string;
+  line_login_channel_id?: string;
+  // secret 系はサーバーが値を返さず「設定済みか」だけ返す（SaaS化 C2）
+  has_channel_access_token?: boolean;
+  has_channel_secret?: boolean;
   active: boolean;
   created_at?: string;
+}
+
+// LINE 接続テスト（testLineConnection）の結果1件分（キー4点それぞれに返る）
+export interface ILineKeyCheck {
+  key: "channel_access_token" | "channel_secret" | "login_channel_id" | "liff_id";
+  label: string;
+  ok: boolean;
+  message: string;
+  fix?: string;
 }
 
 export interface IMessageDraft {

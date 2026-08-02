@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiClient } from "@/lib/api";
 import { getAdminLineId } from "@/hooks/useAdminAuth";
-import { IVenue, IUserProgress, ITaskMaster } from "@/lib/types";
+import { IVenue, IUserProgress, ITaskMaster, ILineKeyCheck } from "@/lib/types";
 import { getDaysFromToday } from "@/lib/utils";
 import { Spinner } from "@/components/Spinner";
 import { ErrorMessage, InlineApiError } from "@/components/ErrorMessage";
@@ -21,6 +21,10 @@ export default function VenueDetailPage({ params }: { params: { venue_id: string
   const [pendingDraftsCount, setPendingDraftsCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
+
+  const [lineTestResults, setLineTestResults] = useState<ILineKeyCheck[] | null>(null);
+  const [lineTesting, setLineTesting] = useState(false);
+  const [lineTestError, setLineTestError] = useState<unknown>(null);
 
   const [taskMasters, setTaskMasters] = useState<ITaskMaster[]>([]);
   const [urlDraft, setUrlDraft] = useState<Record<string, string>>({});
@@ -70,6 +74,24 @@ export default function VenueDetailPage({ params }: { params: { venue_id: string
       setManualError(e instanceof Error ? e : new Error("保存に失敗しました"));
     } finally {
       setSavingId(null);
+    }
+  };
+
+  const handleLineTest = async () => {
+    setLineTesting(true);
+    setLineTestError(null);
+    try {
+      const res = await apiClient.post({
+        action: "testLineConnection",
+        line_id: getAdminLineId(),
+        venue_id: venueId,
+      });
+      if (res.status === "error") throw new Error(res.message);
+      setLineTestResults((res.results || []) as ILineKeyCheck[]);
+    } catch (e) {
+      setLineTestError(e instanceof Error ? e : new Error("接続テストに失敗しました"));
+    } finally {
+      setLineTesting(false);
     }
   };
 
@@ -292,6 +314,40 @@ export default function VenueDetailPage({ params }: { params: { venue_id: string
                 <dd className="text-on-surface tabular-nums">{venue.created_at?.slice(0, 10)}</dd>
               </div>
             </dl>
+          </div>
+
+          {/* LINE 接続テスト（SaaS化 C2）: キー4点をそれぞれ実検証して直し方まで表示 */}
+          <div className="card-base p-lg">
+            <div className="flex items-center justify-between mb-sm">
+              <p className="text-label-caps text-tertiary-70">LINE&nbsp;接続テスト</p>
+              <button
+                type="button"
+                onClick={handleLineTest}
+                disabled={lineTesting}
+                className="btn-ghost !h-9 !px-sm text-body-sm shrink-0 disabled:opacity-50"
+              >
+                {lineTesting ? "確認中..." : "テスト実行"}
+              </button>
+            </div>
+            {lineTestError ? <InlineApiError error={lineTestError} /> : null}
+            {lineTestResults === null && !lineTestError ? (
+              <p className="text-body-sm text-neutral-50">
+                この式場に設定した LINE のキー（トークン・シークレット・Login チャネルID・LIFF ID）が正しく繋がるかを確認します。
+              </p>
+            ) : null}
+            {lineTestResults ? (
+              <ul className="flex flex-col gap-sm">
+                {lineTestResults.map((r) => (
+                  <li key={r.key} className="text-body-sm">
+                    <p className="text-neutral-50">{r.label}</p>
+                    <p className={r.ok ? "text-success" : "text-error"}>{r.message}</p>
+                    {!r.ok && r.fix ? (
+                      <p className="text-neutral-50 mt-2xs leading-relaxed">→ {r.fix}</p>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
           </div>
 
           <div className="grid grid-cols-2 gap-sm">

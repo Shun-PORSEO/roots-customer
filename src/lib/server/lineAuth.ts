@@ -5,12 +5,17 @@ import { env } from "./env";
 // LINE の verify エンドポイントは iss / 署名(ES256) / aud / exp を全てサーバー側で検証してくれる。
 // ログイン頻度は低いので 1 リクエスト増は許容（設計の判断どおり）。
 // 返すのは検証済みの sub（= LINE userId）のみ。呼び出し側はこれを唯一の line_id ソースにする。
+// loginChannelId は venue 別（SaaS化 C2）。呼び出し側が venue から解決して渡す
+// （グローバル env 固定を廃止。env はフォールバックとして route 側で解決する）。
 
 const VERIFY_URL = "https://api.line.me/oauth2/v2.1/verify";
 
 export type VerifiedLineUser = { lineUserId: string };
 
-export async function verifyLineIdToken(idToken: string): Promise<VerifiedLineUser> {
+export async function verifyLineIdToken(
+  idToken: string,
+  loginChannelId: string
+): Promise<VerifiedLineUser> {
   // dev バイパス: "dev:U..." 形式のトークンをそのまま line_id として受ける。
   // env で本番無効化済み（本番混入は env.ts と CI grep で二重ガード）。
   if (env.ALLOW_DEV_LINE_BYPASS && idToken.startsWith("dev:")) {
@@ -19,12 +24,16 @@ export async function verifyLineIdToken(idToken: string): Promise<VerifiedLineUs
     return { lineUserId: id };
   }
 
+  if (!loginChannelId) {
+    throw new LineAuthError("LINE Login チャネル ID を解決できません（venue 未設定）");
+  }
+
   const res = await fetch(VERIFY_URL, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
       id_token: idToken,
-      client_id: env.LINE_LOGIN_CHANNEL_ID, // aud をこのチャネル ID と一致させて検証させる
+      client_id: loginChannelId, // aud をこのチャネル ID と一致させて検証させる
     }),
     // 検証は毎回最新で行う
     cache: "no-store",

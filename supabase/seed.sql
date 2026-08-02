@@ -58,7 +58,13 @@ insert into customers (line_id, company_id, venue_id, wedding_date, name1_kana, 
 
 insert into venues (id, company_id, code, venue_name, planner_line_user_id, line_liff_id) values
   ('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-000000000001',
-   'RC001', 'サンプル式場', 'Uplanner123', '');
+   'RC001', 'サンプル式場', 'Uplanner123', '2001234567-abcd1234');
+
+-- C2: venue 別 LINE キー（Webhook 署名検証・ID Token 検証・接続テストのローカル検証用ダミー）
+update venues set
+  line_channel_secret   = 'dev-channel-secret',
+  line_login_channel_id = '2001234567'
+where id = '00000000-0000-0000-0000-0000000000a1';
 
 -- dev バイパス用カップル + 管理者
 insert into customers (line_id, company_id, venue_id, wedding_date, name1_kana, name2_kana, is_admin) values

@@ -17,6 +17,8 @@ export default function NewVenuePage() {
     venue_name: "",
     planner_line_user_id: "",
     line_channel_access_token: "",
+    line_channel_secret: "",
+    line_login_channel_id: "",
     line_liff_id: "",
   });
   const [saving, setSaving] = useState(false);
@@ -139,6 +141,36 @@ export default function NewVenuePage() {
                     placeholder="LINE Messaging API のトークン"
                     className="input-base font-mono text-body-sm"
                   />
+                </div>
+
+                <div>
+                  <label className="label-form" htmlFor="line_channel_secret">
+                    LINE チャネルシークレット
+                  </label>
+                  <input
+                    id="line_channel_secret"
+                    value={form.line_channel_secret}
+                    onChange={(e) => setForm({ ...form, line_channel_secret: e.target.value })}
+                    placeholder="Messaging API のチャネルシークレット"
+                    className="input-base font-mono text-body-sm"
+                  />
+                  <p className="text-body-sm text-neutral-50 mt-2xs">Webhook の署名検証に使用</p>
+                </div>
+
+                <div>
+                  <label className="label-form" htmlFor="line_login_channel_id">
+                    LINE Login チャネルID
+                  </label>
+                  <input
+                    id="line_login_channel_id"
+                    value={form.line_login_channel_id}
+                    onChange={(e) => setForm({ ...form, line_login_channel_id: e.target.value })}
+                    placeholder="1234567890"
+                    className="input-base font-mono text-body-sm"
+                  />
+                  <p className="text-body-sm text-neutral-50 mt-2xs">
+                    ペアのログイン検証に使用（数字のみ）
+                  </p>
                 </div>
 
                 <div>

@@ -131,3 +131,51 @@ curl -s -X POST localhost:3000/api/admin -b /tmp/rc-admin.cookies \
 # RLS クロステナントテスト（受け入れ基準の証明）
 psql "postgres://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/rls_c1.sql
 ```
+
+---
+
+## SaaS化 C2 — LINE マルチテナント化（roots-concierge#3）
+
+LINE 連携をテナント（式場）別に解決する。venues がキー4点を持つ:
+`line_channel_access_token`（push 送信）/ `line_channel_secret`（Webhook 署名検証）/
+`line_login_channel_id`（ID Token の aud 検証）/ `line_liff_id`（LIFF アプリ）。
+グローバル env `LINE_LOGIN_CHANNEL_ID` は venue 未特定時のフォールバックに格下げ（optional）。
+
+### 経路
+- **Webhook**: `POST /api/line/webhook/[venue_id]`（venue_id = venues.code）。venue 別 secret で
+  HMAC-SHA256 署名検証（timingSafeEqual）。venue 未特定 404 / 署名不正・secret 未設定 401。
+- **ID Token 検証**: `/api/auth/line` が `liff_id`（クライアントが liff.init に使った ID）または
+  `venue_id` から venue を解決し、その `line_login_channel_id` を aud に検証。
+- **未認証経路の設定解決**: RLS の例外は security definer 関数 `app.venue_line_config(code, liff_id)`
+  1個に限定（access token は返さない。最小権限）。
+- **接続テスト**: 管理 API `action:"testLineConnection"`。トークン→`GET /v2/bot/info`、
+  Webhook→LINE の endpoint 検証 API（登録 URL 突き合わせ + 署名検証まで end-to-end）、
+  Login チャネルID→形式、LIFF ID→形式 + Login チャネルとの整合。キーごとに
+  「✓ 接続OK / ✗ エラーと直し方」を返す（式場詳細画面の「LINE接続テスト」カードから実行）。
+
+### 追加ファイル
+```
+supabase/migrations/0004_line_multitenant.sql  line_channel_secret / line_login_channel_id / venue_line_config
+supabase/tests/line_c2.sql                     未認証経路の解決と RLS 維持の受け入れテスト
+src/lib/server/lineConfig.ts                   venue 別 LINE 設定リゾルバ
+src/lib/server/lineSignature.ts                Webhook 署名検証（HMAC-SHA256）
+src/lib/server/lineTest.ts                     接続テスト（キー4点の実検証と直し方の文言）
+src/app/api/line/webhook/[venue_id]/route.ts   venue 別 Webhook エンドポイント
+```
+
+### 動かし方（追加分）
+```bash
+supabase db reset   # 0004 + seed（RC001 に dev 用のダミー LINE キーが入る）
+
+# Webhook 署名検証（seed の secret: dev-channel-secret）
+BODY='{"events":[]}'
+SIG=$(printf '%s' "$BODY" | openssl dgst -sha256 -hmac 'dev-channel-secret' -binary | base64)
+curl -i -X POST localhost:3000/api/line/webhook/RC001 \
+  -H 'Content-Type: application/json' -H "x-line-signature: $SIG" -d "$BODY"   # → 200
+curl -i -X POST localhost:3000/api/line/webhook/RC001 \
+  -H 'Content-Type: application/json' -H "x-line-signature: xxx" -d "$BODY"    # → 401
+curl -i -X POST localhost:3000/api/line/webhook/NOPE -d '{}'                   # → 404
+
+# DB 層の受け入れテスト
+psql "postgres://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/line_c2.sql
+```

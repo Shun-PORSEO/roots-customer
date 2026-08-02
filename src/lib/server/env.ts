@@ -9,8 +9,9 @@ const schema = z.object({
     .string()
     .url()
     .describe("postgres://app_couple:...@host:5432/postgres — 非特権ロール接続"),
-  // LINE Login チャネル ID（ID Token の aud 検証に使う）
-  LINE_LOGIN_CHANNEL_ID: z.string().min(1),
+  // LINE Login チャネル ID のフォールバック（SaaS化 C2 で venue 別
+  // venues.line_login_channel_id が正になった。venue 未特定時の後方互換用に optional）
+  LINE_LOGIN_CHANNEL_ID: z.string().min(1).optional(),
   // Supabase Auth（テナント管理者のメールログイン）。未設定でもカップル経路は動くため
   // optional にし、管理者認証エンドポイントの利用時に不足を fail-fast で伝える。
   SUPABASE_URL: z.string().url().optional(),
