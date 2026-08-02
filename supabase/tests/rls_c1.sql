@@ -1,4 +1,4 @@
--- C1 受け入れテスト: クロステナント遮断の証明（GitHub #11 / Epic #10）
+-- C1 受け入れテスト: クロステナント遮断の証明（roots-concierge#2 / Epic roots-concierge#1）
 --
 -- 実行方法（supabase db reset で seed 適用後）:
 --   psql "postgres://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/rls_c1.sql

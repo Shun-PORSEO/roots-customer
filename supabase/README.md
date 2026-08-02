@@ -94,7 +94,7 @@ curl -s -X POST localhost:3000/api/admin -b /tmp/rc-admin.cookies \
 
 ---
 
-## SaaS化 C1 — テナント管理者認証（Supabase Auth）への置き換え（GitHub #11）
+## SaaS化 C1 — テナント管理者認証（Supabase Auth）への置き換え（roots-concierge#2）
 
 管理者の認可モデルを「LINE ログイン + `customers.is_admin`」から
 **Supabase Auth（メール） + `tenant_admins`** に置き換えた（D4）。カップル経路（LIFF + `request.line_id`）は無変更。
