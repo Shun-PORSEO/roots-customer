@@ -20,6 +20,20 @@ export interface IOnboarding {
   completed: boolean;
 }
 
+// 課金状態（getBilling / getOnboarding。SaaS化 C4）
+export interface IBilling {
+  // "none"=未契約(オンボーディング途中/既存テナント) | "trialing" | "active"
+  // | "expired"(ローカルトライアル期限切れ) | Stripe の各 status（past_due 等）
+  status: string;
+  active: boolean; // 管理画面を利用できるか
+  trial_end: string | null;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean;
+  has_stripe_customer: boolean;
+  has_stripe_subscription: boolean;
+  stripe_enabled: boolean; // サーバーに Stripe が構成済みか（Checkout/Portal 導線の出し分け）
+}
+
 // LINE 接続テスト（testLineConnection）の結果1件分（キー4点それぞれに返る）
 export interface ILineKeyCheck {
   key: "channel_access_token" | "channel_secret" | "login_channel_id" | "liff_id";

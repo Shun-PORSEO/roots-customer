@@ -5,8 +5,16 @@ import { readAdminSession } from "@/lib/server/session";
 import { withAdminScope } from "@/lib/server/db";
 import { ok, fail, newRequestId, type ErrorCode } from "@/lib/server/http";
 import { pushLineMessage } from "@/lib/server/line";
-import { runLineConnectionTest, type LineTestInput } from "@/lib/server/lineTest";
-import { env } from "@/lib/server/env";
+import {
+  runLineConnectionTest,
+  runDevBypassLineTest,
+  isDevLineTestTarget,
+  type LineTestInput,
+} from "@/lib/server/lineTest";
+import { env, getEnv } from "@/lib/server/env";
+import { readBilling } from "@/lib/server/billing";
+import { stripeEnabled } from "@/lib/server/stripe";
+import { aiEnabled, generateReminderMessage } from "@/lib/server/ai";
 
 export const runtime = "nodejs";
 
@@ -34,7 +42,14 @@ type PushRequest = { to: string; text: string; token: string; bestEffort: boolea
 type HandlerResult = Record<string, unknown> & {
   __push?: PushRequest;
   __lineTest?: Omit<LineTestInput, "expectedWebhookUrl"> & { venueCode: string };
+  // AI 生成（C5）: レート制限の記録はトランザクション内、Anthropic 呼び出しは確定後
+  __ai?: { taskContent: string; venueName?: string; category?: string };
 };
+
+// 課金ゲート（SaaS化 C4）の対象外アクション。
+// ブロック中（trialing/active 以外）でも契約状態の確認だけは許す
+// （復帰導線 = /admin/billing の表示に必要。Checkout/Portal は別ルートで同様に通る）。
+const BILLING_EXEMPT_ACTIONS = new Set(["getBilling"]);
 
 // ─── 入力スキーマ（action ごと）─────────────────────────────────────────
 const patchStr = z.string().optional();
@@ -62,6 +77,8 @@ const Schemas = {
   }),
   updateVenueStatus: z.object({ venue_id: z.string().min(1), active: z.boolean() }),
   testLineConnection: z.object({ venue_id: z.string().min(1) }),
+  getBilling: z.object({}),
+  generateAiDraft: z.object({ task_id: z.string().min(1) }),
   getOnboarding: z.object({}),
   saveOnboarding: z.object({
     step: z.coerce.number().int().min(1).max(4),
@@ -312,6 +329,52 @@ async function dispatch(tx: Tx, action: string, raw: unknown): Promise<HandlerRe
         },
       };
     }
+    // ── 課金（SaaS化 C4）─────────────────────────────────
+    case "getBilling": {
+      parse(Schemas.getBilling, raw);
+      return { status: "ok", billing: await readBilling(tx) };
+    }
+
+    // ── AI 生成（SaaS化 C5）──────────────────────────────
+    case "generateAiDraft": {
+      const p = parse(Schemas.generateAiDraft, raw);
+      if (!aiEnabled()) {
+        throw new HttpError("VALIDATION", "この環境では AI 生成が構成されていません（ANTHROPIC_API_KEY 未設定）");
+      }
+      const [task] = await tx`
+        select t.task_id, t.category, t.task_content, v.venue_name
+        from task_master t
+        left join venues v on v.id = t.venue_id
+        where t.task_id = ${p.task_id}`;
+      if (!task) throw new HttpError("NOT_FOUND", "Task not found");
+
+      // テナント別デイリーレート制限（ai_usage）。上限超過は 429。
+      // 超過時は throw → トランザクションごとロールバックされるため、
+      // 保存されるカウントは上限で止まる（以後の試行は毎回ここで弾かれる）。
+      const limit = getEnv().AI_DAILY_LIMIT;
+      const [usage] = await tx`
+        insert into ai_usage (company_id, used_on, count)
+        values (app.current_company_id(), (now() at time zone 'Asia/Tokyo')::date, 1)
+        on conflict (company_id, used_on) do update set count = ai_usage.count + 1
+        returning count`;
+      if ((usage?.count ?? 0) > limit) {
+        throw new HttpError(
+          "RATE_LIMITED",
+          `AI 生成の本日の上限（${limit}回）に達しました。明日以降に再度お試しください`
+        );
+      }
+
+      // Anthropic 呼び出しは __push と同じくトランザクション確定後（外部 API 待ちで tx を塞がない）
+      return {
+        status: "ok",
+        __ai: {
+          taskContent: task.task_content as string,
+          venueName: (task.venue_name as string) || undefined,
+          category: (task.category as string) || undefined,
+        },
+      };
+    }
+
     // ── オンボーディング（SaaS化 C3）──────────────────────
     case "getOnboarding": {
       // 進捗行（無ければ Step1 相当の初期値）+ ウィザード対象式場の表示用情報。
@@ -336,7 +399,8 @@ async function dispatch(tx: Tx, action: string, raw: unknown): Promise<HandlerRe
           from venues where code = ${onboarding.venue_code} limit 1`;
         venue = v ?? null;
       }
-      return { status: "ok", onboarding, venue };
+      // Step4（C4）: Stripe Checkout 導線の出し分けと決済済み判定に課金状態も返す
+      return { status: "ok", onboarding, venue, billing: await readBilling(tx) };
     }
     case "saveOnboarding": {
       const p = parse(Schemas.saveOnboarding, raw);
@@ -364,6 +428,23 @@ async function dispatch(tx: Tx, action: string, raw: unknown): Promise<HandlerRe
           venue_code   = excluded.venue_code,
           updated_at   = now()`;
       if (p.complete) {
+        // トライアル開始（C4）。Stripe 構成済みなら Checkout 完了（= subscriptions が
+        // trialing/active）をサーバー側で必須にする（クライアント申告では完了できない）。
+        // Stripe 未構成（ローカル等）は 14 日のローカルトライアル行を作って開始する。
+        const billing = await readBilling(tx);
+        if (stripeEnabled()) {
+          if (!billing.active || billing.status === "none") {
+            throw new HttpError(
+              "VALIDATION",
+              "お支払い方法の登録（無料トライアルの開始）が完了していません（Step4）"
+            );
+          }
+        } else if (billing.status === "none") {
+          await tx`
+            insert into subscriptions (company_id, status, trial_end)
+            values (app.current_company_id(), 'trialing', now() + interval '14 days')
+            on conflict (company_id) do nothing`;
+        }
         await tx`
           update onboarding_progress set completed_at = now(), updated_at = now()
           where company_id = app.current_company_id() and completed_at is null`;
@@ -707,8 +788,33 @@ export async function POST(req: NextRequest) {
       // RLS は「自社内のみ」を二重で保証する。
       const [me] = await tx`select app.is_admin() as is_admin`;
       if (!me?.is_admin) throw new HttpError("FORBIDDEN_IDOR", "Forbidden");
+      // 課金ゲート（SaaS化 C4）: trialing/active 以外の company は管理 API をブロック
+      // （データは保持）。行なし（status="none"）はオンボーディング途中 or C4 以前の
+      // 既存テナントなので通す。復帰用の getBilling / Checkout / Portal は対象外。
+      if (!BILLING_EXEMPT_ACTIONS.has(action)) {
+        const billing = await readBilling(tx);
+        if (!billing.active) {
+          throw new HttpError(
+            "BILLING_REQUIRED",
+            billing.status === "expired"
+              ? "無料トライアルの期間が終了しました"
+              : "ご契約が有効ではありません"
+          );
+        }
+      }
       return dispatch(tx, action, raw);
     });
+
+    // AI 生成（C5）はトランザクション確定後に呼ぶ（レート制限の記録は確定済み）
+    const ai = result.__ai;
+    if (ai) {
+      delete result.__ai;
+      try {
+        result.message = await generateReminderMessage(ai);
+      } catch (e) {
+        return fail("AI_UPSTREAM", rid, { cause: e });
+      }
+    }
 
     // LINE push はトランザクション確定後に送る
     const push = result.__push;
@@ -728,7 +834,12 @@ export async function POST(req: NextRequest) {
     if (lineTest) {
       delete result.__lineTest;
       const expectedWebhookUrl = `${req.nextUrl.origin}/api/line/webhook/${lineTest.venueCode}`;
-      const results = await runLineConnectionTest({ ...lineTest, expectedWebhookUrl });
+      // dev バイパス（E2E/ローカル・C9）: "dev-" トークンの式場は外部 LINE API を呼ばない。
+      // 本番は env ガード（ALLOW_DEV_LINE_BYPASS 有効化不可）で必ず実検証になる。
+      const results =
+        env.ALLOW_DEV_LINE_BYPASS && isDevLineTestTarget(lineTest.channelAccessToken)
+          ? runDevBypassLineTest({ ...lineTest, expectedWebhookUrl })
+          : await runLineConnectionTest({ ...lineTest, expectedWebhookUrl });
       result.results = results;
       // オンボーディング（C3）のゲート: 4点全て✓の実結果だけが Step4 への進行を開く。
       // クライアント申告では書けない（saveOnboarding は line_test_passed_at を参照するのみ）。

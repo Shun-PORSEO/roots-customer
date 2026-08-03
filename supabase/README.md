@@ -220,3 +220,110 @@ supabase db reset   # 0005 + seed
 # DB 層の受け入れテスト
 psql "postgres://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/onboarding_c3.sql
 ```
+
+---
+
+## SaaS化 C4 — Stripe 課金（roots-concierge#5）
+
+Stripe の月額サブスク（14日トライアル）を導入し、`subscriptions` に状態を同期する。
+**Stripe が課金状態の正**で、このテーブルは Webhook / Checkout 確認 API が更新する読み取り用キャッシュ。
+
+### 経路
+- **Checkout**: `POST /api/stripe/checkout`
+  `{mode:"start"}` → Customer 作成（初回のみ）→ Checkout Session（`trial_period_days: 14`、
+  Price ID は `STRIPE_PRICE_ID` で差し替え可能）の URL を返す。
+  `{mode:"confirm", session_id}` → 戻り時に Stripe へ実状態を照会して同期し、
+  接続テスト全緑（C3）を満たしていればオンボーディングも完了にする。
+  Webhook と二重に同期するのは「戻った瞬間に使える」ため（Webhook 遅延に画面遷移を依存させない）。
+- **Webhook**: `POST /api/stripe/webhook`。`Stripe-Signature` を生ボディに対して HMAC-SHA256 検証
+  （tolerance 5分・timingSafeEqual）。`customer.subscription.*` を
+  security definer 関数 `app.sync_stripe_subscription` で同期（RLS の例外は関数1個に限定）。
+- **Customer Portal**: `POST /api/stripe/portal`。支払い方法変更・解約・復帰は Portal 側で行い、
+  結果は Webhook が反映する。導線は管理画面「契約・支払い」（`/admin/billing`）。
+- **機能ゲート**: `POST /api/admin` が全アクションの前に契約状態を検査し、
+  `trialing`/`active` 以外は **402 BILLING_REQUIRED** でブロック（データは保持）。
+  `getBilling` だけは対象外（復帰導線の表示に必要）。UI 側は `BillingGate` が案内画面を出す。
+- **Stripe 未構成の環境**: `STRIPE_*` 3点が無ければ Checkout/Portal を出さず、
+  オンボーディング完了時に14日の**ローカルトライアル**行（`stripe_subscription_id` 空）を作る。
+  期限は `trial_end` 経過で `expired` 判定（アプリ側）。
+
+### 追加ファイル
+```
+supabase/migrations/0006_subscriptions.sql  subscriptions + RLS + sync_stripe_subscription
+supabase/tests/billing_c4.sql               テナント分離と Webhook 同期の受け入れテスト
+src/lib/server/stripe.ts                    Stripe REST 直呼び（SDK なし）+ Webhook 署名検証
+src/lib/server/billing.ts                   契約状態の解決（active 判定・ローカルトライアル期限）
+src/app/api/stripe/{checkout,portal,webhook}/route.ts
+src/app/admin/billing/page.tsx              契約状態・Portal 導線・再契約
+src/components/admin/BillingGate.tsx        管理画面のブロック（/admin/billing は除外）
+src/hooks/useBilling.ts
+```
+
+### 動かし方（追加分）
+```bash
+supabase db reset   # 0006 + seed
+# .env.local に追加: STRIPE_SECRET_KEY / STRIPE_WEBHOOK_SECRET / STRIPE_PRICE_ID
+
+# Webhook をローカルへ転送（Stripe CLI）。表示される whsec_... を .env.local に入れる
+stripe listen --forward-to localhost:3000/api/stripe/webhook
+
+# 通し確認（ブラウザ）: /onboarding Step4 →「お支払い方法を登録してトライアル開始」→
+#   Checkout（テストカード 4242 4242 4242 4242）→ 戻りで完了 → /admin
+#   /admin/billing から Portal を開き、解約 → Webhook で status が変わり管理画面がブロックされること
+
+# DB 層の受け入れテスト
+psql "postgres://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/billing_c4.sql
+```
+
+---
+
+## SaaS化 C5 — GAS廃止: Vercel Cron + AI 生成（roots-concierge#6）
+
+GAS を実行パスから完全に撤去した。リマインドは Vercel Cron、AI 生成は Route Handler、
+Webhook 応答は C2 の `/api/line/webhook/[venue_id]` に移行済み。
+
+### 経路
+- **リマインド**: `GET /api/cron/reminders`（`vercel.json` の cron `"0 0 * * *"` UTC = **9:00 JST**）。
+  認可は `Authorization: Bearer ${CRON_SECRET}`。ロジックは `src/lib/server/reminders.ts`
+  （旧 `gas/reminders.ts` の移植: 3日前 / 当日 / 期限切れまとめ / プランナーサマリ）。
+- **重複送信ゼロ**: `message_drafts.sent_date` + 部分ユニークインデックスで DB が保証する。
+  **claim（行の挿入）→ 送信** の順で、同日同 `(couple_id, task_id)` の 2 回目は `null` が返りスキップ。
+  Cron の多重起動・手動再実行でも二重送信しない。送信失敗は `status='failed'` に落とす。
+  GAS の「created_at 文字列を前方一致でスキャン」方式は廃止。
+- **Cron の認可**: 全 company 横断が必要で管理者セッションが無いため、RLS の例外を
+  security definer 関数 3 個（`cron_reminder_data` / `cron_claim_reminder` / `cron_mark_failed`）に限定。
+- **AI 生成**: `POST /api/admin {action:"generateAiDraft", task_id}` → `src/lib/server/ai.ts`
+  （Anthropic SDK）。**運営者の `ANTHROPIC_API_KEY` で全テナント共通提供**し、
+  テナント別レート制限を `ai_usage`（company × 日次・JST）で掛ける（既定 50回/日、超過は 429）。
+  導線は管理画面「タスク雛形」のリマインド本文にある「✨ AIで下書き」。
+- **GAS 撤去**: `gas/` 配下の実行コードを全削除（マニュアル画像のみ `docs/legacy-gas-manual/` へ退避）。
+  `NEXT_PUBLIC_GAS_ENDPOINT` と `api.ts` の GAS フォールバックも削除し、
+  カスタムリンターに「GAS 実行コード / GAS エンドポイント参照の復活」を検出するチェックを追加した。
+
+### 追加ファイル
+```
+supabase/migrations/0007_cron_ai.sql   message_drafts.sent_date + ai_usage + cron_* 関数
+supabase/tests/cron_ai_c5.sql          冪等化と ai_usage 分離の受け入れテスト
+src/lib/server/reminders.ts            リマインドエンジン（claim→送信の冪等化・JST 判定）
+src/lib/server/ai.ts                   Claude API 呼び出し（旧 gas/claude.ts）
+src/app/api/cron/reminders/route.ts    Cron エンドポイント（CRON_SECRET 認証）
+src/vercel.json                        crons 定義（9:00 JST）
+```
+
+### 動かし方（追加分）
+```bash
+supabase db reset   # 0007 + seed
+# .env.local に追加: CRON_SECRET / ANTHROPIC_API_KEY（AI 生成を試す場合）
+
+# リマインドの手動実行（dev バイパス時は実送信せずログのみ）
+curl -s -H "Authorization: Bearer $CRON_SECRET" localhost:3000/api/cron/reminders | jq
+#   2回続けて叩くと 2回目は skipped_already_sent が増え、送信数が増えないこと（冪等）
+
+# AI 下書き（管理者セッションが必要）
+curl -s -X POST localhost:3000/api/admin -b /tmp/rc-admin.cookies \
+  -H 'Content-Type: application/json' \
+  -d '{"action":"generateAiDraft","task_id":"T003"}' | jq
+
+# DB 層の受け入れテスト
+psql "postgres://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/cron_ai_c5.sql
+```

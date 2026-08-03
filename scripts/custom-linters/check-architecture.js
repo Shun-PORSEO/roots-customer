@@ -7,8 +7,9 @@
  *
  * チェック内容:
  *   1. src/app/ が src/lib/api.ts を経由せず直接 fetch() を呼んでいないか
+ *      （ただし src/app/api/ = サーバー側 Route Handler は対象外。外部 API を叩くのが仕事）
  *   2. src/components/ にビジネスロジック（fetch/axios）がないか
- *   3. gas/ の doGet/doPost が Code.ts 以外で定義されていないか
+ *   3. GAS が実行パスに復活していないか（SaaS化 C5 で廃止済み）
  */
 
 const fs = require("fs");
@@ -82,20 +83,37 @@ for (const file of componentFiles) {
   });
 }
 
-// ── チェック3: gas/ の doGet/doPost が Code.ts 以外にある ──
-const gasFiles = readFilesRecursively("gas", ".ts");
+// ── チェック3: GAS 実行コードの復活を検出（SaaS化 C5 で廃止） ──
+// gas/ 配下の実行コードと、フロントからの GAS エンドポイント参照を禁止する。
+const gasRuntimeFiles = [
+  ...readFilesRecursively("gas", ".ts"),
+  ...readFilesRecursively("gas", ".js"),
+];
 
-for (const file of gasFiles) {
-  if (file.endsWith("Code.ts")) continue; // Code.ts は許可
+for (const file of gasRuntimeFiles) {
+  report(
+    file,
+    1,
+    `GAS 実行コードが存在します（SaaS化 C5 で廃止済み）。`,
+    `リマインドは Vercel Cron（src/app/api/cron/reminders）、AI 生成は\n` +
+    `  src/lib/server/ai.ts、Webhook は src/app/api/line/webhook/[venue_id] に移行済みです。\n` +
+    `  gas/ 配下に実行コードを追加しないでください（docs/legacy-gas-manual は画像のみで対象外）。`
+  );
+}
+
+for (const file of [...appFiles, ...componentFiles, "src/lib/api.ts"]) {
+  if (!fs.existsSync(file)) continue;
   const lines = fs.readFileSync(file, "utf8").split("\n");
   lines.forEach((line, idx) => {
-    if (/function\s+(doGet|doPost)\s*\(/.test(line)) {
+    // コメント行は対象外（「GAS は廃止した」と説明する記述まで違反にしない）
+    if (/^\s*(\/\/|\*|\/\*)/.test(line)) return;
+    if (/NEXT_PUBLIC_GAS_ENDPOINT|script\.google\.com/.test(line)) {
       report(
         file,
         idx + 1,
-        `gas/Code.ts 以外で doGet / doPost が定義されています。`,
-        `doGet / doPost は gas/Code.ts のみで定義し、ロジックは別ファイルの関数に委譲してください。\n` +
-        `  例: gas/sheets.ts に getTasksByLineId() を定義 → gas/Code.ts の doGet から呼ぶ`
+        `GAS エンドポイントへの参照が検出されました（SaaS化 C5 で廃止済み）。`,
+        `バックエンドは Supabase + Route Handlers のみです。\n` +
+        `  API 呼び出しは src/lib/api.ts の apiClient（/api/* へのリクエスト）を使ってください。`
       );
     }
   });

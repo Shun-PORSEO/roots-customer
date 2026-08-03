@@ -10,10 +10,10 @@ export class ApiError extends Error {
   }
 }
 
-const GAS_ENDPOINT = process.env.NEXT_PUBLIC_GAS_ENDPOINT || "";
-// バックエンド切替（縦スライス）: "db" で新スタック(Supabase+Route Handlers)、既定は "gas"。
-// api.ts のシグネチャは変えないので呼び出し元(UI)の diff はゼロ = シーム維持の実証。
-const BACKEND = process.env.NEXT_PUBLIC_BACKEND || "gas";
+// バックエンド切替。既定は "db"（Supabase + Route Handlers）。
+// GAS 経路は SaaS化 C5 で廃止した（NEXT_PUBLIC_GAS_ENDPOINT も撤去）。
+// "mock" にするとネットワーク無しの UI 開発用モックが使われる。
+const BACKEND = process.env.NEXT_PUBLIC_BACKEND || "db";
 
 // LINE ID Token 検証 → httpOnly セッションを確立（初回 or セッション切れ時）。
 // liff_id を添えて送り、サーバーが venue 別の Login チャネル ID で aud 検証する（SaaS化 C2）。
@@ -88,6 +88,7 @@ const DB_ADMIN_ACTIONS = new Set([
   "getVenues",
   "createVenue", "updateVenue", "updateVenueStatus", "getVenueDetail", "testLineConnection",
   "getOnboarding", "saveOnboarding",
+  "getBilling", "generateAiDraft",
   "getVenueTasks", "updateTaskMaster", "addTaskMaster", "updateTaskManualUrl",
   "testSendTask",
   "getUsers", "getUsersWithProgress", "getAdminUserTasks",
@@ -130,8 +131,9 @@ export const apiClient = {
       if (action === "getVenues") {
         return dbPost("/api/admin", { action: "getVenues" });
       }
+      throw new Error(`[GET ${action}] 未対応のアクションです`);
     }
-    if (!GAS_ENDPOINT || GAS_ENDPOINT === "YOUR_GAS_WEB_APP_URL_HERE") {
+    {
       if (action === "getTasks") {
         return { status: "ok", tasks: MOCK_TASKS };
       }
@@ -150,16 +152,6 @@ export const apiClient = {
         return { status: "ok", venues: MOCK_VENUES };
       }
       return { status: "ok" };
-    }
-    const url = `${GAS_ENDPOINT}?action=${action}&line_id=${lineId}`;
-    try {
-      const res = await fetch(url, { method: "GET" });
-      const data = await res.json();
-      if (data.status === "error") throw new Error(data.message);
-      return data;
-    } catch (e: any) {
-      console.error(`API Error (GET ${action}):`, e);
-      throw new Error(`[GET ${action}] ${e.message || "Failed to fetch data"}`);
     }
   },
 
@@ -194,9 +186,10 @@ export const apiClient = {
         const { line_id: _lineId, ...rest } = payload;
         return dbPost("/api/admin", rest);
       }
-      // ここまでに該当しないアクションは未知 → 既存経路(GAS/モック)にフォールスルーする。
+      // GAS 経路は廃止（C5）。未知のアクションはここで明示的に落とす。
+      throw new Error(`[POST ${payload.action}] 未対応のアクションです`);
     }
-    if (!GAS_ENDPOINT || GAS_ENDPOINT === "YOUR_GAS_WEB_APP_URL_HERE") {
+    {
       if (payload.action === "updateTask") {
         MOCK_TASKS = MOCK_TASKS.map(t => t.task_id === payload.task_id ? { ...t, is_done: payload.is_done } : t);
         return { status: "updated" };
@@ -341,21 +334,45 @@ export const apiClient = {
       }
       return { status: "ok" };
     }
-    try {
-      const res = await fetch(GAS_ENDPOINT, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
-      if (data.status === "error") throw new Error(data.message);
-      return data;
-    } catch (e: any) {
-      console.error(`API Error (POST ${payload.action}):`, e);
-      throw new Error(`[POST ${payload.action}] ${e.message || "Failed to post data"}`);
-    }
   },
 };
+
+// ─── Stripe（SaaS化 C4）────────────────────────────────────────────────
+// Checkout / Portal は action ディスパッチではなく専用ルート。
+// src/app 内で fetch を直接呼ばない規約のため、ここに薄いラッパーを置く。
+
+/** Checkout Session を作成して URL を返す（呼び出し側でリダイレクトする）。 */
+export async function postStripeCheckoutStart(
+  returnTo: "onboarding" | "billing"
+): Promise<string> {
+  const data = await dbFetch("/api/stripe/checkout", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ mode: "start", return_to: returnTo }),
+  });
+  if (!data.url) throw new ApiError("Checkout の開始に失敗しました");
+  return data.url as string;
+}
+
+/** Checkout 完了後の戻りで呼ぶ。Stripe の実状態を同期し、課金状態を返す。 */
+export async function postStripeCheckoutConfirm(sessionId: string): Promise<IApiResponse> {
+  return dbFetch("/api/stripe/checkout", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ mode: "confirm", session_id: sessionId }),
+  });
+}
+
+/** Customer Portal の URL を返す（支払い方法変更・解約・復帰）。 */
+export async function postStripePortal(): Promise<string> {
+  const data = await dbFetch("/api/stripe/portal", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  if (!data.url) throw new ApiError("お支払い管理ページを開けませんでした");
+  return data.url as string;
+}
 
 // テナント管理者の認証（POST /api/auth/admin。SaaS化 C1/C3）。
 // login/signup ページ用の薄いラッパー（src/app 内で fetch を直接呼ばない規約のため）。

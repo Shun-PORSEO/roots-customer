@@ -1,21 +1,23 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { apiClient } from "@/lib/api";
+import { apiClient, postStripeCheckoutStart, postStripeCheckoutConfirm } from "@/lib/api";
 import { getAdminLineId } from "@/hooks/useAdminAuth";
-import { IOnboarding, ILineKeyCheck, IVenue } from "@/lib/types";
+import { IOnboarding, ILineKeyCheck, IVenue, IBilling } from "@/lib/types";
 import { Spinner } from "@/components/Spinner";
 import { InlineApiError } from "@/components/ErrorMessage";
 import { AuthGate } from "@/components/admin/AuthGate";
 import { LineSetupManual } from "@/components/onboarding/LineSetupManual";
+import { PRICING, formatJpy } from "@/lib/pricing";
 
 // オンボーディングウィザード（SaaS化 C3 / roots-concierge#4）。
 // サインアップ直後の式場担当者がセルフサーブで
 //   Step1 式場情報 → Step2 LINEキー4点入力（マニュアル付き）→ Step3 接続テスト全緑 → Step4 利用開始
 // まで完走する。進捗は onboarding_progress に保存され、中断→再開できる
 // （getOnboarding が保存済みステップを返し、ここから再開する）。
-// Step4 は現状「トライアル開始」の確定のみ。Stripe Checkout（C4 roots-concierge#5）が
-// 入ったらこのステップの確定ボタンを Checkout リダイレクトに差し替える。
+// Step4 はトライアル開始（SaaS化 C4 / roots-concierge#5）。Stripe 構成済みなら
+// Checkout（14日トライアル付き）へリダイレクトし、戻りで決済を確認してから完了する。
+// 未構成の環境（ローカル/検証）はローカルトライアル行を作って完了する。
 
 const STEPS = [
   { n: 1, label: "式場情報" },
@@ -108,16 +110,29 @@ function Wizard() {
   // Step3 接続テスト
   const [testResults, setTestResults] = useState<ILineKeyCheck[] | null>(null);
   const [testing, setTesting] = useState(false);
+  // Step4 課金状態（C4）。stripe_enabled で Checkout 導線の出し分け、active で完了判定。
+  const [billing, setBilling] = useState<IBilling | null>(null);
 
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const webhookUrl = venueCode ? `${origin}/api/line/webhook/${venueCode}` : "";
 
   useEffect(() => {
-    apiClient
-      .post({ action: "getOnboarding", line_id: getAdminLineId() })
+    // Stripe Checkout からの戻り（?checkout=success&session_id=...）を先に同期し、
+    // 決済済みならサーバー側でオンボーディングも完了扱いになる（→ /admin へ）。
+    const params = new URLSearchParams(window.location.search);
+    const confirmFirst =
+      params.get("checkout") === "success" && params.get("session_id")
+        ? postStripeCheckoutConfirm(params.get("session_id")!).catch((e) => {
+            setError(e);
+          })
+        : Promise.resolve();
+
+    confirmFirst
+      .then(() => apiClient.post({ action: "getOnboarding", line_id: getAdminLineId() }))
       .then((res) => {
         if (res.status === "error") throw new Error(res.message);
         const ob = res.onboarding as IOnboarding;
+        setBilling((res.billing as IBilling) ?? null);
         if (ob.completed) {
           // 完了済みテナントがブックマーク等で再訪した場合は管理画面へ
           window.location.replace("/admin");
@@ -280,11 +295,17 @@ function Wizard() {
     }
   }
 
-  // ── Step4: 利用開始（C4 で Stripe Checkout に差し替え）──
+  // ── Step4: トライアル開始（SaaS化 C4）──
+  // Stripe 構成済み → Checkout へリダイレクト（戻りで confirm → 完了 → /admin）。
+  // 未構成（ローカル/検証） → サーバーが14日のローカルトライアル行を作って完了。
   async function submitStep4() {
     setBusy(true);
     setError(null);
     try {
+      if (billing?.stripe_enabled && !billing.active) {
+        window.location.href = await postStripeCheckoutStart("onboarding");
+        return; // リダイレクトするので busy は戻さない
+      }
       await goTo(4, { complete: true });
       window.location.href = "/admin";
     } catch (err) {
@@ -523,22 +544,26 @@ function Wizard() {
           <div>
             <h2 className="text-headline-lg text-on-surface">利用を開始する</h2>
             <p className="text-body-md text-neutral-50 mt-2xs leading-relaxed">
-              設定は完了しました。今日から14日間は無料でお試しいただけます。
+              設定は完了しました。今日から{PRICING.trialDays}日間は無料でお試しいただけます。
             </p>
           </div>
 
           <div className="rounded-lg border border-primary-20 bg-primary-5 p-lg">
             <p className="text-label-caps text-tertiary-70">PLAN</p>
             <p className="font-display text-display-md text-on-surface mt-2xs">
-              月額 9,800円<span className="text-body-md text-neutral-50">（税込・1プラン）</span>
+              月額 {formatJpy(PRICING.monthlyPriceJpy)}円
+              <span className="text-body-md text-neutral-50">（{PRICING.priceNote}）</span>
             </p>
             <ul className="text-body-md text-on-surface mt-sm flex flex-col gap-2xs list-disc pl-md">
-              <li>14日間の無料トライアル（本日から）</li>
-              <li>カップル数・タスク数は無制限</li>
-              <li>LINE 自動リマインド・AI メッセージ生成つき</li>
+              <li>{PRICING.trialDays}日間の無料トライアル（本日から）</li>
+              {PRICING.features.map((f) => (
+                <li key={f}>{f}</li>
+              ))}
             </ul>
             <p className="text-body-sm text-neutral-50 mt-sm">
-              お支払い方法の登録（クレジットカード）は準備中です。トライアル終了前にご案内します。
+              {billing?.stripe_enabled
+                ? `クレジットカードを登録すると無料トライアルが始まります。期間中の解約は無料で、${PRICING.trialDays}日目までは請求されません。`
+                : "この環境では決済が構成されていないため、そのままトライアルを開始します。"}
             </p>
           </div>
 
@@ -547,7 +572,11 @@ function Wizard() {
               戻る
             </button>
             <button type="button" onClick={submitStep4} disabled={busy} className="btn-primary md:px-xl">
-              {busy ? "処理中…" : "トライアルを開始して管理画面へ"}
+              {busy
+                ? "処理中…"
+                : billing?.stripe_enabled && !billing.active
+                ? "お支払い方法を登録してトライアル開始"
+                : "トライアルを開始して管理画面へ"}
             </button>
           </div>
         </div>

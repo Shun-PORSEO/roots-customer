@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AuthGate } from "@/components/admin/AuthGate";
+import { BillingGate } from "@/components/admin/BillingGate";
 
 const NAV = [
   { href: "/admin",          label: "お客様",      icon: "💍" },
   { href: "/admin/venues",   label: "式場",        icon: "🏛" },
   { href: "/admin/tasks",    label: "タスク雛形",  icon: "📋" },
   { href: "/admin/messages", label: "配信ログ",    icon: "💬" },
+  { href: "/admin/billing",  label: "契約・支払い", icon: "💳" },
   { href: "/admin/help",     label: "使い方",      icon: "📖" },
 ];
 
@@ -193,7 +195,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* ── Main content ── */}
       <div className="flex-1 min-w-0 pt-[88px] md:pt-0">
         <div className="max-w-[1400px] mx-auto px-6 md:px-8 py-6 md:py-8">
-          <AuthGate>{children}</AuthGate>
+          <AuthGate>
+            <BillingGate>{children}</BillingGate>
+          </AuthGate>
         </div>
       </div>
     </div>

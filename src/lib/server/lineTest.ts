@@ -243,6 +243,34 @@ function checkLiffId(liffId: string, loginChannelId: string): LineKeyCheck {
   return { ...base, ok: true, message: "✓ 整合OK（LINE Login チャネルと一致しています）" };
 }
 
+// dev バイパス（SaaS化 C9・E2E/ローカル用）。ALLOW_DEV_LINE_BYPASS=true かつ
+// チャネルアクセストークンが "dev-" で始まる式場に限り、外部 LINE API を呼ぶ
+// token/webhook の2点を ✓ 扱いにする（env 側のガードで本番では有効化できない）。
+// login_channel_id / liff_id の形式検査はオフラインの実検査のまま通す —
+// 形式不正ならバイパス中でも ✗ になり、全緑ゲートの意味を保つ。
+export function isDevLineTestTarget(channelAccessToken: string): boolean {
+  return channelAccessToken.startsWith("dev-");
+}
+
+export function runDevBypassLineTest(input: LineTestInput): LineKeyCheck[] {
+  return [
+    {
+      key: "channel_access_token",
+      label: "チャネルアクセストークン（Messaging API）",
+      ok: true,
+      message: "✓ 接続OK（開発バイパス・実検証なし）",
+    },
+    {
+      key: "channel_secret",
+      label: "チャネルシークレット / Webhook",
+      ok: true,
+      message: "✓ 接続OK（開発バイパス・実検証なし）",
+    },
+    checkLoginChannelId(input.loginChannelId),
+    checkLiffId(input.liffId, input.loginChannelId),
+  ];
+}
+
 export async function runLineConnectionTest(input: LineTestInput): Promise<LineKeyCheck[]> {
   const tokenCheck = await checkAccessToken(input.channelAccessToken);
   const webhookCheck = await checkWebhook(

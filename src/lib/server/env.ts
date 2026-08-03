@@ -18,6 +18,19 @@ const schema = z.object({
   SUPABASE_ANON_KEY: z.string().min(1).optional(),
   // セッション Cookie 署名鍵（32byte 以上推奨）
   SESSION_SECRET: z.string().min(32),
+  // ─── Stripe 課金（SaaS化 C4）。未設定でも他経路は動く（ローカルトライアル運用）。
+  // 3点セットで設定する: Secret Key / Webhook 署名シークレット / 月額プランの Price ID。
+  STRIPE_SECRET_KEY: z.string().min(1).optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().min(1).optional(),
+  STRIPE_PRICE_ID: z.string().min(1).optional(),
+  // ─── Vercel Cron（SaaS化 C5）。/api/cron/* の Bearer 認証シークレット。
+  CRON_SECRET: z.string().min(1).optional(),
+  // ─── AI 生成（SaaS化 C5）。運営者の Claude API キーで全テナント共通提供。
+  ANTHROPIC_API_KEY: z.string().min(1).optional(),
+  // 生成モデル（既定は旧 GAS 実装と同じ Haiku。運用で差し替え可能）
+  AI_MODEL: z.string().min(1).default("claude-haiku-4-5"),
+  // テナント別の 1 日あたり AI 生成回数上限（ai_usage で計数）
+  AI_DAILY_LIMIT: z.coerce.number().int().positive().default(50),
   // dev 専用 ID Token バイパス。本番ビルドでは必ず false。
   ALLOW_DEV_LINE_BYPASS: z
     .enum(["true", "false"])

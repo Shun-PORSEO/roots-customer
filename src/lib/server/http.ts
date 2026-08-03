@@ -8,7 +8,11 @@ export type ErrorCode =
   | "FORBIDDEN_IDOR"
   | "VALIDATION"
   | "NOT_FOUND"
+  | "BILLING_REQUIRED"
+  | "RATE_LIMITED"
   | "LINE_UPSTREAM"
+  | "STRIPE_UPSTREAM"
+  | "AI_UPSTREAM"
   | "INTERNAL";
 
 const DEFAULT_HINT: Record<ErrorCode, string> = {
@@ -16,7 +20,12 @@ const DEFAULT_HINT: Record<ErrorCode, string> = {
   FORBIDDEN_IDOR: "この操作を行う権限がありません。",
   VALIDATION: "入力内容を確認してください。",
   NOT_FOUND: "対象が見つかりませんでした。",
+  BILLING_REQUIRED:
+    "ご契約が有効ではありません。管理画面の「契約・支払い」からお支払いの登録・再開を行ってください。",
+  RATE_LIMITED: "本日の利用上限に達しました。明日以降に再度お試しください。",
   LINE_UPSTREAM: "LINE との通信に失敗しました。時間をおいて再度お試しください。",
+  STRIPE_UPSTREAM: "決済サービスとの通信に失敗しました。時間をおいて再度お試しください。",
+  AI_UPSTREAM: "AI 生成に失敗しました。時間をおいて再度お試しください。",
   INTERNAL: "サーバーでエラーが発生しました。時間をおいて再度お試しください。",
 };
 
@@ -25,7 +34,11 @@ const STATUS: Record<ErrorCode, number> = {
   FORBIDDEN_IDOR: 403,
   VALIDATION: 400,
   NOT_FOUND: 404,
+  BILLING_REQUIRED: 402,
+  RATE_LIMITED: 429,
   LINE_UPSTREAM: 502,
+  STRIPE_UPSTREAM: 502,
+  AI_UPSTREAM: 502,
   INTERNAL: 500,
 };
 

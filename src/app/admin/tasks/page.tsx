@@ -48,6 +48,9 @@ export default function TasksPage() {
   const [draft, setDraft] = useState<Partial<TaskMaster>>({});
   const [saving, setSaving] = useState(false);
   const [filter, setFilter] = useState<"all" | "empty" | "inactive">("all");
+  // AI 下書き生成（SaaS化 C5）。運営者の Claude API キーで共通提供＋テナント別レート制限。
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiError, setAiError] = useState<string>("");
   const [showAdd, setShowAdd] = useState(false);
   const [newTask, setNewTask] = useState<Partial<TaskMaster>>(NEW_TASK);
 
@@ -117,6 +120,28 @@ export default function TasksPage() {
         if (res.items) setTemplates(res.items);
       })
       .finally(() => setTplLoading(false));
+  };
+
+  // AI にリマインド本文の下書きを書かせて draft に入れる（保存は既存の保存ボタン）。
+  // 上限超過（429）や未構成は文言だけ出して編集は続けられるようにする。
+  const generateAiDraft = async () => {
+    if (!selectedTask) return;
+    setAiBusy(true);
+    setAiError("");
+    try {
+      const res = await apiClient.post({
+        action: "generateAiDraft",
+        line_id: getAdminLineId(),
+        task_id: selectedTask.task_id,
+      });
+      if (res.message) {
+        setDraft((prev) => ({ ...prev, reminder_message: res.message as string }));
+      }
+    } catch (e) {
+      setAiError(e instanceof Error ? e.message : "生成に失敗しました");
+    } finally {
+      setAiBusy(false);
+    }
   };
 
   const addTemplate = async (e: React.FormEvent) => {
@@ -523,6 +548,20 @@ export default function TasksPage() {
                     label="リマインド本文"
                     hint="空欄でも fallback で配信されます"
                   >
+                    <div className="flex items-center justify-end gap-2 mb-1.5">
+                      {aiError ? (
+                        <span className="text-[11px] text-red-600">{aiError}</span>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={generateAiDraft}
+                        disabled={aiBusy || !selectedTask}
+                        className="text-[11px] font-bold px-2.5 py-1 rounded-md border disabled:opacity-50"
+                        style={{ borderColor: "var(--cb)", color: "var(--cp)" }}
+                      >
+                        {aiBusy ? "生成中…" : "✨ AIで下書き"}
+                      </button>
+                    </div>
                     <textarea
                       value={draft.reminder_message || ""}
                       onChange={(e) =>
