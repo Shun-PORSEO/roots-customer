@@ -1,0 +1,6 @@
+{
+  "name": "migrate-sheets",
+  "private": true,
+  "type": "module",
+  "description": "Google Sheets → Supabase 一回性移行CLI（SaaS化 C7）。postgres クライアントは src/node_modules から解決するため、ここでの install は不要。"
+}

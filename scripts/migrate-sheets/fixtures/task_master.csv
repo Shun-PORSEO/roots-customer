@@ -1,0 +1,9 @@
+task_id,venue_id,category,task_content,due_formula,due_estimate,memo,is_active,target_line_id,manual_url,reminder_message
+T001,,招待状,招待状のデザインを決める,挙式日 - 180日,挙式6ヶ月前,,TRUE,,https://example.com/manual/t001,"招待状のデザイン、そろそろ決めどきです。
+気になるものはありましたか？"
+T002,,衣装,ドレスの試着予約をする,挙式日 - 150日,挙式5ヶ月前,,TRUE,,,ドレスの試着予約はお済みですか？
+T003,RC001,料理,コース料理を決める,挙式日 - 90日,挙式3ヶ月前,本館のみ,TRUE,,,
+T004,,引出物,引出物を選ぶ,挙式日 - 60日,挙式2ヶ月前,,FALSE,,,
+CUST-1750000000001,RC001,その他,ペットの参列可否を確認する,挙式日 - 30日,挙式1ヶ月前,個別対応,TRUE,Ucouple001,,個別のご相談、進んでいますか？
+CUST-1750000000002,RC001,その他,退会済みカップル向けの残骸,挙式日,当日,,TRUE,Uunknown999,,
+T005,RC999,受付,受付係を決める,挙式日 - 30日,挙式1ヶ月前,存在しない式場,TRUE,,,
