@@ -256,11 +256,11 @@ function toggleVenueActive(venueId, active) {
 function getDashboardTasks(venueId) {
   try {
     const all = _readTaskSheet(true);
-    // venueId 未指定 = 画面の「base task（全共通）」表示。
-    // ここで全タスクを返すと式場別タスク（venue_id 付き）まで共通側に並んでしまい、
-    // 式場別タスクに追加した手配物テンプレが「共通に入った」ように見える。
-    // ラベルどおり base（venue_id が空）だけを返す。
-    if (!venueId) return all.filter(function (t) { return !t.venue_id; });
+    // venueId 未指定は「全タスク」を返す（従来どおり）。
+    // 2026-08-15 に一度 base（venue_id が空）のみに絞ったが、base タスクが無い
+    // 運用ではタスクマスターが空になってしまったため差し戻した（#32）。
+    // 一覧には venue_id 列が出ているので、どの式場のものかは表で判別できる。
+    if (!venueId) return all;
     return all.filter(function (t) { return t.venue_id === venueId; });
   } catch (e) { throw new Error(e.message); }
 }
