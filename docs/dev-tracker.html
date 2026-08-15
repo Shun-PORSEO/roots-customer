@@ -50,6 +50,41 @@ const MILESTONES = [
 // timeline.kind: "コメント" | "状態変更" | "決定" | "コミット"
 const ISSUES = [
   {
+    id: "#28",
+    title: "【本番障害】LINE友だち追加から開くとカップル画面ではなくLPが表示される",
+    body: "C6 で `/` を式場向けLPに差し替え、旧LIFF入口を `/liff` へ移設した。しかし LINE 側に登録されている LIFF エンドポイントURLは `/` を指したままのため、友だち追加・リッチメニューから開くとLPが表示され、カップルがタスク画面に到達できない。\n\n救済用の LegacyLiffRedirect は `liff.state` または `venue` クエリがある場合のみ発動する設計だが、LIFFルート起動ではこれらが付かず、条件がすり抜けた（実機で再現・スクショあり）。\n\nさらに根深い問題として、本番にデプロイされているのは Supabase 版コードだが C7 のデータ移行は未実行のため、入口を /liff に向け直すだけでは「タスクが全部消えた」状態になる。切り戻しが先。",
+    specs: ["src/app/page.tsx", "src/components/lp/LegacyLiffRedirect.tsx", "src/app/(liff)/liff/page.tsx"],
+    labels: ["bug", "本番障害", "LIFF", "SaaS化"],
+    status: "完了",
+    milestone: "M3",
+    created: "2026-08-15",
+    updated: "2026-08-15",
+    timeline: [
+      { date: "2026-08-15", kind: "コメント", text: "ユーザー報告: LINE友だち追加→ログインでタスク管理画面ではなくLP（Roots AI Planner のヒーロー画面）が表示される。スクショで確認。" },
+      { date: "2026-08-15", kind: "コメント", text: "原因特定: C6(3649782) で src/app/(liff)/page.tsx → src/app/(liff)/liff/page.tsx へ移設し、`/` を LP に差し替え。LINE 側 LIFF エンドポイントは `/` のままのため LP に着地する。LegacyLiffRedirect の発動条件 `params.has(\"liff.state\") || params.has(\"venue\")` が LIFF ルート起動では満たされず救済が効かなかった。" },
+      { date: "2026-08-15", kind: "コメント", text: "二次リスク: 本番稼働コードが Supabase 版で、C7 の Sheets→Supabase 移行が未実行（.env なし / supabase/config.toml なし / コミットメッセージに『残: 実DBでの --apply』）。エンドポイント修正のみ先行すると既存カップルのタスクが 0 件表示になる。" },
+      { date: "2026-08-15", kind: "決定", text: "止血方針をユーザー承認: Vercel の Instant Rollback で 865150f（GAS修正時点＝スプシ版）を本番に昇格させ、まず既存カップルの利用を復旧する。コードは変更しない。SaaS化の作業ブランチは温存。" },
+      { date: "2026-08-15", kind: "コメント", text: "経路を実データで確定。LINE の LIFF エンドポイント = https://roots-customer.vercel.app（本番ドメイン）、Production の Branch Tracking = main。Vercel Deployments に『Merge branch feat/supabase-vertical-slice: SaaS化 C1〜C9』(f2dc047 / branch main / 2時間前) の Production デプロイが記録されており、これが本番を LP 版に置き換えた直接原因。作業ブランチのプレビューではなく main へのマージが引き金だった。" },
+      { date: "2026-08-15", kind: "コメント", text: "マージコミット f2dc047 は GitHub 上に存在しない（git ls-remote origin main = b506719、Jul 12 のまま）。実行主体はユーザー本人と確認済み — 本人が main にマージし、本人が巻き戻した。自動化・外部エージェントによるものではない。" },
+      { date: "2026-08-15", kind: "状態変更", text: "復旧確認: curl https://roots-customer.vercel.app が LIFF 読み込み画面（『準備しています…』）を返し、LP の目印（FOR WEDDING VENUES / Roots AI Planner）は出ない。現 Production は fix(gas) ビルド（3665aZ5vc の rebuild）。本番はスプシ版に戻っている。" },
+      { date: "2026-08-15", kind: "コメント", text: "訂正: 当初『feat ブランチへの空コミット push が引き金』と推定したが誤り。空コミット(a24a203)は Preview デプロイのみで本番に影響していない。原因は main へのマージ。" },
+    ],
+  },
+  {
+    id: "#29",
+    title: "SaaS化ブランチを本番に出すための前提条件を揃える（本番切替チェックリスト）",
+    body: "2026-08-15、SaaS化ブランチを main にマージしたところ本番のLIFFがLPに置き換わり、カップルがタスク画面に到達できなくなった（#28）。マージ自体は正しい方向だが、前提条件が未達のまま出したことが問題。\n\n本番に出す前に全部を満たすこと:\n1. C7: Sheets→Supabase のデータ移行を実 DB に --apply して件数照合まで完了\n2. Vercel 本番の環境変数を設定（DATABASE_URL_APP_COUPLE / SESSION_SECRET ほか）\n3. LINE の LIFF エンドポイントURLを /liff に変更\n4. LegacyLiffRedirect の発動条件を見直す（liff.state / venue が付かないルート起動でも救済されるように）\n5. LINE 実機でカップル導線を1周確認（友だち追加→タスク表示→完了チェック）\n\n1〜5 が揃うまで main にマージしない。",
+    specs: ["scripts/migrate-sheets/", "src/components/lp/LegacyLiffRedirect.tsx", "src/app/(liff)/liff/page.tsx"],
+    labels: ["運用", "本番切替", "SaaS化"],
+    status: "未対応",
+    milestone: "M3",
+    created: "2026-08-15",
+    updated: "2026-08-15",
+    timeline: [
+      { date: "2026-08-15", kind: "決定", text: "#28 の障害を受けて起票。マージ・巻き戻しともユーザー本人の操作で、自動化の暴走ではないことを確認。ブランチ保護は入れず、代わりに本番切替の前提条件を5項目のチェックリストとして明文化し、揃うまで main にマージしない運用にする。" },
+    ],
+  },
+  {
     id: "#19",
     title: "C1: テナント管理者認証（Supabase Auth）+ tenant_admins + RLS更新",
     body: "現行の「LINEログイン + customers.is_admin」を廃止し、テナント管理者はSupabase Auth（メール）でログインする。auth.users ↔ companies を紐づける tenant_admins テーブルを追加し、app.current_company_id() 相当の解決を tenant_admins 経由に更新。クロステナント遮断をRLSテストで証明する。既存カップルのLIFF認証は壊さない。\n\nGitHub: roots-concierge#2 / 優先度: Critical / 見積: 2-3日 / 依存: なし",
