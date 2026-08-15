@@ -901,52 +901,9 @@ function getMessageDrafts(venueId, status) {
     }
     return drafts;
 }
-// ─── task_master patch / add ───────────────────────────────
-function updateTaskMaster(taskId, patch) {
-    const sheet = getSheet("task_master");
-    if (!sheet)
-        return false;
-    const data = sheet.getDataRange().getValues();
-    for (let i = 1; i < data.length; i++) {
-        if (String(data[i][0]) === taskId) {
-            // 列: task_id / category / task_content / due_formula / due_estimate / memo / is_active / target_line_id
-            if (patch.category !== undefined)
-                sheet.getRange(i + 1, 2).setValue(patch.category);
-            if (patch.task_content !== undefined)
-                sheet.getRange(i + 1, 3).setValue(patch.task_content);
-            if (patch.due_formula !== undefined)
-                sheet.getRange(i + 1, 4).setValue(patch.due_formula);
-            if (patch.due_estimate !== undefined)
-                sheet.getRange(i + 1, 5).setValue(patch.due_estimate);
-            if (patch.memo !== undefined)
-                sheet.getRange(i + 1, 6).setValue(patch.memo);
-            if (patch.is_active !== undefined)
-                sheet.getRange(i + 1, 7).setValue(patch.is_active);
-            CacheService.getScriptCache().remove("activeTasks");
-            return true;
-        }
-    }
-    return false;
-}
-function addTaskMaster(task) {
-    const sheet = getSheet("task_master");
-    if (!sheet)
-        return "";
-    // task_id が空なら自動採番
-    let taskId = task.task_id;
-    if (!taskId) {
-        taskId = "CUST-" + new Date().getTime();
-    }
-    sheet.appendRow([
-        taskId,
-        task.category || "",
-        task.task_content || "",
-        task.due_formula || "",
-        task.due_estimate || "",
-        task.memo || "",
-        task.is_active === false ? false : true,
-        task.target_line_id || "",
-    ]);
-    CacheService.getScriptCache().remove("activeTasks");
-    return taskId;
-}
+// updateTaskMaster / addTaskMaster はここにあったが 2026-08-15 に削除。
+// 固定の列番号（venue_id 列が無かった頃の並び）で書き込んでおり、現在の
+// task_master（11列）では category が venue_id を上書きするなど破壊的だった。
+// どこからも呼ばれていない死にコードだったが、踏むと式場の紐づけが壊れるため撤去。
+// 正しい実装は dashboard-server.js の updateTaskField / addBaseTask / addVenueTask
+// （いずれも _colMap でヘッダー名から列を解決する）。

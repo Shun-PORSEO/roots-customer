@@ -53,6 +53,37 @@ const MILESTONES = [
 // timeline.kind: "コメント" | "状態変更" | "決定" | "コミット"
 const ISSUES = [
   {
+    id: "#34",
+    title: "【セキュリティ】公開GASエンドポイントが LINEアクセストークンを露出し、管理系APIが無認可だった",
+    body: "本番の Apps Script Web App は access=ANYONE_ANONYMOUS（Googleログイン不要で誰でも呼べる）で、その URL は roots-customer.vercel.app の公開JSバンドルに埋め込まれている。その状態で次の2点が開いていた。\n\n1) doGet の getVenues が venues 行をそのまま返しており、line_channel_access_token（式場公式LINEとしてメッセージを送れる鍵）が未認証で取得できた。\n\n2) doPost に管理者チェックが存在せず、line_id を名乗るだけで getUsers / getUsersWithProgress / getAdminUserTasks / getMessageDrafts / getVenueDetail / addCustomTask / deleteCustomTask / toggleTaskVisibility / updateDraft* / updateTaskManualUrl が実行できた。カップルの氏名・挙式日・進捗・メッセージ下書きの閲覧と、タスクの追加削除が可能だった。\n\n原因は gas/ の .ts（設計図）と .js（実際に動く物）が別々に育っていたこと。両方の対策は Code.ts には書かれていたが、コンパイル結果が .js に取り込まれず本番に届いていなかった。",
+    specs: ["gas/Code.js", "gas/sheets.js"],
+    labels: ["security", "本番", "GAS"],
+    status: "対応中",
+    milestone: "M4",
+    created: "2026-08-15",
+    updated: "2026-08-15",
+    timeline: [
+      { date: "2026-08-15", kind: "コメント", text: "/admin/tasks の不具合調査中に発見。公開中の v39 でも同様であることを pull して確認。実際のエンドポイント呼び出しによる再現確認は行っていない（本物のトークンをログに残さないため）。判断はコード読解ベース。" },
+      { date: "2026-08-15", kind: "実装", text: "Code.js の getVenues を venue_id / venue_name / planner_line_user_id / line_liff_id / active / created_at のみ返すよう修正（トークン等の秘密は除外）。doPost 冒頭に ADMIN_ACTIONS ゲートを追加し、customers.is_admin が真の呼び出し元のみ管理系を実行できるようにした。" },
+      { date: "2026-08-15", kind: "コメント", text: "注意: このゲートは line_id が自己申告である点は変えていない（LINE ID Token の検証は未実装）。無認可よりは大幅に良いが、恒久対策としては ID Token 検証が別途必要。" },
+    ],
+  },
+  {
+    id: "#35",
+    title: "Next.js管理画面 /admin/tasks が動かない（GASにハンドラが無い）",
+    body: "/admin/tasks が呼ぶ getVenueTasks / updateTaskMaster / addTaskMaster の3つに GAS 側のハンドラが存在せず、Invalid action が返って一覧の取得・保存・追加が全て失敗していた（getVenueTasks は許可リストに名前だけあった）。\n\nあわせて sheets.js の updateTaskMaster / addTaskMaster を撤去。venue_id 列が無かった頃の固定列番号で書き込んでおり、現在の11列スキーマでは category が venue_id を上書きするなど破壊的だった（どこからも呼ばれていない死にコード）。",
+    specs: ["gas/Code.js", "gas/Code.ts", "gas/sheets.js"],
+    labels: ["bug", "GAS", "管理画面"],
+    status: "対応中",
+    milestone: "M4",
+    created: "2026-08-15",
+    updated: "2026-08-15",
+    timeline: [
+      { date: "2026-08-15", kind: "実装", text: "doPost に3ハンドラを追加。実装は dashboard-server.js の既存関数を再利用する（getDashboardTasks / updateTaskField / addBaseTask / addVenueTask）。いずれも _colMap でヘッダー名から列を解決するため、task_master の列が増減しても壊れない。updateTaskMaster では venue_id を編集対象から除外した（紐づけが壊れるとタスクが一覧から消えるため）。許可リストに addTaskMaster を追加。" },
+      { date: "2026-08-15", kind: "コメント", text: "gas/ の .ts と .js が双方向にドリフトしていることを確認（tsc で再生成すると Code/sheets/reminders に差分）。一括再生成は事故るため、今回は .js を直接編集し .ts も手で揃えた。ドリフト解消は別途必要。" },
+    ],
+  },
+  {
     id: "#30",
     title: "タスクマスター: 停止すると一覧から消えて「削除された」ように見える → 取り消し導線を追加",
     body: "停止（⏸）を押すとタスクが一覧から消えるため、削除されたと誤解される。実際はデータは残っており、is_active=false になって既定の絞り込み（有効なタスクのみ表示）から外れているだけ。\n\n対応: 停止直後のトーストに「元に戻す」ボタンを出し、その場で戻せるようにする。あわせて文言で「削除ではない」ことと「停止も表示」で確認できることを伝える。",

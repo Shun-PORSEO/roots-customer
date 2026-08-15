@@ -87,7 +87,8 @@ function doPost(e: any) {
       "toggleTaskVisibility", "addCustomTask", "deleteCustomTask",
       "getMessageDrafts", "updateDraftStatus", "updateDraftMessage",
       "getVenueDetail", "updateTaskManualUrl", "getVenueTasks",
-      "updateTaskMaster", "getTaskItemTemplates", "addTaskItemTemplate",
+      "updateTaskMaster", "addTaskMaster",
+      "getTaskItemTemplates", "addTaskItemTemplate",
     ];
     if (ADMIN_ACTIONS.includes(action)) {
       const caller = getCustomer(lineId);
@@ -346,6 +347,48 @@ function doPost(e: any) {
       const users = getUsersWithProgress(postData.venue_id);
       const pendingDrafts = getMessageDrafts(postData.venue_id, "pending");
       return responseJSON({ status: "ok", venue, users, pending_drafts_count: pendingDrafts.length });
+    }
+
+    // ─── タスクマスター（Next.js 管理画面 /admin/tasks 用）────────────────
+    // 実装は GAS ダッシュボード側（dashboard-server.js）と共有する。
+    // あちらは列をヘッダー名で解決する（_colMap）ので、task_master の列が
+    // 増減しても壊れない。ここで列番号を直書きしないこと。
+    if (action === "getVenueTasks") {
+      // venue_id 未指定 = base（共通）タスクのみ。停止中も含めて返す（画面側で絞る）。
+      const tasks = getDashboardTasks(venueId || null);
+      return responseJSON({ status: "ok", tasks });
+    }
+
+    if (action === "updateTaskMaster") {
+      const taskId = String(postData.task_id || "");
+      const patch = postData.patch || {};
+      if (!taskId) {
+        return responseJSON({ status: "error", message: "task_id is required" });
+      }
+      // venue_id は編集させない（式場の紐づけが壊れるとタスクが一覧から消えるため）
+      const fields = [
+        "category", "task_content", "due_formula", "due_estimate",
+        "memo", "reminder_message", "manual_url", "is_active",
+      ];
+      let applied = 0;
+      for (const f of fields) {
+        if (patch[f] === undefined) continue;
+        updateTaskField(taskId, f, patch[f]);
+        applied++;
+      }
+      if (!applied) {
+        return responseJSON({ status: "error", message: "更新対象の項目がありません" });
+      }
+      return responseJSON({ status: "updated" });
+    }
+
+    if (action === "addTaskMaster") {
+      const task = postData.task || {};
+      if (!String(task.task_content || "").trim()) {
+        return responseJSON({ status: "error", message: "task_content は必須です" });
+      }
+      const r = venueId ? addVenueTask(venueId, task) : addBaseTask(task);
+      return responseJSON({ status: "created", task_id: r.task_id });
     }
 
     if (action === "updateTaskManualUrl") {

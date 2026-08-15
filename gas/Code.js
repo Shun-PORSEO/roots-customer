@@ -45,7 +45,16 @@ function doGetLiff(e) {
             return responseJSON({ tasks });
         }
         if (action === "getVenues") {
-            const venues = getVenues();
+            // 未認証（LIFFの登録画面など）からも呼ばれる公開エンドポイントなので、
+            // line_channel_access_token などの秘密は絶対に含めない。必要な項目だけ返す。
+            const venues = getVenues().map((v) => ({
+                venue_id: v.venue_id,
+                venue_name: v.venue_name,
+                planner_line_user_id: v.planner_line_user_id,
+                line_liff_id: v.line_liff_id,
+                active: v.active,
+                created_at: v.created_at,
+            }));
             return responseJSON({ status: "ok", venues });
         }
         return responseJSON({ status: "error", message: "Invalid action" });
@@ -63,6 +72,23 @@ function doPost(e) {
         const venueId = postData.venue_id || "";
         if (!lineId) {
             return responseJSON({ status: "error", message: "Unauthorized" });
+        }
+        // 管理系の action は customers.is_admin が立っている呼び出し元だけに許可する。
+        // このゲートは Code.ts にはあったが .js に取り込まれておらず、本番では
+        // line_id を名乗るだけで管理系が叩ける状態になっていた（2026-08-15 修正）。
+        const ADMIN_ACTIONS = [
+            "getUsers", "getUsersWithProgress", "getAdminUserTasks",
+            "toggleTaskVisibility", "addCustomTask", "deleteCustomTask",
+            "getMessageDrafts", "updateDraftStatus", "updateDraftMessage",
+            "getVenueDetail", "updateTaskManualUrl", "getVenueTasks",
+            "updateTaskMaster", "addTaskMaster",
+            "getTaskItemTemplates", "addTaskItemTemplate",
+        ];
+        if (ADMIN_ACTIONS.indexOf(action) >= 0) {
+            const caller = getCustomer(lineId);
+            if (!caller || !caller.is_admin) {
+                return responseJSON({ status: "error", message: "Forbidden" });
+            }
         }
         if (action === "getUser") {
             const existing = getCustomer(lineId);
@@ -291,6 +317,46 @@ function doPost(e) {
             const users = getUsersWithProgress(postData.venue_id);
             const pendingDrafts = getMessageDrafts(postData.venue_id, "pending");
             return responseJSON({ status: "ok", venue, users, pending_drafts_count: pendingDrafts.length });
+        }
+        // ─── タスクマスター（Next.js 管理画面 /admin/tasks 用）────────────────
+        // 実装は GAS ダッシュボード側（dashboard-server.js）と共有する。
+        // あちらは列をヘッダー名で解決する（_colMap）ので task_master の列が
+        // 増減しても壊れない。ここで列番号を直書きしないこと。
+        if (action === "getVenueTasks") {
+            // venue_id 未指定 = base（共通）タスクのみ。停止中も含めて返す（画面側で絞る）。
+            const tasks = getDashboardTasks(venueId || null);
+            return responseJSON({ status: "ok", tasks });
+        }
+        if (action === "updateTaskMaster") {
+            const taskId = String(postData.task_id || "");
+            const patch = postData.patch || {};
+            if (!taskId) {
+                return responseJSON({ status: "error", message: "task_id is required" });
+            }
+            // venue_id は編集させない（式場の紐づけが壊れるとタスクが一覧から消えるため）
+            const fields = [
+                "category", "task_content", "due_formula", "due_estimate",
+                "memo", "reminder_message", "manual_url", "is_active",
+            ];
+            let applied = 0;
+            for (let fi = 0; fi < fields.length; fi++) {
+                const f = fields[fi];
+                if (patch[f] === undefined) continue;
+                updateTaskField(taskId, f, patch[f]);
+                applied++;
+            }
+            if (!applied) {
+                return responseJSON({ status: "error", message: "更新対象の項目がありません" });
+            }
+            return responseJSON({ status: "updated" });
+        }
+        if (action === "addTaskMaster") {
+            const task = postData.task || {};
+            if (!String(task.task_content || "").trim()) {
+                return responseJSON({ status: "error", message: "task_content は必須です" });
+            }
+            const r = venueId ? addVenueTask(venueId, task) : addBaseTask(task);
+            return responseJSON({ status: "created", task_id: r.task_id });
         }
         if (action === "updateTaskManualUrl") {
             const taskId = String(postData.task_id || "");
