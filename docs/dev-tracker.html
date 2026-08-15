@@ -53,6 +53,23 @@ const MILESTONES = [
 // timeline.kind: "コメント" | "状態変更" | "決定" | "コミット"
 const ISSUES = [
   {
+    id: "#37",
+    title: "管理ダッシュボードの全画面に「戻す / 進む」を追加",
+    body: "タスクの停止に付けた「元に戻す」が好評だったため、同じ取り消し手段を全画面に広げる。サイドバーに常駐する ↶戻す / ↷進む を置き、どの画面からでも直前の操作を取り消せるようにする。Ctrl+Z / Ctrl+Shift+Z にも対応。",
+    specs: ["gas/dashboard.html"],
+    labels: ["feat", "UX", "GASダッシュボード"],
+    status: "完了",
+    milestone: "M4",
+    created: "2026-08-16",
+    updated: "2026-08-16",
+    timeline: [
+      { date: "2026-08-16", kind: "決定", text: "「操作を戻す/進む」は画面遷移ではなく操作の取り消し（Undo/Redo）と確認。" },
+      { date: "2026-08-16", kind: "実装", text: "各操作が成功時に自分で「元に戻す手順」「やり直す手順」を履歴に登録する方式。履歴は画面側のみ・最大30件・再読み込みで消える。ヘルパーは histPushSwap（引数違いで同じ関数を呼ぶ操作）/ histPushAdd（追加の取り消し＝行を消す）/ histPushDelete（削除の取り消し＝同じ内容で作り直す）の3種。入力欄にフォーカスがある間はブラウザ標準の取り消しを優先する。" },
+      { date: "2026-08-16", kind: "コメント", text: "取り消せない操作（全式場同期・進捗リセット・カスタムタスク削除・カップル追加・LINE手動送信・シート初期化・トリガー登録）は履歴ごと破棄して通知する。登録も破棄もしないと古い操作を誤って戻すため、全28箇所の更新系呼び出しがどちらかに必ず接続されていることを確認した。" },
+      { date: "2026-08-16", kind: "状態変更", text: "本番反映済み（@43）。JS構文チェック通過。" },
+    ],
+  },
+  {
     id: "#36",
     title: "【根本原因】action付きGETがJSON APIに届かず、LIFF・管理画面のGET経路が全滅していた",
     body: "Web App の GET 入口は dashboard-server.js の doGet ひとつだけ。ところが JSON API は Code.js に doGetLiff という別名で定義されており、外部からは一度も呼ばれていなかった。結果、apiClient.get(...) は常にダッシュボードのHTMLを受け取り、JSONパースに失敗していた。\n\n壊れていた画面:\n- (liff)/dashboard … getTasksAndUser（カップルのタスク一覧）\n- (liff)/tasks/[task_id] … getTasks\n- (liff)/register … getVenues（式場の選択欄が出ない直接の原因＝#33）\n- /admin/tasks・/admin/messages・/admin/venues … getVenues（式場ドロップダウン）\n\nカップル側は localStorage キャッシュがあるため既存ユーザーには前回の内容が表示され続け、初回・端末変更・キャッシュ削除時だけ失敗するという見えにくい壊れ方をしていた。",
@@ -139,13 +156,15 @@ const ISSUES = [
     body: "式場別タスクに手配物テンプレを追加すると、共通（base task）側の一覧にも現れる。\n\n原因は保存先ではなく表示側。getDashboardTasks(venueId) は venueId 未指定のとき全タスク（式場別も含む）を返しており、画面ラベル『base task（全共通）』と実際の中身が食い違っていた。手配物テンプレは task_id 単位で正しく紐づいている。",
     specs: ["gas/dashboard-server.js"],
     labels: ["bug", "GASダッシュボード"],
-    status: "完了",
+    status: "未対応",
     milestone: "M4",
     created: "2026-08-15",
     updated: "2026-08-15",
     timeline: [
       { date: "2026-08-15", kind: "コメント", text: "調査: addTaskItemTemplate は line_id='' + task_id で登録され、copyTaskItemTemplatesToCustomer は _taskVenueMap() でタスクの venue_id を見てカップルへ配る。保存経路は正しく、式場別スコープは task_id 経由で効いている。問題は共通ビューが式場別タスクまで一覧していたこと。" },
       { date: "2026-08-15", kind: "実装", text: "getDashboardTasks(venueId) の venueId 未指定時を all → venue_id が空のものだけ に変更。ラベルどおり base のみを表示する。" },
+      { date: "2026-08-16", kind: "状態変更", text: "差し戻した（@42）。この変更でタスクマスターの既定表示（base task 全共通）が空になるとユーザー報告。base タスクが存在しない運用のため、絞り込むと1件も出なくなっていた。動いている画面を優先して従来どおり全タスクを返す挙動に戻した。" },
+      { date: "2026-08-16", kind: "コメント", text: "再調査が必要。「式場別に入れた手配物が共通に入る」の原因は共通ビューの一覧範囲ではなかった可能性が高い。手配物テンプレは line_id='' + task_id で保存され、配布時は _taskVenueMap() でタスクの venue_id を見て式場が一致するカップルにのみコピーされる仕組み。実際の画面と実データを見ながら切り分け直す。" },
       { date: "2026-08-15", kind: "状態変更", text: "本番反映済み。clasp push 後、既存デプロイID（AKfycbx9HcGHZrb…）を指定して @39 として公開。Web App の URL は変更なし。公開中バージョンを pull し直して内容一致を確認済み。" },
     ],
   },
