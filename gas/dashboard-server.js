@@ -248,7 +248,11 @@ function toggleVenueActive(venueId, active) {
 function getDashboardTasks(venueId) {
   try {
     const all = _readTaskSheet(true);
-    if (!venueId) return all;
+    // venueId 未指定 = 画面の「base task（全共通）」表示。
+    // ここで全タスクを返すと式場別タスク（venue_id 付き）まで共通側に並んでしまい、
+    // 式場別タスクに追加した手配物テンプレが「共通に入った」ように見える。
+    // ラベルどおり base（venue_id が空）だけを返す。
+    if (!venueId) return all.filter(function (t) { return !t.venue_id; });
     return all.filter(function (t) { return t.venue_id === venueId; });
   } catch (e) { throw new Error(e.message); }
 }
@@ -331,33 +335,8 @@ function toggleTaskActive(taskId, active) {
   } catch (e) { throw new Error(e.message); }
 }
 
-function testLineSend(taskId, venueId) {
-  try {
-    const venue = getVenue(venueId);
-    if (!venue) throw new Error('Venue not found: ' + venueId);
-    if (!venue.planner_line_user_id)    throw new Error('planner_line_user_id が未設定です');
-    if (!venue.line_channel_access_token) throw new Error('line_channel_access_token が未設定です');
-
-    const tasks = _readTaskSheet(true);
-    const task  = tasks.filter(function (t) { return t.task_id === taskId; })[0];
-    if (!task) throw new Error('Task not found: ' + taskId);
-
-    const text = '[テスト送信]\nタスク: ' + task.task_content + '\n期限目安: ' + task.due_estimate;
-    const options = {
-      method: 'post',
-      contentType: 'application/json',
-      headers: { Authorization: 'Bearer ' + venue.line_channel_access_token },
-      payload: JSON.stringify({
-        to: venue.planner_line_user_id,
-        messages: [{ type: 'text', text: text }],
-      }),
-      muteHttpExceptions: true,
-    };
-    const res = UrlFetchApp.fetch('https://api.line.me/v2/bot/message/push', options);
-    const ok  = res.getResponseCode() === 200;
-    return { ok: ok, message: ok ? '送信しました' : res.getContentText() };
-  } catch (e) { throw new Error(e.message); }
-}
+// testLineSend（タスクマスターの「✈ LINEテスト送信」）は 2026-08-15 に廃止。
+// 画面側のボタン・ハンドラ・マニュアル記述もあわせて削除済み。
 
 function syncBaseTasks() {
   try {

@@ -347,7 +347,7 @@ export default function VenuesPage() {
           </Field>
           <Field
             label="プランナー LINE user_id"
-            hint="日次サマリ・テスト送信の宛先"
+            hint="日次サマリの宛先"
           >
             <input
               type="text"

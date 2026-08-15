@@ -30,18 +30,33 @@ function RegisterPageInner() {
   const [name2, setName2] = useState("");
   const [venueId, setVenueId] = useState(urlVenueId);
   const [venues, setVenues] = useState<IVenue[]>([]);
+  const [venuesLoading, setVenuesLoading] = useState(!urlVenueId);
+  const [venuesError, setVenuesError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // URL クエリで式場が指定されていない場合のみ、ドロップダウン用に式場一覧を取得する
+  // URL クエリで式場が指定されていない場合のみ、ドロップダウン用に式場一覧を取得する。
+  // 取得に失敗したりゼロ件だったりしても黙って隠さない（隠すと式場未紐づけのまま登録できてしまう）。
   useEffect(() => {
     if (urlVenueId) return;
+    setVenuesLoading(true);
     apiClient
       .get("getVenues", "guest")
       .then((res) => {
-        if (res.venues) setVenues((res.venues as IVenue[]).filter((v) => v.active));
+        const list = ((res.venues as IVenue[]) || []).filter((v) => v.active);
+        setVenues(list);
+        setVenuesError(
+          list.length === 0
+            ? "ご利用可能な式場が見つかりませんでした。お手数ですが式場の担当者にお問い合わせください。"
+            : null
+        );
       })
-      .catch(() => {});
+      .catch(() =>
+        setVenuesError(
+          "式場の一覧を取得できませんでした。通信環境をご確認のうえ、画面を再読み込みしてください。"
+        )
+      )
+      .finally(() => setVenuesLoading(false));
   }, [urlVenueId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -70,8 +85,9 @@ function RegisterPageInner() {
     return <Spinner fullScreen />;
   }
 
-  // URLでvenueが指定されていない場合はドロップダウンで必ず1つ選んでもらう
-  const needsVenueSelection = !urlVenueId && venues.length > 0;
+  // URLでvenueが指定されていない場合はドロップダウンで必ず1つ選んでもらう。
+  // 一覧が空でも欄自体は出す（欄ごと消すと式場未選択のまま「はじめる」が押せてしまうため）。
+  const needsVenueSelection = !urlVenueId;
   const isFormValid = weddingDate && name1 && name2 && (!needsVenueSelection || venueId);
 
   return (
@@ -101,16 +117,26 @@ function RegisterPageInner() {
                 value={venueId}
                 onChange={(e) => setVenueId(e.target.value)}
                 required
+                disabled={venuesLoading || venues.length === 0}
                 aria-label="ご利用の式場"
                 className="input-base"
               >
-                <option value="">式場をお選びください</option>
+                <option value="">
+                  {venuesLoading
+                    ? "読み込み中…"
+                    : venues.length === 0
+                      ? "式場を取得できませんでした"
+                      : "式場をお選びください"}
+                </option>
                 {venues.map((v) => (
                   <option key={v.venue_id} value={v.venue_id}>
                     {v.venue_name}
                   </option>
                 ))}
               </select>
+              {venuesError && (
+                <p className="text-body-sm text-error mt-2xs">{venuesError}</p>
+              )}
             </div>
           )}
 

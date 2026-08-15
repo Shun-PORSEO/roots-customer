@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>roots-concierge — 開発ボード</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+JP:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<!--
+═══════════════════════════════════════════════════════════════════
+  開発ボード（単一HTML・自己完結）— HTMLドリブン開発の正本
+
+  * このファイルが「いま何を作っているか」の正本。GitHub Issues 的な
+    作業項目（ISSUES）を、実装の進行に合わせて Claude Code が更新する。
+  * gstack で計画（/spec, /autoplan, /plan-*）を立てたら、その計画は
+    MILESTONES＋配下 ISSUES としてここに流し込む。
+  * 触るのは下の <script id="data"> 内の 3 つだけ:
+      1. LAST_UPDATED — 更新日（YYYY-MM-DD）
+      2. MILESTONES   — gstack 計画のまとまり（1計画=1マイルストーン）
+      3. ISSUES       — 作業項目。削除せず status で管理（不要は "クローズ"）
+                        各イシューの timeline は「追記のみ」（履歴を消さない）
+  * HTML/CSS/描画スクリプトは原則触らない。表示不具合の修正のみ可。
+═══════════════════════════════════════════════════════════════════
+-->
+<script id="data">
+const PROJECT = {
+  name: "roots-concierge",
+  tagline: "式場向け結婚式準備SaaS — カップル向けLINE LIFF + 式場管理画面（roots-customer から横展開・repo: Shun-PORSEO/roots-concierge）",
+};
+
+const LAST_UPDATED = "2026-08-02";
+
+// gstack の計画＝マイルストーン。1つの計画（/spec・/autoplan の成果）が
+// 1マイルストーンになり、その計画で切り出した作業が配下の ISSUES になる。
+// status: "計画中" | "進行中" | "完了" | "保留"
+const MILESTONES = [
+  { id: "M1", title: "Supabase移行 Phase A（縦スライス）",
+    goal: "フロントが使う全アクションを NEXT_PUBLIC_BACKEND=db で新スタック（LINE検証→httpOnlyセッション→RLSスコープDB）に切替可能にする。src/lib/api.ts のシームだけでGAS→新スタックに切替（UI無改修）。",
+    status: "進行中", created: "2026-07-08" },
+  { id: "M2", title: "Supabase移行 Phase B / 本番切替",
+    goal: "プランナー権限分離・リマインドエンジン・本番シークレット管理・Sheets→Postgres データ移行。実運用へ切り替える。",
+    status: "計画中", created: "2026-07-08" },
+  { id: "M3", title: "式場向けマルチテナントSaaS横展開（Epic: roots-concierge#1）",
+    goal: "式場担当者が自力でサインアップ→LINE公式アカウント作成→キー入力→接続テスト→カップル招待まで完走できる SaaS 化。受け入れライン＝第三者のセルフサーブ完走。Stripe月額サブスク（仮: 9,800円/月・14日トライアル）、GAS完全廃止、Sheets移行スクリプト含む。リポジトリは Shun-PORSEO/roots-concierge に分離（コード・イシューとも移管、roots-customer 側の #10〜#19 は obsolete クローズ済み）。GitHub Issues は roots-concierge #1〜#10 と同期。",
+    status: "保留", created: "2026-08-02" },
+  { id: "M4", title: "本番（GASダッシュボード）の運用改善",
+    goal: "式場担当者が日々使っている GAS 製ダッシュボード（Web App が配信する dashboard.html）の使い勝手と正しさを直す。Next.js 側の /admin とは別実装なので、本番の困りごとはこちらで直す。",
+    status: "進行中", created: "2026-08-15" },
+];
+
+// GitHub Issue 的な作業項目（＝生きた要件定義）。行は削除しない。
+// 不要になったら status:"クローズ"（取消）にして残す。
+// status: "未対応" | "対応中" | "完了" | "クローズ"
+// timeline.kind: "コメント" | "状態変更" | "決定" | "コミット"
+const ISSUES = [
+  {
+    id: "#30",
+    title: "タスクマスター: 停止すると一覧から消えて「削除された」ように見える → 取り消し導線を追加",
+    body: "停止（⏸）を押すとタスクが一覧から消えるため、削除されたと誤解される。実際はデータは残っており、is_active=false になって既定の絞り込み（有効なタスクのみ表示）から外れているだけ。\n\n対応: 停止直後のトーストに「元に戻す」ボタンを出し、その場で戻せるようにする。あわせて文言で「削除ではない」ことと「停止も表示」で確認できることを伝える。",
+    specs: ["gas/dashboard.html"],
+    labels: ["bug", "UX", "GASダッシュボード"],
+    status: "完了",
+    milestone: "M4",
+    created: "2026-08-15",
+    updated: "2026-08-15",
+    timeline: [
+      { date: "2026-08-15", kind: "コメント", text: "原因特定: loadAndRenderTasks が showInactive 未チェック時に is_active のみへ絞り込むため、停止した瞬間に行が消える。データ欠損ではない。当初 sheets.js の updateTaskMaster に列ズレを見つけて原因と考えたが、GASダッシュボードは updateTaskField 経由でヘッダー名から列を解決しており（_colMap）この経路は無関係だった（訂正済み）。" },
+      { date: "2026-08-15", kind: "実装", text: "toast() に任意の action（ラベル＋コールバック）を受け取れるよう拡張し、ボタン付きのときだけ表示時間を 9 秒に延長。停止時のトーストに『元に戻す』を追加し、押すと toggleTaskActive で即座に復帰。文言も『停止しました（削除ではありません。「停止も表示」で確認できます）』に変更。CSS .toast__action を追加。" },
+    ],
+  },
+  {
+    id: "#31",
+    title: "タスクマスター: LINEテスト送信機能を廃止",
+    body: "タスクマスター各行の「✈ LINEテスト送信」を、画面・サーバー関数・マニュアル記述ごと削除する。",
+    specs: ["gas/dashboard.html", "gas/dashboard-server.js"],
+    labels: ["chore", "GASダッシュボード"],
+    status: "完了",
+    milestone: "M4",
+    created: "2026-08-15",
+    updated: "2026-08-15",
+    timeline: [
+      { date: "2026-08-15", kind: "実装", text: "dashboard.html: ✈ ボタン・クリックハンドラ・操作一覧の行・マニュアル 2-6 節・FAQ 項目・式場フィールド説明の文言を削除。dashboard-server.js: testLineSend() を削除。残存 grep 0 件、JS 構文チェック通過。Next.js 側 /admin/tasks・/admin/help の同等機能もあわせて削除（そちらは現状ほぼ未稼働だが表記を揃えた）。" },
+    ],
+  },
+  {
+    id: "#32",
+    title: "タスクマスター: 式場別タスクに入れた手配物が「共通」にも出てしまう",
+    body: "式場別タスクに手配物テンプレを追加すると、共通（base task）側の一覧にも現れる。\n\n原因は保存先ではなく表示側。getDashboardTasks(venueId) は venueId 未指定のとき全タスク（式場別も含む）を返しており、画面ラベル『base task（全共通）』と実際の中身が食い違っていた。手配物テンプレは task_id 単位で正しく紐づいている。",
+    specs: ["gas/dashboard-server.js"],
+    labels: ["bug", "GASダッシュボード"],
+    status: "完了",
+    milestone: "M4",
+    created: "2026-08-15",
+    updated: "2026-08-15",
+    timeline: [
+      { date: "2026-08-15", kind: "コメント", text: "調査: addTaskItemTemplate は line_id='' + task_id で登録され、copyTaskItemTemplatesToCustomer は _taskVenueMap() でタスクの venue_id を見てカップルへ配る。保存経路は正しく、式場別スコープは task_id 経由で効いている。問題は共通ビューが式場別タスクまで一覧していたこと。" },
+      { date: "2026-08-15", kind: "実装", text: "getDashboardTasks(venueId) の venueId 未指定時を all → venue_id が空のものだけ に変更。ラベルどおり base のみを表示する。" },
+    ],
+  },
+  {
+    id: "#33",
+    title: "カップル登録: 式場を選ぶ欄が出ないことがある／未選択でも登録できる",
+    body: "友だち追加後の登録画面（/register）で式場の選択欄が出ないケースがある。needsVenueSelection の条件が venues.length > 0 だったため、式場一覧の取得に失敗したりゼロ件だと欄ごと消えていた。取得失敗は catch で握りつぶされ、エラー表示も無し。\n\nさらに欄が消えると isFormValid の式場チェックも外れるため、venue_id 空のまま登録できてしまい、式場に紐づかないカップルが生まれる。",
+    specs: ["src/app/(liff)/register/page.tsx"],
+    labels: ["bug", "LIFF", "データ整合性"],
+    status: "対応中",
+    milestone: "M4",
+    created: "2026-08-15",
+    updated: "2026-08-15",
+    timeline: [
+      { date: "2026-08-15", kind: "実装", text: "needsVenueSelection を !urlVenueId のみに変更し、一覧が空でも欄を必ず出す。読み込み中／取得失敗／ゼロ件をプレースホルダとエラー文で明示し、catch の握りつぶしをやめた。選択できない間は select を disabled にし、未選択では送信不可のまま。tsc 0 件 / next build 13ルート緑。" },
+      { date: "2026-08-15", kind: "コメント", text: "未解決: 式場一覧がそもそも取れていないのか、有効な式場がゼロ件なのかは実機で未確認。今回の変更で原因が画面に出るようになるので、そこで切り分ける。また本番 Vercel は main ではなく 865150f のビルドを昇格した状態なので、この修正を届けるには main の本番反映が必要。" },
+    ],
+  },
+  {
+    id: "#28",
+    title: "【本番障害】LINE友だち追加から開くとカップル画面ではなくLPが表示される",
+    body: "C6 で `/` を式場向けLPに差し替え、旧LIFF入口を `/liff` へ移設した。しかし LINE 側に登録されている LIFF エンドポイントURLは `/` を指したままのため、友だち追加・リッチメニューから開くとLPが表示され、カップルがタスク画面に到達できない。\n\n救済用の LegacyLiffRedirect は `liff.state` または `venue` クエリがある場合のみ発動する設計だが、LIFFルート起動ではこれらが付かず、条件がすり抜けた（実機で再現・スクショあり）。\n\nさらに根深い問題として、本番にデプロイされているのは Supabase 版コードだが C7 のデータ移行は未実行のため、入口を /liff に向け直すだけでは「タスクが全部消えた」状態になる。切り戻しが先。",
+    specs: ["src/app/page.tsx", "src/components/lp/LegacyLiffRedirect.tsx", "src/app/(liff)/liff/page.tsx"],
+    labels: ["bug", "本番障害", "LIFF", "SaaS化"],
+    status: "完了",
+    milestone: "M3",
+    created: "2026-08-15",
+    updated: "2026-08-15",
+    timeline: [
+      { date: "2026-08-15", kind: "コメント", text: "ユーザー報告: LINE友だち追加→ログインでタスク管理画面ではなくLP（Roots AI Planner のヒーロー画面）が表示される。スクショで確認。" },
+      { date: "2026-08-15", kind: "コメント", text: "原因特定: C6(3649782) で src/app/(liff)/page.tsx → src/app/(liff)/liff/page.tsx へ移設し、`/` を LP に差し替え。LINE 側 LIFF エンドポイントは `/` のままのため LP に着地する。LegacyLiffRedirect の発動条件 `params.has(\"liff.state\") || params.has(\"venue\")` が LIFF ルート起動では満たされず救済が効かなかった。" },
+      { date: "2026-08-15", kind: "コメント", text: "二次リスク: 本番稼働コードが Supabase 版で、C7 の Sheets→Supabase 移行が未実行（.env なし / supabase/config.toml なし / コミットメッセージに『残: 実DBでの --apply』）。エンドポイント修正のみ先行すると既存カップルのタスクが 0 件表示になる。" },
+      { date: "2026-08-15", kind: "決定", text: "止血方針をユーザー承認: Vercel の Instant Rollback で 865150f（GAS修正時点＝スプシ版）を本番に昇格させ、まず既存カップルの利用を復旧する。コードは変更しない。SaaS化の作業ブランチは温存。" },
+      { date: "2026-08-15", kind: "コメント", text: "経路を実データで確定。LINE の LIFF エンドポイント = https://roots-customer.vercel.app（本番ドメイン）、Production の Branch Tracking = main。Vercel Deployments に『Merge branch feat/supabase-vertical-slice: SaaS化 C1〜C9』(f2dc047 / branch main / 2時間前) の Production デプロイが記録されており、これが本番を LP 版に置き換えた直接原因。作業ブランチのプレビューではなく main へのマージが引き金だった。" },
+      { date: "2026-08-15", kind: "コメント", text: "マージコミット f2dc047 は GitHub 上に存在しない（git ls-remote origin main = b506719、Jul 12 のまま）。実行主体はユーザー本人と確認済み — 本人が main にマージし、本人が巻き戻した。自動化・外部エージェントによるものではない。" },
+      { date: "2026-08-15", kind: "状態変更", text: "復旧確認: curl https://roots-customer.vercel.app が LIFF 読み込み画面（『準備しています…』）を返し、LP の目印（FOR WEDDING VENUES / Roots AI Planner）は出ない。現 Production は fix(gas) ビルド（3665aZ5vc の rebuild）。本番はスプシ版に戻っている。" },
+      { date: "2026-08-15", kind: "コメント", text: "訂正: 当初『feat ブランチへの空コミット push が引き金』と推定したが誤り。空コミット(a24a203)は Preview デプロイのみで本番に影響していない。原因は main へのマージ。" },
+    ],
+  },
+  {
+    id: "#29",
+    title: "SaaS化ブランチを本番に出すための前提条件を揃える（本番切替チェックリスト）",
+    body: "2026-08-15、SaaS化ブランチを main にマージしたところ本番のLIFFがLPに置き換わり、カップルがタスク画面に到達できなくなった（#28）。マージ自体は正しい方向だが、前提条件が未達のまま出したことが問題。\n\n本番に出す前に全部を満たすこと:\n1. C7: Sheets→Supabase のデータ移行を実 DB に --apply して件数照合まで完了\n2. Vercel 本番の環境変数を設定（DATABASE_URL_APP_COUPLE / SESSION_SECRET ほか）\n3. LINE の LIFF エンドポイントURLを /liff に変更\n4. LegacyLiffRedirect の発動条件を見直す（liff.state / venue が付かないルート起動でも救済されるように）\n5. LINE 実機でカップル導線を1周確認（友だち追加→タスク表示→完了チェック）\n\n1〜5 が揃うまで main にマージしない。",
+    specs: ["scripts/migrate-sheets/", "src/components/lp/LegacyLiffRedirect.tsx", "src/app/(liff)/liff/page.tsx"],
+    labels: ["運用", "本番切替", "SaaS化"],
+    status: "クローズ",
+    milestone: "M3",
+    created: "2026-08-15",
+    updated: "2026-08-15",
+    timeline: [
+      { date: "2026-08-15", kind: "決定", text: "#28 の障害を受けて起票。マージ・巻き戻しともユーザー本人の操作で、自動化の暴走ではないことを確認。ブランチ保護は入れず、代わりに本番切替の前提条件を5項目のチェックリストとして明文化し、揃うまで main にマージしない運用にする。" },
+      { date: "2026-08-15", kind: "決定", text: "クローズ。ユーザー判断で SaaS化（Supabase版）を没にし、作業ブランチ feat/supabase-vertical-slice を削除した。復元用にタグ archive/supabase-vertical-slice を GitHub に push 済み（git checkout -b <名前> archive/supabase-vertical-slice で復帰可能）。以降の本番改善は GAS ダッシュボード側（M4）で行う。" },
+    ],
+  },
+  {
+    id: "#19",
+    title: "C1: テナント管理者認証（Supabase Auth）+ tenant_admins + RLS更新",
+    body: "現行の「LINEログイン + customers.is_admin」を廃止し、テナント管理者はSupabase Auth（メール）でログインする。auth.users ↔ companies を紐づける tenant_admins テーブルを追加し、app.current_company_id() 相当の解決を tenant_admins 経由に更新。クロステナント遮断をRLSテストで証明する。既存カップルのLIFF認証は壊さない。\n\nGitHub: roots-concierge#2 / 優先度: Critical / 見積: 2-3日 / 依存: なし",
+    specs: ["supabase/migrations/", "src/lib/server/session.ts", "src/app/api/admin/route.ts"],
+    labels: ["feat", "認証", "セキュリティ", "SaaS化"],
+    status: "対応中",
+    milestone: "M3",
+    created: "2026-08-02",
+    updated: "2026-08-02",
+    timeline: [
+      { date: "2026-08-02", kind: "決定", text: "Phase 4 要件定義をユーザー承認。roots-concierge#2 として起票し、依存なしの先頭タスクとして着手。" },
+      { date: "2026-08-02", kind: "コメント", text: "実装完了: 0003_tenant_admins.sql（tenant_admins / request.admin_id GUC / app.is_admin()・current_company_id() を tenant_admins 経由に差し替え / provision_tenant 冪等関数）。関数差し替えだけで 0002 の管理者ポリシー全部が新モデルに切替。GoTrue REST 直呼び（SDK 依存なし・トークン非露出）→ 自前 httpOnly 管理者セッション（rc_admin_session）。/api/auth/admin（login/signup/確認/logout）、/api/admin と /api/user の認証を管理者セッションへ切替（旧 LINE+is_admin 廃止）。/login・/signup ページ新設、AuthGate/useAdminAuth を LIFF 非依存化（getAdminLineId は互換シムで UI 無改修）。seed に admin@example.com + B社テナント、supabase/tests/rls_c1.sql にクロステナント遮断テスト5本。" },
+      { date: "2026-08-02", kind: "状態変更", text: "tsc 0件 / next build 20ルート緑。残: supabase db reset + rls_c1.sql の実 DB 実行と curl 受け入れ（この環境は Docker/supabase CLI 無しのため未実行。手順は supabase/README.md C1 節）。" },
+    ],
+  },
+  {
+    id: "#20",
+    title: "C2: LINE マルチテナント化（キー4点・Webhook署名検証・テナント別ID Token検証・接続テストAPI）",
+    body: "venues に line_channel_secret / line_login_channel_id を追加しキー4点を揃える。/api/line/webhook/[venue_id] で venue 別の署名検証（不正署名401・venue未特定404）。ID Token 検証をグローバル env 固定から venue 別解決へ。接続テストAPI（bot/info・Webhook endpoint検証・LIFF整合）で各キーに「✓ 接続OK / ✗ エラーと直し方」を返す。\n\nGitHub: roots-concierge#3 / 優先度: Critical / 見積: 3-4日 / 依存: C1",
+    specs: ["supabase/migrations/", "src/app/api/line/", "src/lib/server/env.ts"],
+    labels: ["feat", "LINE", "セキュリティ", "SaaS化"],
+    status: "レビュー中",
+    milestone: "M3",
+    created: "2026-08-02",
+    updated: "2026-08-02",
+    timeline: [
+      { date: "2026-08-02", kind: "決定", text: "roots-concierge#3 として起票。" },
+      { date: "2026-08-02", kind: "コメント", text: "実装完了: 0004_line_multitenant.sql（line_channel_secret / line_login_channel_id 追加でキー4点が揃う + 未認証経路用 security definer 関数 app.venue_line_config（access token は返さない最小権限））。/api/line/webhook/[venue_id] 新設（venue 別 secret で HMAC-SHA256 + timingSafeEqual 署名検証。venue未特定404 / secret未設定・署名不正401）。/api/auth/line が liff_id/venue_id から venue を解決し venue 別 login_channel_id で aud 検証（env はフォールバックに格下げ・optional化）。管理 API に testLineConnection 追加（トークン→bot/info、Webhook→LINE endpoint 検証 API で登録URL突合+署名検証まで end-to-end、Login チャネルID→形式、LIFF→Login チャネルとの整合。各キーに ✓/✗+直し方を式場担当者向け文言で返す）。式場詳細画面に「LINE接続テスト」カード、新規式場フォームにシークレット/Login チャネルID 欄追加。venues の secret 系はクライアントへ値を返さず has_* フラグのみ。" },
+      { date: "2026-08-02", kind: "状態変更", text: "tsc 0件 / next build 21ルート緑 / ESLint・カスタムリンター緑。supabase/tests/line_c2.sql に受け入れテスト5本（未認証で venues 直読み不可・code/liff_id 解決・空文字非マッチ・token 非露出）。残: 実 DB での line_c2.sql 実行と実 LINE チャネルでの接続テスト確認（この環境は Docker/supabase CLI 無し。手順は supabase/README.md C2 節）。" },
+    ],
+  },
+  {
+    id: "#21",
+    title: "C3: オンボーディングウィザード + スクショ付きマニュアル",
+    body: "/onboarding に4ステップウィザード（式場情報→LINEキー4点入力→接続テスト全緑→Stripe Checkout）。onboarding_progress で中断→再開可。マニュアルは gas/manual/ の画像資産を流用し、LINE公式アカウント作成→Messaging API有効化→Loginチャネル+LIFF作成→Webhook URL設定→応答メッセージOFF→キー取得をスクショ付きで案内。\n\nGitHub: roots-concierge#4 / 優先度: Critical / 見積: 3-4日 / 依存: C2",
+    specs: ["src/app/onboarding/", "src/components/onboarding/", "supabase/migrations/0005_onboarding.sql"],
+    labels: ["feat", "オンボーディング", "SaaS化"],
+    status: "レビュー中",
+    milestone: "M3",
+    created: "2026-08-02",
+    updated: "2026-08-02",
+    timeline: [
+      { date: "2026-08-02", kind: "決定", text: "roots-concierge#4 として起票。" },
+      { date: "2026-08-02", kind: "実装", text: "実装完了。onboarding_progress（0005）で中断→再開、Step3 全緑ゲートはサーバー記録（testLineConnection の実結果でのみ line_test_passed_at 更新）。signup→/onboarding、login は onboarding_pending で再開誘導。受け入れテスト onboarding_c3.sql 追加。tsc/build/ESLint/カスタムリンター緑。" },
+      { date: "2026-08-02", kind: "決定", text: "Step2 マニュアルは模式図（コンポーネント描画）で実装 — gas/manual/ の画像は旧GAS管理画面のスクショで LINE Developers の画面が無いため。実スクショ撮影後に差し替え可能な構造。Step4 は C4 未実装のためトライアル開始の確定のみ（Checkout 差し替え前提）。" },
+    ],
+  },
+  {
+    id: "#22",
+    title: "C4: Stripe課金（Checkout/Portal/Webhook/機能ゲート）+ subscriptions",
+    body: "Checkout（14日トライアル・Price ID は env 差し替え可能・仮値 月9,800円1プラン）、Customer Portal 導線、/api/stripe/webhook での署名検証とsubscriptions 同期。trialing/active 以外は管理画面ブロック（データ保持）、Portal から復帰可能。\n\nGitHub: roots-concierge#5 / 優先度: High / 見積: 2-3日 / 依存: C1",
+    specs: ["supabase/migrations/", "src/app/api/stripe/"],
+    labels: ["feat", "課金", "SaaS化"],
+    status: "未対応",
+    milestone: "M3",
+    created: "2026-08-02",
+    updated: "2026-08-02",
+    timeline: [
+      { date: "2026-08-02", kind: "決定", text: "roots-concierge#5 として起票。" },
+    ],
+  },
+  {
+    id: "#23",
+    title: "C5: GAS廃止（リマインド Vercel Cron 化 + AI生成移植・レート制限付き）",
+    body: "毎朝9:00 JST の Vercel Cron で全アクティブ venue のリマインド送信（送信記録で冪等化・重複ゼロ）。AI メッセージ生成を Next.js に移植し、運営者の Claude API キー共通提供 + ai_usage テーブルでテナント別レート制限。GAS 依存コードを実行パスから排除。\n\nGitHub: roots-concierge#6 / 優先度: High / 見積: 2-3日 / 依存: C2",
+    specs: ["vercel.json", "src/app/api/cron/", "gas/"],
+    labels: ["feat", "GAS廃止", "SaaS化"],
+    status: "未対応",
+    milestone: "M3",
+    created: "2026-08-02",
+    updated: "2026-08-02",
+    timeline: [
+      { date: "2026-08-02", kind: "決定", text: "roots-concierge#6 として起票。" },
+    ],
+  },
+  {
+    id: "#24",
+    title: "C6: LP（ヒーロー/機能/料金/FAQ/CTA）",
+    body: "式場向けLPをトップ（/）に実装。CTA→/signup 導線。料金表示は変更に追従しやすい作り（1箇所集約）。モバイル崩れなし・既存管理画面/LIFFのルーティングを壊さない。\n\nGitHub: roots-concierge#7 / 優先度: High / 見積: 1-2日 / 依存: なし（独立）",
+    specs: ["src/app/page.tsx"],
+    labels: ["feat", "LP", "SaaS化"],
+    status: "未対応",
+    milestone: "M3",
+    created: "2026-08-02",
+    updated: "2026-08-02",
+    timeline: [
+      { date: "2026-08-02", kind: "決定", text: "roots-concierge#7 として起票。" },
+    ],
+  },
+  {
+    id: "#25",
+    title: "C7: Sheets→Supabase 移行スクリプト",
+    body: "現行 Sheets 運用顧客のデータ（venue・カップル・タスク進捗・タスクマスタ）を取り込む一回性CLI。件数照合レポート・冪等・ドライラン付き。\n\nGitHub: roots-concierge#8 / 優先度: Medium / 見積: 1-2日 / 依存: C1,C2",
+    specs: ["scripts/"],
+    labels: ["chore", "移行", "SaaS化"],
+    status: "未対応",
+    milestone: "M3",
+    created: "2026-08-02",
+    updated: "2026-08-02",
+    timeline: [
+      { date: "2026-08-02", kind: "決定", text: "roots-concierge#8 として起票。" },
+    ],
+  },
+  {
+    id: "#26",
+    title: "C8: 運営者コンソール（読み取り専用1画面）",
+    body: "/operator に運営者のみアクセス可能な読み取り専用画面。テナント一覧・契約状態（Stripe）・AI利用量を表示。書き込み操作なし。\n\nGitHub: roots-concierge#9 / 優先度: Medium / 見積: 1日 / 依存: C4",
+    specs: ["src/app/operator/"],
+    labels: ["feat", "運営", "SaaS化"],
+    status: "未対応",
+    milestone: "M3",
+    created: "2026-08-02",
+    updated: "2026-08-02",
+    timeline: [
+      { date: "2026-08-02", kind: "決定", text: "roots-concierge#9 として起票。" },
+    ],
+  },
+  {
+    id: "#27",
+    title: "C9: E2E検証（第三者セルフサーブ完走テスト + 仕上げ）",
+    body: "第三者の式場担当者が介助なしで LP→登録→LINE設定→接続テスト全緑→カップル招待→タスク配信まで完走できることを証明。クロステナント遮断テスト（RLS/API両層）、課金ゲート動作確認、つまずき箇所の改善を含む。\n\nGitHub: roots-concierge#10 / 優先度: Critical / 見積: 2日 / 依存: C1〜C8 全部",
+    specs: [],
+    labels: ["test", "受け入れ", "SaaS化"],
+    status: "未対応",
+    milestone: "M3",
+    created: "2026-08-02",
+    updated: "2026-08-02",
+    timeline: [
+      { date: "2026-08-02", kind: "決定", text: "roots-concierge#10 として起票。Epic の受け入れライン＝このイシューの完了。" },
+    ],
+  },
+  {
+    id: "#18",
+    title: "外部の管理者がLIFFを開けない（[POST getUser] Load failed）: GAS Web Appが要Googleログインだった",
+    body: "症状: 新しい公式LINEに繋ぎ直して以降、外部の管理者がLIFFを開くと「通信エラー / [POST getUser] Load failed」。shun（スクリプト所有者）は使えるため気づきにくかった。\n\n根本原因: gas/appsscript.json の webapp.access が \"ANYONE\"。これはGASでは『Googleアカウントを持つ全員』= 要ログインを意味する（誰でも到達可は \"ANYONE_ANONYMOUS\"）。公式LINE繋ぎ直しの際の再デプロイでこのマニフェスト設定が新デプロイに適用され、未ログインの第三者には 401 + HTML（CORSヘッダー無し）が返るようになった。ブラウザのfetchは中身を読む前にネットワークエラー化するため TypeError \"Load failed\" となり、api.ts:341 が [POST getUser] を前置して表示していた。所有者はGoogleセッションを持つため通ってしまう＝『自分だけ使える』状態。\n\n検証: 本番デプロイに匿名POST→401かつACAOヘッダー無し。旧デプロイ(@20)は302+ACAO。修正後は旧デプロイと同一挙動（302+ACAO / 匿名GET 200）。\n\n対応: appsscript.json を ANYONE_ANONYMOUS に修正し、既存デプロイ(AKfycbx9Hc…)を同一URLのまま更新（Vercelの環境変数変更・再デプロイ不要）。\n\n備考: これは以前の公開状態への復旧であり露出は増えていないが、GAS経路は line_id を自己申告する構造（IDOR）が残る。恒久対策はSupabase経路(NEXT_PUBLIC_BACKEND=db)への切替 = M1。",
+    specs: ["gas/appsscript.json", "src/lib/api.ts"],
+    labels: ["fix", "本番障害", "GAS"],
+    status: "完了",
+    milestone: null,
+    created: "2026-07-15",
+    updated: "2026-07-15",
+    timeline: [
+      { date: "2026-07-15", kind: "調査", text: "本番バンドルからGASエンドポイントを特定し匿名POST → 401/HTML/CORSヘッダー無しを確認。GASのdoPostは例外もJSONで返すため、Load failed はコード到達前の失敗と断定。" },
+      { date: "2026-07-15", kind: "決定", text: "appsscript.json の access を ANYONE_ANONYMOUS へ。Apps Script APIでマニフェストのみ差し替え（コードは無変更）→ 既存デプロイを@38として更新しURL維持。" },
+      { date: "2026-07-15", kind: "状態変更", text: "対照実験（旧正常デプロイ@20と同一の 302+ACAO / 匿名GET 200）で復旧を確認。実機LIFFでの最終確認は外部管理者の再読み込み待ち。" },
+    ],
+  },
+  {
+    id: "#17",
+    title: "env検証の遅延評価化: ビルド時にシークレットを要求していた問題",
+    body: "next build の \"Collecting page data\" は route を import するだけだが、env/db/session がモジュール評価時に環境変数を読んでいたため、シークレット未設定ではビルド自体が通らず Vercel Preview が必ず失敗していた（Vercel に env を設定しても直らない設計上の問題）。\n\n- env.ts: load() を memo 化し Proxy 経由の遅延評価に（呼び出し側の env.X は無改修）\n- db.ts: postgres 接続を初回利用時に生成\n- session.ts: 署名鍵を初回利用時に解決\n\n検証は捨てず、最初に env を読む＝リクエスト処理時に fail-fast。本番混入ガード（NODE_ENV=production かつ ALLOW_DEV_LINE_BYPASS）も維持。\n受け入れ: 環境変数を一切与えない状態で next build が通る（確認済み・型エラー0件）。",
+    specs: ["src/lib/server/env.ts", "src/lib/server/db.ts", "src/lib/server/session.ts"],
+    labels: ["fix", "ビルド", "DX"],
+    status: "完了",
+    milestone: "M1",
+    created: "2026-07-12",
+    updated: "2026-07-12",
+    timeline: [
+      { date: "2026-07-12", kind: "調査", text: "Preview ビルド失敗ログから、env.ts:44 / db.ts:7 / session.ts:10 のモジュール評価時 env 参照が原因と特定。" },
+      { date: "2026-07-12", kind: "コミット", text: "49d8ad8 fix(env): 環境変数の検証を遅延評価にしてビルド時のシークレット要求を解消。env なしで next build 緑を確認。" },
+    ],
+  },
+  {
+    id: "#16",
+    title: "本番ビルド復旧: 型エラー6件で main が全デプロイError",
+    body: "Vercel の Production が Jun 以降ずっと全デプロイ Error だった原因は next build の型チェックで落ちる TypeScript 型エラー6件。\n\n- lib/api.ts: ApiError クラスが未export（ErrorMessage/InlineApiError が参照）\n- lib/types.ts: ITaskMaster interface が未定義（venues/[venue_id] が参照）\n- admin/[line_id]:68: wedding_date が string|undefined → \"\" フォールバック\n- admin/help: title に JSX Element を渡していた2箇所 → 文字列へ\n\n修正内容は feat/supabase ブランチ側の解決と一致させ後続マージ衝突を回避。tsc 0件 / next build 13ルート全生成で緑を確認しコミット→main へ push（Production 再デプロイ）。\n別件: LIFF Invalid LIFF ID は Vercel の NEXT_PUBLIC_LIFF_ID を正値に設定済み→同 push のビルドで焼き込み反映。",
+    specs: ["src/lib/api.ts", "src/lib/types.ts", "src/app/admin/[line_id]/page.tsx", "src/app/admin/help/page.tsx"],
+    labels: ["fix", "ビルド", "本番"],
+    status: "完了",
+    milestone: "M1",
+    created: "2026-07-12",
+    updated: "2026-07-12",
+    timeline: [
+      { date: "2026-07-12", kind: "調査", text: "全デプロイ Error を再現。main の型エラー6件（feat側では解決済み）がビルドを停止させていると特定。" },
+      { date: "2026-07-12", kind: "コミット", text: "b506719 fix(build): 本番ビルドを止めていた型エラー6件を修正。tsc緑・next build緑を確認。" },
+      { date: "2026-07-12", kind: "状態変更", text: "main へ push。Vercel Production 再デプロイ。NEXT_PUBLIC_LIFF_ID も正値に設定済みで同ビルドに反映。" },
+    ],
+  },
+  {
+    id: "#1",
+    title: "スライス#1: 読み取り経路の移行（getTasksAndUser / getTasks）",
+    body: "移行の最初の縦スライス。LINE ID Token検証 → httpOnlyセッション → RLSスコープDB の経路を貫通し、既存フロントと同一レスポンスを返す。\n\n- venue単位のタスク絞り込みに対応\n- src/lib/api.ts のシームだけで GAS→新スタック に切替（呼び出しUIは無改修）\n- 受け入れ: dev bypass でカップルのセッション発行 → GET /api/tasks が既存形で返る",
+    specs: ["supabase/README.md", "src/app/api/tasks/route.ts", "supabase/migrations/0001_init_vertical_slice.sql", "src/lib/api.ts"],
+    labels: ["feat", "API", "読み取り"],
+    status: "完了",
+    milestone: "M1",
+    created: "2026-07-08",
+    updated: "2026-07-08",
+    timeline: [
+      { date: "2026-07-08", kind: "コミット", text: "aaf29a8 feat(api): Supabase移行の最初の縦スライス（getTasksAndUser）" },
+      { date: "2026-07-08", kind: "状態変更", text: "実装完了。tsc/next build 緑。" },
+    ],
+  },
+  {
+    id: "#2",
+    title: "スライス#2: カップル書き込み（updateTask / updateTaskComment）",
+    body: "PATCH /api/tasks でカップルの書き込みを新スタックへ移行。\n\n- RLS 0001 ポリシーで自分の行のみ更新可\n- 手配物確定時の通知制御と連動\n- 受け入れ: 自分のタスクは更新でき、他人の行には届かない",
+    specs: ["src/app/api/tasks/route.ts", "supabase/README.md", "supabase/migrations/0001_init_vertical_slice.sql"],
+    labels: ["feat", "API", "書き込み"],
+    status: "完了",
+    milestone: "M1",
+    created: "2026-07-08",
+    updated: "2026-07-11",
+    timeline: [
+      { date: "2026-07-11", kind: "コミット", text: "fb96ecd feat(api): Supabase移行スライス#2-3（カップル書き込みを含む）" },
+    ],
+  },
+  {
+    id: "#3",
+    title: "スライス#3: 登録＋管理経路の全アクション",
+    body: "フロントが使う残りの全アクションを新スタックへ。\n\n- カップル: getUser / register（registerは customer 行が無い状態で venue 解決・行作成が要るため security definer 関数 app.register_customer に RLS 例外を限定。line_id は GUC からのみ取得）\n- 管理: getVenues/createVenue/updateVenue/updateVenueStatus/getVenueDetail/getVenueTasks/updateTaskMaster/addTaskMaster/updateTaskManualUrl/testSendTask/getUsers/getUsersWithProgress/getAdminUserTasks/toggleTaskVisibility/addCustomTask/deleteCustomTask/getTaskItems/addTaskItem/updateTaskItem/deleteTaskItem/getTaskItemTemplates/addTaskItemTemplate/getMessageDrafts/updateDraftStatus/updateDraftMessage を POST /api/admin に一括ディスパッチ\n- LINE push（手配物確定通知・テスト送信）もサーバー側で実装。トークンは venues 列からのみ参照しクライアント非露出",
+    specs: ["supabase/README.md", "src/app/api/admin/route.ts", "src/app/api/user/route.ts", "supabase/migrations/0002_admin_slice.sql"],
+    labels: ["feat", "API", "登録", "管理"],
+    status: "完了",
+    milestone: "M1",
+    created: "2026-07-11",
+    updated: "2026-07-11",
+    timeline: [
+      { date: "2026-07-11", kind: "コミット", text: "fb96ecd feat(api): Supabase移行スライス#2-3 — カップル書き込み+登録+管理経路の全アクション" },
+    ],
+  },
+  {
+    id: "#4",
+    title: "管理アクションのRLS権限ガード（is_admin＋自社company多層防御）",
+    body: "管理経路の認可を多層防御に。\n\n- 接続は常に非特権ロール app_couple（NOBYPASSRLS）。service_role は使わない\n- 各リクエストはトランザクション内で SET LOCAL request.line_id（検証済みセッション由来）\n- 管理者は customers.is_admin = true。app.is_admin() + app.current_company_id()（security definer）で「自社 company 内」だけ読み書き可能\n- ハンドラが WHERE を書き落としても他社データに届かない\n- エラー詳細はクライアントに非露出（統一エラーDTO {code,message,hint,request_id}）\n- 受け入れ: カップルのセッションで /api/admin を叩くと 403(FORBIDDEN_IDOR)",
+    specs: ["supabase/migrations/0002_admin_slice.sql", "src/lib/server/db.ts", "src/lib/server/http.ts", "supabase/README.md"],
+    labels: ["fix", "セキュリティ", "RLS"],
+    status: "完了",
+    milestone: "M1",
+    created: "2026-07-11",
+    updated: "2026-07-11",
+    timeline: [
+      { date: "2026-07-11", kind: "コミット", text: "8f5bb3b fix(gas): 管理アクションの権限ガード拡充とエラー詳細の非露出" },
+    ],
+  },
+  {
+    id: "#5",
+    title: "Supabase実起動でのE2E検証（curl手順・Docker）",
+    body: "Phase A の締め。コードは揃ったが実DBでの通し確認が未了＝次の作業。\n\n- tsc --noEmit / next build は緑（2026-07-08）\n- ただし Supabase 実起動での E2E（curl手順）は Docker 無し環境のため未実行\n- やること: supabase start → db reset（migrations+seed）→ dev bypass でカップル(dev:Udev123)/管理者(dev:Uadmin123)のセッション発行 → タスク取得/更新・進捗一覧・式場一覧を確認 → カップルで /api/admin が 403(FORBIDDEN_IDOR) になることを確認\n- 注意: 親パスに日本語(NFD分解文字)を含むと Next.js の既知バグで next build の prerender が落ちる → ASCIIパスへ clone すれば通る（Vercel/Linux ビルドは影響なし）",
+    specs: ["supabase/README.md#動かし方要-docker--supabase-cli--bunnode"],
+    labels: ["test", "検証"],
+    status: "未対応",
+    milestone: "M1",
+    created: "2026-07-08",
+    updated: "2026-07-12",
+    timeline: [
+      { date: "2026-07-08", kind: "コメント", text: "README に「Supabase 実起動での E2E はこの環境（Docker無し）では未実行。上記手順で確認するのが次の作業」と明記。" },
+    ],
+  },
+  {
+    id: "#6",
+    title: "リマインドエンジン＋message_drafts 書き込み経路",
+    body: "スライス外・次以降のフォローアップ。\n\n- 判定/送信を分離・冪等・JST基準のリマインドエンジン\n- 観測性テーブル\n- message_drafts への書き込み経路\n\n※ 着手前にまず仕様書を書く（specs 未作成）。",
+    specs: [],
+    labels: ["feat", "通知"],
+    status: "未対応",
+    milestone: "M2",
+    created: "2026-07-08",
+    updated: "2026-07-08",
+    timeline: [
+      { date: "2026-07-08", kind: "コメント", text: "README「既知のフォローアップ（スライス外・次以降）」より起票。" },
+    ],
+  },
+  {
+    id: "#7",
+    title: "プランナー専用ロール（式場単位の権限分離）",
+    body: "現状は is_admin による全社管理のみ。式場（venue）単位でプランナー権限を分離する。\n\n- Phase B の対象\n- 着手前にまず仕様書を書く（specs 未作成）。",
+    specs: [],
+    labels: ["feat", "セキュリティ", "RLS"],
+    status: "未対応",
+    milestone: "M2",
+    created: "2026-07-08",
+    updated: "2026-07-08",
+    timeline: [
+      { date: "2026-07-08", kind: "コメント", text: "README より起票。is_admin の全社管理から式場単位の権限分離へ。" },
+    ],
+  },
+  {
+    id: "#8",
+    title: "app_couple パスワードの本番シークレット管理（Vault/Secrets）",
+    body: "ローカルは seed でパスワード設定。本番では app_couple 接続情報を Vault/Secrets で管理する。\n\n- 着手前にまず仕様書を書く（specs 未作成）。",
+    specs: [],
+    labels: ["ops", "セキュリティ"],
+    status: "未対応",
+    milestone: "M2",
+    created: "2026-07-08",
+    updated: "2026-07-08",
+    timeline: [
+      { date: "2026-07-08", kind: "コメント", text: "README「既知のフォローアップ」より起票。" },
+    ],
+  },
+  {
+    id: "#9",
+    title: "本番切替: Sheets → Postgres データ移行スクリプト",
+    body: "本番切替時に既存の Google スプレッドシートのデータを Postgres へ移す移行スクリプトを用意する。\n\n- 着手前にまず仕様書を書く（specs 未作成）。",
+    specs: [],
+    labels: ["ops", "移行"],
+    status: "未対応",
+    milestone: "M2",
+    created: "2026-07-08",
+    updated: "2026-07-08",
+    timeline: [
+      { date: "2026-07-08", kind: "コメント", text: "README「既知のフォローアップ」より起票。本番切替の前提。" },
+    ],
+  },
+  {
+    id: "#12",
+    title: "本番バックエンド切替（既定を gas → db に）",
+    body: "現状フロントの既定は今も NEXT_PUBLIC_BACKEND=gas。新スタックはコード上は全アクション対応済みだが、本番デフォルトはまだGAS。\n\n- 前提: #5 の実起動E2E、#9 のデータ移行が済んでいること\n- 401サイレント再認証＋透過リトライは実装済み（src/lib/api.ts）\n- 段階的にdb既定へ切り替え、GAS経路をフォールバック→廃止",
+    specs: ["src/lib/api.ts", "supabase/README.md"],
+    labels: ["ops", "移行", "切替"],
+    status: "未対応",
+    milestone: "M2",
+    created: "2026-07-12",
+    updated: "2026-07-12",
+    timeline: [
+      { date: "2026-07-12", kind: "コメント", text: "調査で「既定は今も gas。db が本番デフォルトではない」ことを確認し起票。" },
+    ],
+  },
+  {
+    id: "#13",
+    title: "GAS専用機能の移行（LINE Webhook・GAS版管理UI）",
+    body: "新スタックに経路が無く、GASのみに残っている機能。\n\n- LINE Webhook（友だち追加・応答）: gas/webhook.ts（replyToLine）\n- GAS版の管理ダッシュボードUI: gas/dashboard-server.js / dashboard.html（Next版 src/app/admin とは別系統）\n- 自動リマインドトリガーは #6 で扱う\n\n※ 着手前にまず仕様書を書く（specs 未作成）。",
+    specs: [],
+    labels: ["feat", "移行", "LINE"],
+    status: "未対応",
+    milestone: "M2",
+    created: "2026-07-12",
+    updated: "2026-07-12",
+    timeline: [
+      { date: "2026-07-12", kind: "コメント", text: "調査で未移行のGAS専用機能（webhook / GAS版管理UI）を確認し起票。" },
+    ],
+  },
+  {
+    id: "#14",
+    title: "docs/architecture.md を新スタック（Supabase）前提に更新",
+    body: "docs/ 配下（architecture.md 等・7/5付）はGASをバックエンドとする旧アーキのままで、実コード（Supabase + Route Handlers）と乖離している。\n\n- architecture.md は「gas/ ← バックエンド全体」「src/lib → 外部API: GASエンドポイント」と記述したまま\n- 移行計画の実質的な正本は supabase/README.md にある\n- 新スタックの構成・認可モデル(RLS)・シーム(api.ts)を反映して更新する",
+    specs: ["docs/architecture.md", "supabase/README.md"],
+    labels: ["docs", "負債"],
+    status: "未対応",
+    milestone: null,
+    created: "2026-07-12",
+    updated: "2026-07-12",
+    timeline: [
+      { date: "2026-07-12", kind: "コメント", text: "調査でアーキ記述と実コードの乖離を確認し起票。" },
+    ],
+  },
+  {
+    id: "#15",
+    title: "（要検討）繰延べバックログ: 効果実証レポート／週次サマリー／リマインドのキュー化／課金",
+    body: "/autoplan で P2/P3 に繰延べされた項目（TODOS.md）。取りこぼさないための置き場。\n\n- 効果実証レポート\n- 週次サマリーメール\n- リマインドのキュー化（QStash 等）\n- Phase B マルチテナント化（式場単位の権限分離＝#7 と関連）\n- Phase C Stripe 課金\n\n着手時に各項目を個別イシューへ切り出す。",
+    specs: ["TODOS.md"],
+    labels: ["backlog", "要検討"],
+    status: "未対応",
+    milestone: "M2",
+    created: "2026-07-12",
+    updated: "2026-07-12",
+    timeline: [
+      { date: "2026-07-12", kind: "コメント", text: "TODOS.md の繰延べ項目を取りこぼさないよう置き場として起票。" },
+    ],
+  },
+  {
+    id: "#10",
+    title: "カップルのタスクコメント機能＋手配物確定の通知制御",
+    body: "移行前に入れた顧客向け機能。カップルがタスクにコメントでき、手配物の確定時に通知を出すかを制御できる。（後続のSupabase移行 #2 でサーバー経路も新スタックへ）",
+    specs: ["docs/spec.md"],
+    labels: ["feat", "顧客向け"],
+    status: "完了",
+    milestone: null,
+    created: "2026-07-05",
+    updated: "2026-07-05",
+    timeline: [
+      { date: "2026-07-05", kind: "コミット", text: "20043fd feat(tasks): カップルのタスクコメント機能と手配物確定の通知制御を追加" },
+    ],
+  },
+  {
+    id: "#11",
+    title: "アプリ内マニュアル（スクショ付き）",
+    body: "ダッシュボードに、スクリーンショット付きのアプリ内マニュアルを追加。文系ユーザーでも操作が分かるように。",
+    specs: ["docs/customer_guide.md", "docs/お客様向け操作説明書_提出用.md"],
+    labels: ["feat", "顧客向け", "UI"],
+    status: "完了",
+    milestone: null,
+    created: "2026-07-04",
+    updated: "2026-07-04",
+    timeline: [
+      { date: "2026-07-04", kind: "コミット", text: "0b8c277 feat(dashboard): アプリ内マニュアル（スクショ付き）を追加" },
+    ],
+  },
+];
+</script>
+<style>
+  :root {
+    --bg: #FFFFFF; --surface: #FAFAFA; --fg: #0A0A0A; --muted: #71717A;
+    --muted-bg: #F4F4F5; --border: #E4E4E7;
+    --success: #16A34A; --warning: #CA8A04; --error: #DC2626;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "IBM Plex Sans JP", -apple-system, sans-serif;
+    background: var(--bg); color: var(--fg);
+    font-size: 16px; line-height: 1.7;
+  }
+  .mono { font-family: "IBM Plex Mono", monospace; font-variant-numeric: tabular-nums; }
+  main { max-width: 1120px; margin: 0 auto; padding: 48px 24px 64px; }
+
+  header { border-bottom: 1px solid var(--fg); padding-bottom: 24px; margin-bottom: 32px; }
+  header h1 { font-size: 32px; font-weight: 700; letter-spacing: -0.01em; }
+  header .sub { color: var(--muted); font-size: 14px; margin-top: 4px; }
+  header .sub .mono { font-size: 13px; }
+
+  .stats { display: flex; gap: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-bottom: 40px; }
+  .stat { flex: 1; padding: 16px 20px; border-right: 1px solid var(--border); background: var(--surface); }
+  .stat:last-child { border-right: none; }
+  .stat .num { font-family: "IBM Plex Mono", monospace; font-size: 28px; font-weight: 600; line-height: 1.2; }
+  .stat .label { font-size: 12px; color: var(--muted); }
+
+  h2 { font-size: 22px; font-weight: 600; margin-bottom: 4px; }
+  .section-note { font-size: 13px; color: var(--muted); margin-bottom: 16px; }
+  section { margin-bottom: 48px; }
+
+  /* マイルストーン（gstack 計画） */
+  .milestones { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+  .ms-card { border: 1px solid var(--border); border-radius: 8px; padding: 16px 18px; background: var(--surface); }
+  .ms-card .ms-head { display: flex; align-items: center; gap: 8px; }
+  .ms-card .ms-id { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--muted); }
+  .ms-card h3 { font-size: 16px; font-weight: 600; }
+  .ms-card .goal { font-size: 13px; color: var(--muted); margin-top: 4px; }
+  .ms-bar { height: 6px; border-radius: 999px; background: var(--muted-bg); margin-top: 12px; overflow: hidden; }
+  .ms-bar > span { display: block; height: 100%; background: var(--fg); }
+  .ms-card .ms-count { font-size: 12px; color: var(--muted); margin-top: 6px; }
+
+  .filters { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
+  .filters button {
+    font-family: inherit; font-size: 13px; font-weight: 500;
+    padding: 5px 14px; border-radius: 999px; border: 1px solid var(--border);
+    background: var(--bg); color: var(--fg); cursor: pointer;
+    transition: background 150ms ease-out;
+  }
+  .filters button:hover { background: var(--muted-bg); }
+  .filters button.active { background: var(--fg); color: var(--surface); border-color: var(--fg); }
+  .filters .spacer { flex: 1; }
+  .filters label.toggle { font-size: 12.5px; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+
+  /* かんばんボード */
+  .board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .col { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px; min-height: 120px; }
+  .col > .col-head { display: flex; align-items: center; justify-content: space-between; font-size: 13px; font-weight: 600; padding: 2px 6px 12px; }
+  .col > .col-head .cnt { font-family: "IBM Plex Mono", monospace; color: var(--muted); font-weight: 500; }
+  .card {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px 14px; margin-bottom: 10px; cursor: pointer;
+    transition: border-color 120ms ease-out, transform 120ms ease-out;
+  }
+  .card:last-child { margin-bottom: 0; }
+  .card:hover { border-color: var(--fg); transform: translateY(-1px); }
+  .card .c-id { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--muted); }
+  .card .c-title { font-size: 14px; font-weight: 500; margin-top: 2px; }
+  .card .c-labels { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
+  .card.closed { opacity: 0.55; }
+  .col-empty { color: var(--muted); font-size: 13px; padding: 6px; }
+
+  .label {
+    display: inline-block; font-size: 11px; font-weight: 500;
+    padding: 1px 8px; border-radius: 999px; border: 1px solid var(--border);
+    color: var(--muted); white-space: nowrap;
+  }
+  .label.ms { border-color: var(--fg); color: var(--fg); }
+
+  .badge {
+    display: inline-block; font-size: 12px; font-weight: 500;
+    padding: 2px 10px; border-radius: 999px; border: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  .badge.done { color: var(--success); border-color: var(--success); }
+  .badge.doing { background: var(--fg); color: var(--surface); border-color: var(--fg); }
+  .badge.todo { color: var(--fg); }
+  .badge.closed { color: var(--muted); text-decoration: line-through; }
+  .badge.plan { color: var(--warning); border-color: var(--warning); }
+
+  /* イシュー詳細モーダル */
+  .overlay { position: fixed; inset: 0; background: rgba(10,10,10,0.4); display: none; align-items: flex-start; justify-content: center; padding: 48px 20px; overflow-y: auto; z-index: 50; }
+  .overlay.open { display: flex; }
+  .modal { background: var(--bg); border: 1px solid var(--fg); border-radius: 12px; max-width: 720px; width: 100%; padding: 28px 32px; }
+  .modal .m-top { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .modal .m-id { font-family: "IBM Plex Mono", monospace; font-size: 13px; color: var(--muted); }
+  .modal .m-close { margin-left: auto; background: none; border: none; font-size: 22px; line-height: 1; color: var(--muted); cursor: pointer; }
+  .modal h3 { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
+  .modal .m-meta { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 12px 0 20px; }
+  .modal .m-meta .dates { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--muted); margin-left: auto; }
+  .modal .m-body { font-size: 14.5px; border-top: 1px solid var(--border); padding-top: 18px; }
+  .modal .m-body p { margin-bottom: 10px; }
+  .modal .m-body ul { margin: 0 0 10px 20px; }
+  .modal .m-body li { margin-bottom: 3px; }
+  .modal .m-section-title { font-size: 12px; font-weight: 600; color: var(--muted); letter-spacing: 0.04em; margin: 24px 0 12px; }
+  .modal .specs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .modal .specs li code { font-family: "IBM Plex Mono", monospace; font-size: 12.5px; background: var(--muted-bg); padding: 3px 8px; border-radius: 5px; color: var(--fg); display: inline-block; }
+  .modal .specs-none { font-size: 13px; color: var(--muted); }
+
+  .timeline { border-left: 1px solid var(--border); margin-left: 6px; padding-left: 22px; }
+  .entry { position: relative; padding-bottom: 20px; }
+  .entry:last-child { padding-bottom: 0; }
+  .entry::before {
+    content: ""; position: absolute; left: -26.5px; top: 8px;
+    width: 8px; height: 8px; border-radius: 999px; background: var(--fg);
+  }
+  .entry .meta { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--muted); }
+  .entry .kind {
+    display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: 0.04em;
+    border: 1px solid var(--border); border-radius: 4px; padding: 0 6px; margin-left: 8px; vertical-align: 1px;
+  }
+  .entry .kind.決定 { background: var(--fg); color: var(--surface); border-color: var(--fg); }
+  .entry .text { font-size: 14px; margin-top: 3px; }
+
+  footer { border-top: 1px solid var(--border); padding-top: 24px; font-size: 13px; color: var(--muted); margin-top: 8px; }
+  footer strong { color: var(--fg); font-weight: 600; }
+  footer ul { margin: 8px 0 0 20px; }
+  footer li { margin-bottom: 4px; }
+  footer code { font-family: "IBM Plex Mono", monospace; font-size: 12px; background: var(--muted-bg); padding: 1px 5px; border-radius: 4px; color: var(--fg); }
+
+  @media (max-width: 720px) {
+    .board { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>開発ボード</h1>
+    <div class="sub"><span id="proj-name"></span> — <span id="proj-tagline"></span> ／ 最終更新 <span class="mono" id="last-updated"></span></div>
+  </header>
+
+  <div class="stats" id="stats"></div>
+
+  <section id="ms-section">
+    <h2>マイルストーン</h2>
+    <p class="section-note">gstack の計画（/spec・/autoplan など）のまとまり。1計画＝1マイルストーン。</p>
+    <div class="milestones" id="milestones"></div>
+  </section>
+
+  <section>
+    <h2>イシュー</h2>
+    <p class="section-note">いま何を作っているか（生きた要件定義）。カードを押すと詳細。行は消さず、不要は「クローズ」で残す。</p>
+    <div class="filters" id="filters"></div>
+    <div class="board" id="board"></div>
+  </section>
+
+  <footer>
+    <strong>運用ルール</strong>（正本は CLAUDE.md の「HTMLドリブン開発」節）
+    <ul>
+      <li>触るのは <code>&lt;script id="data"&gt;</code> 内の <code>LAST_UPDATED</code> / <code>MILESTONES</code> / <code>ISSUES</code> のみ。</li>
+      <li>イシューは削除しない。不要になったら <code>status: "クローズ"</code>。</li>
+      <li>各イシューの <code>timeline</code> は追記のみ（過去のログは消さない）。</li>
+      <li>gstack で計画したら、その計画を <code>MILESTONES</code>＋配下 <code>ISSUES</code> に流し込む。</li>
+    </ul>
+  </footer>
+</main>
+
+<div class="overlay" id="overlay"><div class="modal" id="modal"></div></div>
+
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  $("proj-name").textContent = PROJECT.name || "";
+  $("proj-tagline").textContent = PROJECT.tagline || "";
+  $("last-updated").textContent = LAST_UPDATED;
+
+  const STATUSES = ["未対応", "対応中", "完了"]; // かんばん3列（クローズは畳む）
+  const STATUS_CLS = { "未対応": "todo", "対応中": "doing", "完了": "done", "クローズ": "closed" };
+  const MS_CLS = { "計画中": "plan", "進行中": "doing", "完了": "done", "保留": "todo" };
+  const msById = Object.fromEntries(MILESTONES.map(m => [m.id, m]));
+
+  // 軽量マークダウン: 段落（空行区切り）＋ "- " 箇条書き＋改行。
+  function renderBody(text) {
+    if (!text) return "";
+    const blocks = String(text).split(/\n{2,}/);
+    return blocks.map(b => {
+      const lines = b.split("\n");
+      if (lines.every(l => /^\s*-\s+/.test(l))) {
+        return "<ul>" + lines.map(l => `<li>${esc(l.replace(/^\s*-\s+/, ""))}</li>`).join("") + "</ul>";
+      }
+      return "<p>" + lines.map(esc).join("<br>") + "</p>";
+    }).join("");
+  }
+
+  // ── stats
+  const cnt = { "未対応": 0, "対応中": 0, "完了": 0, "クローズ": 0 };
+  ISSUES.forEach(i => { cnt[i.status] = (cnt[i.status] || 0) + 1; });
+  $("stats").innerHTML = [
+    ["未対応", cnt["未対応"]], ["対応中", cnt["対応中"]], ["完了", cnt["完了"]],
+    ["マイルストーン", MILESTONES.length],
+  ].map(([label, n]) => `<div class="stat"><div class="num">${n}</div><div class="label">${label}</div></div>`).join("");
+
+  // ── milestones
+  const msSection = $("ms-section");
+  if (!MILESTONES.length) { msSection.style.display = "none"; }
+  else {
+    $("milestones").innerHTML = MILESTONES.map(m => {
+      const kids = ISSUES.filter(i => i.milestone === m.id);
+      const done = kids.filter(i => i.status === "完了" || i.status === "クローズ").length;
+      const pct = kids.length ? Math.round(done / kids.length * 100) : 0;
+      return `<div class="ms-card">
+        <div class="ms-head"><span class="ms-id">${esc(m.id)}</span><span class="badge ${MS_CLS[m.status] || "todo"}">${esc(m.status)}</span></div>
+        <h3>${esc(m.title)}</h3>
+        ${m.goal ? `<div class="goal">${esc(m.goal)}</div>` : ""}
+        <div class="ms-bar"><span style="width:${pct}%"></span></div>
+        <div class="ms-count">${done}/${kids.length} 完了・${pct}%</div>
+      </div>`;
+    }).join("");
+  }
+
+  // ── filters（マイルストーン別）＋ クローズ表示トグル
+  let curFilter = "すべて";
+  let showClosed = false;
+  const filterNames = ["すべて", ...MILESTONES.map(m => m.id), ...(ISSUES.some(i => !i.milestone) ? ["未割当"] : [])];
+  const filtersEl = $("filters");
+  filtersEl.innerHTML =
+    filterNames.map(n => `<button data-f="${esc(n)}">${esc(n)}</button>`).join("") +
+    `<span class="spacer"></span><label class="toggle"><input type="checkbox" id="show-closed"> クローズも表示</label>`;
+
+  function board() {
+    let list = ISSUES.slice();
+    if (curFilter === "未割当") list = list.filter(i => !i.milestone);
+    else if (curFilter !== "すべて") list = list.filter(i => i.milestone === curFilter);
+
+    $("board").innerHTML = STATUSES.map(st => {
+      let items = list.filter(i => i.status === st);
+      if (st === "完了" && showClosed) items = items.concat(list.filter(i => i.status === "クローズ"));
+      const cards = items.map(i => {
+        const labels = (i.labels || []).map(l => `<span class="label">${esc(l)}</span>`).join("");
+        const ms = i.milestone && msById[i.milestone] ? `<span class="label ms">${esc(i.milestone)}</span>` : "";
+        return `<div class="card ${i.status === "クローズ" ? "closed" : ""}" data-id="${esc(i.id)}">
+          <div class="c-id">${esc(i.id)}</div>
+          <div class="c-title">${esc(i.title)}</div>
+          <div class="c-labels">${ms}${labels}</div>
+        </div>`;
+      }).join("") || `<div class="col-empty">なし</div>`;
+      return `<div class="col"><div class="col-head"><span>${st}</span><span class="cnt">${items.length}</span></div>${cards}</div>`;
+    }).join("");
+  }
+
+  filtersEl.addEventListener("click", e => {
+    const btn = e.target.closest("button"); if (!btn) return;
+    curFilter = btn.dataset.f;
+    filtersEl.querySelectorAll("button").forEach(b => b.classList.toggle("active", b === btn));
+    board();
+  });
+  $("show-closed").addEventListener("change", e => { showClosed = e.target.checked; board(); });
+  filtersEl.querySelector("button").classList.add("active");
+  board();
+
+  // ── issue modal
+  const overlay = $("overlay"), modal = $("modal");
+  function openIssue(id) {
+    const i = ISSUES.find(x => x.id === id); if (!i) return;
+    const labels = (i.labels || []).map(l => `<span class="label">${esc(l)}</span>`).join("");
+    const ms = i.milestone && msById[i.milestone]
+      ? `<span class="label ms">${esc(i.milestone)}: ${esc(msById[i.milestone].title)}</span>` : "";
+    const tl = (i.timeline || []).map(e => `
+      <div class="entry"><div class="meta">${esc(e.date)}<span class="kind ${esc(e.kind)}">${esc(e.kind)}</span></div>
+      <div class="text">${esc(e.text)}</div></div>`).join("");
+    const specs = (i.specs || []).map(s => `<li><code>${esc(s)}</code></li>`).join("");
+    const specsBlock = (i.specs && i.specs.length)
+      ? `<div class="m-section-title">仕様書（実装の正本）</div><ul class="specs">${specs}</ul>`
+      : `<div class="m-section-title">仕様書（実装の正本）</div><p class="specs-none">未作成 — 実装前にまず仕様書を書く（当面は上の説明を仕様とする）。</p>`;
+    modal.innerHTML = `
+      <div class="m-top"><span class="m-id">${esc(i.id)}</span>
+        <span class="badge ${STATUS_CLS[i.status] || "todo"}">${esc(i.status)}</span>
+        <button class="m-close" aria-label="閉じる">×</button></div>
+      <h3>${esc(i.title)}</h3>
+      <div class="m-meta">${ms}${labels}<span class="dates">作成 ${esc(i.created || "")} ／ 更新 ${esc(i.updated || "")}</span></div>
+      <div class="m-body">${renderBody(i.body) || '<p style="color:var(--muted)">（説明なし）</p>'}
+        ${specsBlock}
+        ${tl ? `<div class="m-section-title">タイムライン</div><div class="timeline">${tl}</div>` : ""}
+      </div>`;
+    overlay.classList.add("open");
+    modal.querySelector(".m-close").addEventListener("click", close);
+  }
+  function close() { overlay.classList.remove("open"); }
+  $("board").addEventListener("click", e => {
+    const card = e.target.closest(".card"); if (card) openIssue(card.dataset.id);
+  });
+  overlay.addEventListener("click", e => { if (e.target === overlay) close(); });
+  document.addEventListener("keydown", e => { if (e.key === "Escape") close(); });
+})();
+</script>
+<script>
+  // 更新は手動のみ（自動リロードはしない）。ヘッダーに「↻ 最新に更新」ボタンだけ置く。
+  (function () {
+    const sub = document.querySelector("header .sub");
+    if (!sub) return;
+    const btn = document.createElement("button");
+    btn.textContent = "↻ 最新に更新";
+    btn.style.cssText = "margin-left:12px;font-family:inherit;font-size:12px;padding:2px 10px;border:1px solid var(--border);border-radius:999px;background:var(--bg);color:var(--fg);cursor:pointer;";
+    btn.onclick = () => location.reload();
+    sub.appendChild(btn);
+  })();
+</script>
+</body>
+</html>

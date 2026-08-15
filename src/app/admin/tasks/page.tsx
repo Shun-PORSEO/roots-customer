@@ -190,27 +190,6 @@ export default function TasksPage() {
     }
   };
 
-  const testSend = async (t: TaskMaster) => {
-    if (!selectedVenue) {
-      alert("テスト送信は式場別タスクのみ可能です。式場を選択してください");
-      return;
-    }
-    setSaving(true);
-    try {
-      await apiClient.post({
-        action: "testSendTask",
-        line_id: getAdminLineId(),
-        venue_id: selectedVenue,
-        task_id: t.task_id,
-      });
-      alert("プランナーLINEにテスト送信しました");
-    } catch (e: any) {
-      alert("送信に失敗しました: " + e.message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const submitAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTask.task_content) return alert("タスク内容を入力してください");
@@ -657,13 +636,6 @@ export default function TasksPage() {
                       className="flex-1"
                     >
                       {saving ? "保存中…" : "💾 保存"}
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      onClick={() => testSend(selectedTask)}
-                      disabled={saving || !selectedVenue}
-                    >
-                      💌 テスト送信
                     </Button>
                   </div>
 

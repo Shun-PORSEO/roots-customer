@@ -167,6 +167,8 @@ a:hover{text-decoration:underline}
 .toast--success{border-left-color:var(--success)}
 .toast--error{border-left-color:var(--danger)}
 .toast--info{border-left-color:var(--info)}
+.toast__action{margin-left:12px;padding:4px 10px;border-radius:calc(var(--r) - 6px);border:1px solid var(--border);background:transparent;color:var(--text);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
+.toast__action:hover{background:var(--bg-subtle,rgba(0,0,0,.05))}
 @keyframes toastIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
 @keyframes slideInRight{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:translateX(0)}}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
@@ -485,12 +487,27 @@ function pad(n){ return String(n).padStart(2,'0'); }
 function showLoading() { document.getElementById('loading').classList.remove('hidden'); }
 function hideLoading() { document.getElementById('loading').classList.add('hidden'); }
 
-function toast(msg, type) {
+// action を渡すとトースト内に取り消しボタンを出す。
+// 例: toast('停止しました','success',{label:'元に戻す',onClick:fn})
+// 押す時間が要るので、ボタン付きのときだけ表示時間を伸ばす。
+function toast(msg, type, action) {
   var el = document.createElement('div');
   el.className = 'toast toast--' + (type||'info');
   el.textContent = msg;
+  var timer;
+  if (action && action.label && typeof action.onClick === 'function') {
+    var btn = document.createElement('button');
+    btn.className = 'toast__action';
+    btn.textContent = action.label;
+    btn.addEventListener('click', function(){
+      clearTimeout(timer);
+      el.remove();
+      action.onClick();
+    });
+    el.appendChild(btn);
+  }
   document.getElementById('toasts').appendChild(el);
-  setTimeout(function(){ el.remove(); }, 3400);
+  timer = setTimeout(function(){ el.remove(); }, action ? 9000 : 3400);
 }
 
 function openModal(html) {
@@ -1076,7 +1093,6 @@ function renderTaskRows(tasks) {
       '<td><div class="actions">' +
         '<button class="btn btn--icon btn--outline task-items-btn" title="手配物を設定">'+ic('bag','ic--sm')+'</button>' +
         '<button class="btn btn--icon btn--outline task-toggle-btn" title="'+(t.is_active?'停止':'有効化')+'">'+(t.is_active?ic('pause','ic--sm'):ic('play','ic--sm'))+'</button>' +
-        '<button class="btn btn--icon btn--outline task-test-btn"'+(!t.venue_id?' disabled':'')+' title="LINEテスト送信">'+ic('send','ic--sm')+'</button>' +
         (isCustom?'<button class="btn btn--icon btn--outline task-del-btn" title="削除">'+ic('trash','ic--sm')+'</button>':'') +
       '</div></td>' +
     '</tr>';
@@ -1118,19 +1134,22 @@ function bindTaskTableEvents() {
     var tr = btn.closest('tr'); var taskId = tr.dataset.taskId;
     var isActive = tr.querySelector('.badge--green')!==null;
     api('toggleTaskActive',[taskId,!isActive],function(){
-      toast(isActive?'停止しました':'有効化しました','success');
+      // 停止すると既定の絞り込み（有効なタスクのみ）で一覧から消えるため、
+      // 「消えた＝削除された」と誤解されやすい。取り消し手段をその場に出す。
+      var undo = function(){
+        api('toggleTaskActive',[taskId,isActive],function(){
+          toast('元に戻しました','success');
+          swrCache.set('tasks_'+(state.taskFilter.venueId||'base'), null);
+          loadAndRenderTasks();
+        });
+      };
+      toast(
+        isActive ? '停止しました（削除ではありません。「停止も表示」で確認できます）' : '有効化しました',
+        'success',
+        { label: '元に戻す', onClick: undo }
+      );
       swrCache.set('tasks_'+(state.taskFilter.venueId||'base'), null);
       loadAndRenderTasks();
-    });
-  });
-  tbody.addEventListener('click', function(e){
-    var btn = e.target.closest('.task-test-btn');
-    if(!btn||btn.disabled) return;
-    var taskId = btn.closest('tr').dataset.taskId;
-    var venueId = state.taskFilter.venueId;
-    if(!venueId){toast('式場を選択してください','error');return;}
-    confirmDialog('プランナーにテスト送信しますか？（'+taskId+'）', function(){
-      api('testLineSend',[taskId,venueId],function(r){ toast(r.message||'送信しました',r.ok?'success':'error'); });
     });
   });
   tbody.addEventListener('click', function(e){
@@ -2003,7 +2022,7 @@ function renderManual(){
     manTbl(['項目','必須','説明'],[
       ['式場 ID',REQ,'式場を識別するID。例：<code>RC001</code>。命名ルールを決めて入力。'],
       ['式場名',REQ,'表示名。例：ロイヤルチャペル名古屋。'],
-      ['プランナー LINE User ID',OPT,'テスト送信・リマインドの宛先になる担当者のLINE ID。'],
+      ['プランナー LINE User ID',OPT,'リマインドの宛先になる担当者のLINE ID。'],
       ['LINEチャネルアクセストークン',OPT,'その式場のLINE公式アカウントから送るためのトークン。送信に必要。'],
       ['LIFF ID',OPT,'LINEミニアプリ連携を使う場合のID。']
     ]) +
@@ -2030,7 +2049,6 @@ function renderManual(){
     manTbl(['ボタン','機能'],[
       ['🛍 手配物テンプレ','このタスクに紐づく標準手配物を編集（2-4）。'],
       ['⏸ / ▶ 停止/有効化','タスクの有効・無効を切り替え。'],
-      ['✈ LINEテスト送信','プランナーへテスト送信。<strong>式場を選んでいるときのみ有効</strong>。'],
       ['🗑 削除','<strong>式場別タスク（CUST-付き）のみ</strong>表示。base task は停止で無効化。']
     ]) +
     manH3('2-1. その場で編集する（インライン編集）') +
@@ -2056,9 +2074,7 @@ function renderManual(){
     manImg('08-task-item-template-modal','手配物テンプレートのモーダル') +
     manCallout('warn','ここで登録した手配物は、<strong>「全式場に同期」やカップル新規登録時に各カップルへ自動コピー</strong>されます（仕組みは付録B）。') +
     manH3('2-5. 全式場に同期する') +
-    '<p>右上の「<strong>↻ 全式場に同期</strong>」→ 確認 →「実行する」で、<strong>すべての base task が各式場へコピー</strong>され、さらに<strong>手配物テンプレートが全カップルへ反映</strong>されます。コピー済みは重複せずスキップされ、結果が件数で通知されます。base task を追加・修正したあとの「反映ボタン」です。</p>' +
-    manH3('2-6. LINEテスト送信') +
-    '<p>式場を選択した状態で行の ✈ ボタンを押すと、その式場のプランナー宛てに <code>[テスト送信]</code> 付きメッセージを実際にLINE送信します。式場に<strong>プランナーLINE ID</strong>と<strong>チャネルアクセストークン</strong>が設定されている必要があります。</p>'
+    '<p>右上の「<strong>↻ 全式場に同期</strong>」→ 確認 →「実行する」で、<strong>すべての base task が各式場へコピー</strong>され、さらに<strong>手配物テンプレートが全カップルへ反映</strong>されます。コピー済みは重複せずスキップされ、結果が件数で通知されます。base task を追加・修正したあとの「反映ボタン」です。</p>'
   );
 
   // ── 3. カップル管理 ──
@@ -2136,7 +2152,6 @@ function renderManual(){
   // ── 7. FAQ ──
   html += manSec('7','man-faq','よくある質問・困ったとき',
     manFaq('式場を追加したのにカップル側にタスクが出ない','既存の base task を変更した後は「全式場に同期」が必要です。また、カップルに<strong>挙式日</strong>が未設定だと期限が計算されません。') +
-    manFaq('LINEテスト送信でエラーになる','対象式場に「プランナー LINE User ID」と「チャネルアクセストークン」が両方設定されているか確認してください。base task（式場未選択）では送信できません。') +
     manFaq('送信ログがほとんど表示されない','<strong>日付フィルタが当日</strong>になっています。「日付クリア」で全期間が表示されます。') +
     manFaq('手配物テンプレートが特定のカップルにコピーされない','別の式場専用タスクに紐づくテンプレは、式場が一致するカップルにのみコピーされます。同名の手配物が既にある場合も重複コピーされません（付録B）。') +
     manFaq('操作したのに反映されない／古い内容が出る','表示高速化のキャッシュが残っている可能性があります。上部に黄色い帯が出ているときは更新中です。少し待つか、メニューを切り替えて開き直してください。') +
