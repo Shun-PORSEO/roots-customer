@@ -1,6 +1,14 @@
 // ─── doGet ───────────────────────────────────────────────────────────────────
 
-function doGet() {
+function doGet(e) {
+  // Web App の GET 入口はこの doGet ひとつだけ。Code.js 側の JSON API は
+  // doGetLiff という別名で定義されており、外部からは直接呼べない。
+  // そのため action 付きの GET をここで振り分けないと、LIFF や管理画面の
+  // apiClient.get(...) が全てダッシュボードHTMLを受け取って壊れる
+  // （カップルのタスク取得・式場一覧の取得が該当。2026-08-15 修正）。
+  if (e && e.parameter && e.parameter.action) {
+    return doGetLiff(e);
+  }
   const out = HtmlService.createHtmlOutputFromFile('dashboard');
   // マニュアル用スクリーンショット（base64）を後段に読み込む。
   // dashboard 内の renderManual() が window.MANUAL_IMG を参照する。
