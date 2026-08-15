@@ -53,12 +53,28 @@ const MILESTONES = [
 // timeline.kind: "コメント" | "状態変更" | "決定" | "コミット"
 const ISSUES = [
   {
+    id: "#36",
+    title: "【根本原因】action付きGETがJSON APIに届かず、LIFF・管理画面のGET経路が全滅していた",
+    body: "Web App の GET 入口は dashboard-server.js の doGet ひとつだけ。ところが JSON API は Code.js に doGetLiff という別名で定義されており、外部からは一度も呼ばれていなかった。結果、apiClient.get(...) は常にダッシュボードのHTMLを受け取り、JSONパースに失敗していた。\n\n壊れていた画面:\n- (liff)/dashboard … getTasksAndUser（カップルのタスク一覧）\n- (liff)/tasks/[task_id] … getTasks\n- (liff)/register … getVenues（式場の選択欄が出ない直接の原因＝#33）\n- /admin/tasks・/admin/messages・/admin/venues … getVenues（式場ドロップダウン）\n\nカップル側は localStorage キャッシュがあるため既存ユーザーには前回の内容が表示され続け、初回・端末変更・キャッシュ削除時だけ失敗するという見えにくい壊れ方をしていた。",
+    specs: ["gas/dashboard-server.js", "gas/Code.js"],
+    labels: ["bug", "本番", "GAS", "LIFF"],
+    status: "完了",
+    milestone: "M4",
+    created: "2026-08-15",
+    updated: "2026-08-15",
+    timeline: [
+      { date: "2026-08-15", kind: "コメント", text: "#34 のセキュリティ確認のため公開エンドポイントを叩いたところ、GET が JSON ではなく HTML を返すことから発覚。curl で getVenues / getTasksAndUser とも HTML であることを確認した。" },
+      { date: "2026-08-15", kind: "実装", text: "doGet(e) を引数付きにし、e.parameter.action があれば doGetLiff(e) へ委譲する。GET で露出するのは getTasks / getTasksAndUser / getVenues のみで管理系は含まない。getVenues のトークン除外（#34）を先に入れてから反映した。" },
+      { date: "2026-08-15", kind: "状態変更", text: "本番反映済み（@41）。復旧を実測で確認 — getVenues は有効な式場3件をJSONで返し、キーは venue_id / venue_name / planner_line_user_id / line_liff_id / active / created_at のみでトークン系を含まない。getTasksAndUser もJSONを返す。action 無しのアクセスは従来どおりダッシュボードHTMLで、管理画面は無傷。" },
+    ],
+  },
+  {
     id: "#34",
     title: "【セキュリティ】公開GASエンドポイントが LINEアクセストークンを露出し、管理系APIが無認可だった",
     body: "本番の Apps Script Web App は access=ANYONE_ANONYMOUS（Googleログイン不要で誰でも呼べる）で、その URL は roots-customer.vercel.app の公開JSバンドルに埋め込まれている。その状態で次の2点が開いていた。\n\n1) doGet の getVenues が venues 行をそのまま返しており、line_channel_access_token（式場公式LINEとしてメッセージを送れる鍵）が未認証で取得できた。\n\n2) doPost に管理者チェックが存在せず、line_id を名乗るだけで getUsers / getUsersWithProgress / getAdminUserTasks / getMessageDrafts / getVenueDetail / addCustomTask / deleteCustomTask / toggleTaskVisibility / updateDraft* / updateTaskManualUrl が実行できた。カップルの氏名・挙式日・進捗・メッセージ下書きの閲覧と、タスクの追加削除が可能だった。\n\n原因は gas/ の .ts（設計図）と .js（実際に動く物）が別々に育っていたこと。両方の対策は Code.ts には書かれていたが、コンパイル結果が .js に取り込まれず本番に届いていなかった。",
     specs: ["gas/Code.js", "gas/sheets.js"],
     labels: ["security", "本番", "GAS"],
-    status: "対応中",
+    status: "完了",
     milestone: "M4",
     created: "2026-08-15",
     updated: "2026-08-15",
@@ -66,6 +82,8 @@ const ISSUES = [
       { date: "2026-08-15", kind: "コメント", text: "/admin/tasks の不具合調査中に発見。公開中の v39 でも同様であることを pull して確認。実際のエンドポイント呼び出しによる再現確認は行っていない（本物のトークンをログに残さないため）。判断はコード読解ベース。" },
       { date: "2026-08-15", kind: "実装", text: "Code.js の getVenues を venue_id / venue_name / planner_line_user_id / line_liff_id / active / created_at のみ返すよう修正（トークン等の秘密は除外）。doPost 冒頭に ADMIN_ACTIONS ゲートを追加し、customers.is_admin が真の呼び出し元のみ管理系を実行できるようにした。" },
       { date: "2026-08-15", kind: "コメント", text: "注意: このゲートは line_id が自己申告である点は変えていない（LINE ID Token の検証は未実装）。無認可よりは大幅に良いが、恒久対策としては ID Token 検証が別途必要。" },
+      { date: "2026-08-15", kind: "コメント", text: "訂正: getVenues のトークン露出は、発見時点では外部から到達不能だった。Web App の GET 入口は dashboard-server.js の doGet のみで、JSON API は doGetLiff という別名だったため GET は常にダッシュボードHTMLを返していた（#36）。したがって当初『未認証で取得できた』と報告したのは誤りで、正しくは『到達経路が塞がっていたため露出していなかったが、GET経路を復旧すると露出する状態だった』。除外対応を先に入れてから #36 を反映したため、実際に漏れた期間は無い。" },
+      { date: "2026-08-15", kind: "状態変更", text: "本番反映済み（@40）。公開エンドポイントに実際に POST して getUsers / getVenueTasks が Forbidden を返すことを確認。doPost の無認可アクセスは実在し、こちらは確かに開いていた。" },
     ],
   },
   {
@@ -74,13 +92,14 @@ const ISSUES = [
     body: "/admin/tasks が呼ぶ getVenueTasks / updateTaskMaster / addTaskMaster の3つに GAS 側のハンドラが存在せず、Invalid action が返って一覧の取得・保存・追加が全て失敗していた（getVenueTasks は許可リストに名前だけあった）。\n\nあわせて sheets.js の updateTaskMaster / addTaskMaster を撤去。venue_id 列が無かった頃の固定列番号で書き込んでおり、現在の11列スキーマでは category が venue_id を上書きするなど破壊的だった（どこからも呼ばれていない死にコード）。",
     specs: ["gas/Code.js", "gas/Code.ts", "gas/sheets.js"],
     labels: ["bug", "GAS", "管理画面"],
-    status: "対応中",
+    status: "完了",
     milestone: "M4",
     created: "2026-08-15",
     updated: "2026-08-15",
     timeline: [
       { date: "2026-08-15", kind: "実装", text: "doPost に3ハンドラを追加。実装は dashboard-server.js の既存関数を再利用する（getDashboardTasks / updateTaskField / addBaseTask / addVenueTask）。いずれも _colMap でヘッダー名から列を解決するため、task_master の列が増減しても壊れない。updateTaskMaster では venue_id を編集対象から除外した（紐づけが壊れるとタスクが一覧から消えるため）。許可リストに addTaskMaster を追加。" },
       { date: "2026-08-15", kind: "コメント", text: "gas/ の .ts と .js が双方向にドリフトしていることを確認（tsc で再生成すると Code/sheets/reminders に差分）。一括再生成は事故るため、今回は .js を直接編集し .ts も手で揃えた。ドリフト解消は別途必要。" },
+      { date: "2026-08-15", kind: "状態変更", text: "本番反映済み（@40）。getVenueTasks に POST して認可ゲートが効いていること（Forbidden）を確認。" },
     ],
   },
   {
@@ -136,7 +155,7 @@ const ISSUES = [
     body: "友だち追加後の登録画面（/register）で式場の選択欄が出ないケースがある。needsVenueSelection の条件が venues.length > 0 だったため、式場一覧の取得に失敗したりゼロ件だと欄ごと消えていた。取得失敗は catch で握りつぶされ、エラー表示も無し。\n\nさらに欄が消えると isFormValid の式場チェックも外れるため、venue_id 空のまま登録できてしまい、式場に紐づかないカップルが生まれる。",
     specs: ["src/app/(liff)/register/page.tsx"],
     labels: ["bug", "LIFF", "データ整合性"],
-    status: "対応中",
+    status: "完了",
     milestone: "M4",
     created: "2026-08-15",
     updated: "2026-08-15",
@@ -144,6 +163,7 @@ const ISSUES = [
       { date: "2026-08-15", kind: "実装", text: "needsVenueSelection を !urlVenueId のみに変更し、一覧が空でも欄を必ず出す。読み込み中／取得失敗／ゼロ件をプレースホルダとエラー文で明示し、catch の握りつぶしをやめた。選択できない間は select を disabled にし、未選択では送信不可のまま。tsc 0 件 / next build 13ルート緑。" },
       { date: "2026-08-15", kind: "コメント", text: "未解決: 式場一覧がそもそも取れていないのか、有効な式場がゼロ件なのかは実機で未確認。今回の変更で原因が画面に出るようになるので、そこで切り分ける。また本番 Vercel は main ではなく 865150f のビルドを昇格した状態なので、この修正を届けるには main の本番反映が必要。" },
       { date: "2026-08-15", kind: "状態変更", text: "main に push し、Vercel の Production Branch（main）経由で本番へ自動反映。本番の / は従来どおり LIFF 読み込み画面を返し（LP ではない）、/register・/admin とも HTTP 200 を確認。残: 実機で式場一覧が取得できているか（取得失敗かゼロ件か）の切り分け。" },
+      { date: "2026-08-15", kind: "状態変更", text: "根本原因が判明し解消（#36）。式場一覧はゼロ件だったのではなく、GET が JSON API に届かず HTML を受け取って失敗していた。修正後、公開エンドポイントが有効な式場3件を返すことを実測で確認。画面側の『欄を必ず出す・失敗理由を表示する』改修は防御として維持する。" },
     ],
   },
   {
