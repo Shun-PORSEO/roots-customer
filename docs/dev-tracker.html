@@ -65,6 +65,7 @@ const ISSUES = [
     timeline: [
       { date: "2026-08-15", kind: "コメント", text: "原因特定: loadAndRenderTasks が showInactive 未チェック時に is_active のみへ絞り込むため、停止した瞬間に行が消える。データ欠損ではない。当初 sheets.js の updateTaskMaster に列ズレを見つけて原因と考えたが、GASダッシュボードは updateTaskField 経由でヘッダー名から列を解決しており（_colMap）この経路は無関係だった（訂正済み）。" },
       { date: "2026-08-15", kind: "実装", text: "toast() に任意の action（ラベル＋コールバック）を受け取れるよう拡張し、ボタン付きのときだけ表示時間を 9 秒に延長。停止時のトーストに『元に戻す』を追加し、押すと toggleTaskActive で即座に復帰。文言も『停止しました（削除ではありません。「停止も表示」で確認できます）』に変更。CSS .toast__action を追加。" },
+      { date: "2026-08-15", kind: "状態変更", text: "本番反映済み。clasp push 後、既存デプロイID（AKfycbx9HcGHZrb…）を指定して @39 として公開。Web App の URL は変更なし。公開中バージョンを pull し直して内容一致を確認済み。" },
     ],
   },
   {
@@ -79,6 +80,7 @@ const ISSUES = [
     updated: "2026-08-15",
     timeline: [
       { date: "2026-08-15", kind: "実装", text: "dashboard.html: ✈ ボタン・クリックハンドラ・操作一覧の行・マニュアル 2-6 節・FAQ 項目・式場フィールド説明の文言を削除。dashboard-server.js: testLineSend() を削除。残存 grep 0 件、JS 構文チェック通過。Next.js 側 /admin/tasks・/admin/help の同等機能もあわせて削除（そちらは現状ほぼ未稼働だが表記を揃えた）。" },
+      { date: "2026-08-15", kind: "状態変更", text: "本番反映済み。clasp push 後、既存デプロイID（AKfycbx9HcGHZrb…）を指定して @39 として公開。Web App の URL は変更なし。公開中バージョンを pull し直して内容一致を確認済み。" },
     ],
   },
   {
@@ -94,6 +96,7 @@ const ISSUES = [
     timeline: [
       { date: "2026-08-15", kind: "コメント", text: "調査: addTaskItemTemplate は line_id='' + task_id で登録され、copyTaskItemTemplatesToCustomer は _taskVenueMap() でタスクの venue_id を見てカップルへ配る。保存経路は正しく、式場別スコープは task_id 経由で効いている。問題は共通ビューが式場別タスクまで一覧していたこと。" },
       { date: "2026-08-15", kind: "実装", text: "getDashboardTasks(venueId) の venueId 未指定時を all → venue_id が空のものだけ に変更。ラベルどおり base のみを表示する。" },
+      { date: "2026-08-15", kind: "状態変更", text: "本番反映済み。clasp push 後、既存デプロイID（AKfycbx9HcGHZrb…）を指定して @39 として公開。Web App の URL は変更なし。公開中バージョンを pull し直して内容一致を確認済み。" },
     ],
   },
   {
@@ -109,6 +112,7 @@ const ISSUES = [
     timeline: [
       { date: "2026-08-15", kind: "実装", text: "needsVenueSelection を !urlVenueId のみに変更し、一覧が空でも欄を必ず出す。読み込み中／取得失敗／ゼロ件をプレースホルダとエラー文で明示し、catch の握りつぶしをやめた。選択できない間は select を disabled にし、未選択では送信不可のまま。tsc 0 件 / next build 13ルート緑。" },
       { date: "2026-08-15", kind: "コメント", text: "未解決: 式場一覧がそもそも取れていないのか、有効な式場がゼロ件なのかは実機で未確認。今回の変更で原因が画面に出るようになるので、そこで切り分ける。また本番 Vercel は main ではなく 865150f のビルドを昇格した状態なので、この修正を届けるには main の本番反映が必要。" },
+      { date: "2026-08-15", kind: "状態変更", text: "main に push し、Vercel の Production Branch（main）経由で本番へ自動反映。本番の / は従来どおり LIFF 読み込み画面を返し（LP ではない）、/register・/admin とも HTTP 200 を確認。残: 実機で式場一覧が取得できているか（取得失敗かゼロ件か）の切り分け。" },
     ],
   },
   {
