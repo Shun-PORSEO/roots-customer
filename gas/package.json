@@ -1,7 +1,7 @@
 {
   "name": "gas",
   "version": "1.0.0",
-  "description": "",
+  "description": "Google Apps Script sources (.js only — see README.md)",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -11,8 +11,6 @@
   "license": "ISC",
   "type": "commonjs",
   "devDependencies": {
-    "@google/clasp": "^3.3.0",
-    "@types/google-apps-script": "^2.0.8",
-    "typescript": "^5.9.3"
+    "@google/clasp": "^3.3.0"
   }
 }
