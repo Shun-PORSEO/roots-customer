@@ -169,6 +169,12 @@ a:hover{text-decoration:underline}
 .toast--info{border-left-color:var(--info)}
 .toast__action{margin-left:12px;padding:4px 10px;border-radius:calc(var(--r) - 6px);border:1px solid var(--border);background:transparent;color:var(--text);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
 .toast__action:hover{background:var(--bg-subtle,rgba(0,0,0,.05))}
+/* 操作履歴（戻す / 進む）。全画面共通なのでサイドバーに常駐させる */
+.histbar{display:flex;gap:6px;padding:0 16px 14px}
+.histbar__btn{flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:7px 6px;border-radius:calc(var(--r) - 4px);border:1px solid rgb(255 255 255 / .18);background:rgb(255 255 255 / .06);color:#fff;font-size:12px;font-weight:600;cursor:pointer;transition:background .12s ease,opacity .12s ease}
+.histbar__btn:hover:not(:disabled){background:rgb(255 255 255 / .16)}
+.histbar__btn:disabled{opacity:.32;cursor:default}
+.histbar__btn svg{width:13px;height:13px;stroke:currentColor;stroke-width:2.2;fill:none;stroke-linecap:round;stroke-linejoin:round}
 @keyframes toastIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
 @keyframes slideInRight{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:translateX(0)}}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
@@ -357,6 +363,14 @@ a:hover{text-decoration:underline}
 <div class="layout">
   <nav class="sidebar">
     <div class="sidebar__logo">Roots <span>admin</span></div>
+    <div class="histbar">
+      <button class="histbar__btn" id="btn-undo" disabled>
+        <svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg> 戻す
+      </button>
+      <button class="histbar__btn" id="btn-redo" disabled>
+        <svg viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h3"/></svg> 進む
+      </button>
+    </div>
     <ul class="sidebar__nav" id="nav-list">
       <!-- タスクカレンダー: 将来の機能候補として一時非表示（renderSchedule 等のロジックは残置） -->
       <!-- <li class="sidebar__item" data-s="schedule"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> タスクカレンダー <span class="stale-dot" id="dot-schedule"></span></li> -->
@@ -430,6 +444,100 @@ function hideStaleDot(section) {
 }
 
 // api: loading overlay, no cache
+// ─── 操作履歴（戻す / 進む）──────────────────────────────────────────────
+// 各操作が「元に戻す手順」と「やり直す手順」を自分で登録する方式。
+// サーバー側に履歴は持たないので、画面を再読み込みすると履歴は消える（意図どおり）。
+var HIST = { stack: [], idx: -1, busy: false, MAX: 30 };
+
+function histRender() {
+  var u = document.getElementById('btn-undo');
+  var r = document.getElementById('btn-redo');
+  if (!u || !r) return;
+  var canU = HIST.idx >= 0;
+  var canR = HIST.idx < HIST.stack.length - 1;
+  u.disabled = !canU || HIST.busy;
+  r.disabled = !canR || HIST.busy;
+  u.title = canU ? '元に戻す: ' + HIST.stack[HIST.idx].label + '（Ctrl+Z）' : '戻せる操作はありません';
+  r.title = canR ? 'やり直す: ' + HIST.stack[HIST.idx + 1].label + '（Ctrl+Shift+Z）' : 'やり直せる操作はありません';
+}
+
+// entry = { label, undo: function(done), redo: function(done) }
+// done(true) で成功、done(false) で失敗（失敗時は履歴位置を動かさない）。
+function histPush(entry) {
+  HIST.stack = HIST.stack.slice(0, HIST.idx + 1);   // やり直し分は捨てる
+  HIST.stack.push(entry);
+  if (HIST.stack.length > HIST.MAX) HIST.stack.shift();
+  HIST.idx = HIST.stack.length - 1;
+  histRender();
+}
+
+// 同じサーバー関数を引数違いで呼ぶだけの操作（トグル・値の書き戻し）用の近道。
+function histPushSwap(label, fn, redoArgs, undoArgs, after) {
+  histPush({
+    label: label,
+    undo: function (done) { api(fn, undoArgs, function () { if (after) after(); done(true); }, function () { done(false); }); },
+    redo: function (done) { api(fn, redoArgs, function () { if (after) after(); done(true); }, function () { done(false); }); },
+  });
+}
+
+// 「追加」の取り消し = 追加した行を消す。やり直すと ID が新しくなるので保持し直す。
+// delArgsOf(id) で削除側の引数を組み立てる（[id] だったり [id,false] だったりするため）。
+function histPushAdd(o) {
+  var id = o.newId;
+  histPush({
+    label: o.label,
+    undo: function (done) { api(o.delFn, o.delArgsOf(id), function () { if (o.after) o.after(); done(true); }, function () { done(false); }); },
+    redo: function (done) { api(o.addFn, o.addArgs, function (r) { if (r && r[o.idKey]) id = r[o.idKey]; if (o.after) o.after(); done(true); }, function () { done(false); }); },
+  });
+}
+
+// 「削除」の取り消し = 同じ内容で作り直す（ID は新しくなる）。
+function histPushDelete(o) {
+  var id = o.delId;
+  histPush({
+    label: o.label,
+    undo: function (done) { api(o.addFn, o.addArgs, function (r) { if (r && r[o.idKey]) id = r[o.idKey]; if (o.after) o.after(); done(true); }, function () { done(false); }); },
+    redo: function (done) { api(o.delFn, o.delArgsOf(id), function () { if (o.after) o.after(); done(true); }, function () { done(false); }); },
+  });
+}
+
+// 取り消せない操作のあとに呼ぶ。古い操作を誤って戻さないよう履歴ごと捨てる。
+function histClear(reason) {
+  var had = HIST.stack.length > 0;
+  HIST.stack = []; HIST.idx = -1;
+  histRender();
+  if (reason && had) toast(reason, 'info');
+}
+
+function histStep(dir) {
+  if (HIST.busy) return;
+  var target = dir < 0 ? HIST.idx : HIST.idx + 1;
+  if (target < 0 || target >= HIST.stack.length) return;
+  var e = HIST.stack[target];
+  HIST.busy = true; histRender();
+  var runner = dir < 0 ? e.undo : e.redo;
+  runner(function (ok) {
+    HIST.busy = false;
+    if (ok !== false) {
+      HIST.idx += dir;
+      toast((dir < 0 ? '元に戻しました: ' : 'やり直しました: ') + e.label, 'success');
+    }
+    histRender();
+  });
+}
+
+document.addEventListener('keydown', function (e) {
+  if (!(e.metaKey || e.ctrlKey)) return;
+  var k = String(e.key || '').toLowerCase();
+  if (k !== 'z' && k !== 'y') return;
+  var t = e.target || {};
+  var tag = String(t.tagName || '').toLowerCase();
+  // 入力中はブラウザ標準の取り消しを邪魔しない
+  if (tag === 'input' || tag === 'textarea' || t.isContentEditable) return;
+  e.preventDefault();
+  histStep((k === 'y' || e.shiftKey) ? 1 : -1);
+});
+
 function api(fn, args, onOk, onErr) {
   showLoading();
   var runner = google.script.run
@@ -959,6 +1067,9 @@ function bindVenueEvents() {
         toast(active?'有効にしました':'無効にしました','success');
         swrCache.set('venues', null);
         renderVenues();
+        histPushSwap(active?'式場を有効化':'式場を無効化', 'toggleVenueActive',
+          [vid, active], [vid, !active],
+          function(){ swrCache.set('venues', null); renderVenues(); });
       });
     });
   });
@@ -991,8 +1102,11 @@ function openAddVenueModal() {
     if (!d.venue_id||!d.venue_name){ toast('式場ID・名前は必須です','error'); return; }
     api('createDashboardVenue', [d], function(r){
       closeModal(); toast('式場を追加しました（タスク追加: '+r.added+'件）','success');
-      swrCache.set('venues', null);
-      renderVenues();
+      var after = function(){ swrCache.set('venues', null); renderVenues(); };
+      // 式場行を消す手段が無いので、取り消しは「無効化」まで（タスクは残る）
+      histPushAdd({ label:'式場を追加（戻すと無効化）', addFn:'createDashboardVenue', addArgs:[d], idKey:'venue_id',
+        delFn:'toggleVenueActive', delArgsOf:function(id){ return [id,false]; }, newId:d.venue_id, after:after });
+      after();
     });
   });
 }
@@ -1072,6 +1186,8 @@ function renderTasksUI(tasks, isStale) {
         toast('同期完了: タスク追加 '+r.added+'件 / スキップ '+r.skipped+'件'+itemMsg,'success');
         swrCache.set('tasks_base', null);
         loadAndRenderTasks();
+        // 全式場・全カップルへの一括反映は戻せない
+        histClear('全式場への同期は取り消せないため、「戻す」の履歴をリセットしました');
       });
     });
   });
@@ -1125,6 +1241,9 @@ function bindTaskTableEvents() {
         cell.textContent = field==='reminder_message'?trunc(val,28):val;
         toast('保存しました','success');
         swrCache.set('tasks_'+(state.taskFilter.venueId||'base'), null);
+        histPushSwap('タスクの編集（'+field+'）', 'updateTaskField',
+          [taskId,field,val], [taskId,field,orig],
+          function(){ swrCache.set('tasks_'+(state.taskFilter.venueId||'base'), null); loadAndRenderTasks(); });
       }, function(){cell.textContent=orig;});
     });
   });
@@ -1133,23 +1252,21 @@ function bindTaskTableEvents() {
     if(!btn) return;
     var tr = btn.closest('tr'); var taskId = tr.dataset.taskId;
     var isActive = tr.querySelector('.badge--green')!==null;
+    var refreshTasks = function(){
+      swrCache.set('tasks_'+(state.taskFilter.venueId||'base'), null);
+      loadAndRenderTasks();
+    };
     api('toggleTaskActive',[taskId,!isActive],function(){
       // 停止すると既定の絞り込み（有効なタスクのみ）で一覧から消えるため、
-      // 「消えた＝削除された」と誤解されやすい。取り消し手段をその場に出す。
-      var undo = function(){
-        api('toggleTaskActive',[taskId,isActive],function(){
-          toast('元に戻しました','success');
-          swrCache.set('tasks_'+(state.taskFilter.venueId||'base'), null);
-          loadAndRenderTasks();
-        });
-      };
+      // 「消えた＝削除された」と誤解されやすい。取り消し手段をその場にも出す。
+      histPushSwap(isActive?'タスクを停止':'タスクを有効化', 'toggleTaskActive',
+        [taskId,!isActive], [taskId,isActive], refreshTasks);
       toast(
         isActive ? '停止しました（削除ではありません。「停止も表示」で確認できます）' : '有効化しました',
         'success',
-        { label: '元に戻す', onClick: undo }
+        { label: '元に戻す', onClick: function(){ histStep(-1); } }
       );
-      swrCache.set('tasks_'+(state.taskFilter.venueId||'base'), null);
-      loadAndRenderTasks();
+      refreshTasks();
     });
   });
   tbody.addEventListener('click', function(e){
@@ -1157,10 +1274,14 @@ function bindTaskTableEvents() {
     if(!btn) return;
     var taskId = btn.closest('tr').dataset.taskId;
     confirmDialog('タスク「'+taskId+'」を削除しますか？', function(){
-      api('toggleTaskActive',[taskId,false],function(){
-        toast('削除しました','success');
+      var refreshTasks = function(){
         swrCache.set('tasks_'+(state.taskFilter.venueId||'base'), null);
         loadAndRenderTasks();
+      };
+      api('toggleTaskActive',[taskId,false],function(){
+        histPushSwap('タスクを削除', 'toggleTaskActive', [taskId,false], [taskId,true], refreshTasks);
+        toast('削除しました','success',{ label:'元に戻す', onClick: function(){ histStep(-1); } });
+        refreshTasks();
       });
     });
   });
@@ -1229,10 +1350,13 @@ function bindTaskItemTemplateEvents(taskId) {
     var name = nameInp.value.trim();
     if (!name){ toast('手配物名を入力してください','error'); return; }
     var qty = parseInt(qtyInp.value,10)||1;
-    api('addTaskItemTemplate',[taskId,name,qty],function(){
+    api('addTaskItemTemplate',[taskId,name,qty],function(r){
       nameInp.value=''; qtyInp.value='1';
       loadTaskItemTemplates(taskId);
       toast('追加しました','success');
+      histPushAdd({ label:'手配物テンプレを追加', addFn:'addTaskItemTemplate', addArgs:[taskId,name,qty],
+        idKey:'item_id', delFn:'deleteDashboardTaskItem', delArgsOf:function(id){ return [id]; },
+        newId:(r&&r.item_id), after:function(){ loadTaskItemTemplates(taskId); } });
     });
   });
   wrap.addEventListener('blur', function(e){
@@ -1240,7 +1364,15 @@ function bindTaskItemTemplateEvents(taskId) {
     if (!inp) return;
     var val = inp.value.trim();
     if (!val) return;
-    api('updateDashboardTaskItem',[inp.dataset.itemId,{item_name:val}],function(){ toast('保存しました','success'); });
+    var prevName = inp.dataset.prevName !== undefined ? inp.dataset.prevName : '';
+    var tplItemId = inp.dataset.itemId;
+    api('updateDashboardTaskItem',[tplItemId,{item_name:val}],function(){
+      toast('保存しました','success');
+      inp.dataset.prevName = val;
+      histPushSwap('手配物テンプレの名称を編集', 'updateDashboardTaskItem',
+        [tplItemId,{item_name:val}], [tplItemId,{item_name:prevName}],
+        function(){ loadTaskItemTemplates(taskId); });
+    });
   }, true);
   wrap.addEventListener('click', function(e){
     var minus = e.target.closest('.tpl-qty-minus');
@@ -1252,16 +1384,28 @@ function bindTaskItemTemplateEvents(taskId) {
     var cur = parseInt(qEl.textContent,10)||1;
     var next = minus ? Math.max(1,cur-1) : cur+1;
     qEl.textContent = next;
-    api('updateDashboardTaskItem',[id,{quantity:next}],function(){});
+    api('updateDashboardTaskItem',[id,{quantity:next}],function(){
+      histPushSwap('手配物テンプレの数量を変更', 'updateDashboardTaskItem',
+        [id,{quantity:next}], [id,{quantity:cur}],
+        function(){ loadTaskItemTemplates(taskId); });
+    });
   });
   wrap.addEventListener('click', function(e){
     var btn = e.target.closest('.tpl-del');
     if (!btn) return;
     var id = btn.dataset.itemId;
     confirmDialog('この手配物テンプレートを削除しますか？', function(){
+      var row = btn.closest('.item-row') || btn.parentNode;
+      var nameEl = row ? row.querySelector('.tpl-name') : null;
+      var qEl2 = document.getElementById('tplqty-'+id);
+      var delName = nameEl ? nameEl.value : '';
+      var delQty = parseInt(qEl2 ? qEl2.textContent : '1',10)||1;
       api('deleteDashboardTaskItem',[id],function(){
         loadTaskItemTemplates(taskId);
         toast('削除しました','success');
+        histPushDelete({ label:'手配物テンプレを削除', delFn:'deleteDashboardTaskItem', delId:id,
+          addFn:'addTaskItemTemplate', addArgs:[taskId,delName,delQty], idKey:'item_id',
+          delArgsOf:function(x){ return [x]; }, after:function(){ loadTaskItemTemplates(taskId); } });
       });
     });
   });
@@ -1283,7 +1427,11 @@ function openAddBaseTaskModal() {
     if(!d.category||!d.task_content){toast('カテゴリ・内容は必須です','error');return;}
     api('addBaseTask',[d],function(r){
       closeModal(); toast('base task を追加しました: '+r.task_id,'success');
-      swrCache.set('tasks_base', null); loadAndRenderTasks();
+      var after = function(){ swrCache.set('tasks_base', null); loadAndRenderTasks(); };
+      // 取り消しは「無効化」で行う（タスク行を物理削除する手段が無いため）
+      histPushAdd({ label:'base task を追加', addFn:'addBaseTask', addArgs:[d], idKey:'task_id',
+        delFn:'toggleTaskActive', delArgsOf:function(id){ return [id,false]; }, newId:r.task_id, after:after });
+      after();
     });
   });
 }
@@ -1307,7 +1455,10 @@ function openAddVenueTaskModal() {
     if(!d.category||!d.task_content){toast('カテゴリ・内容は必須です','error');return;}
     api('addVenueTask',[venueId,d],function(r){
       closeModal(); toast('式場別タスクを追加しました: '+r.task_id,'success');
-      swrCache.set('tasks_'+venueId, null); loadAndRenderTasks();
+      var after = function(){ swrCache.set('tasks_'+venueId, null); loadAndRenderTasks(); };
+      histPushAdd({ label:'式場別タスクを追加', addFn:'addVenueTask', addArgs:[venueId,d], idKey:'task_id',
+        delFn:'toggleTaskActive', delArgsOf:function(id){ return [id,false]; }, newId:r.task_id, after:after });
+      after();
     });
   });
 }
@@ -1397,6 +1548,8 @@ function openAddCustomerModal() {
     d.venue_id = document.getElementById('add-cust-venue').value;
     if(!d.line_id||!d.wedding_date){toast('LINE ID・挙式日は必須です','error');return;}
     api('addCustomer',[d],function(){
+      // カップル行を消す手段が無いため戻せない
+      histClear('カップルの追加は戻せないため、「戻す」の履歴をリセットしました');
       closeModal(); toast('カップルを追加しました','success');
       swrCache.set('customers_all', null);
       swrCache.set('customers_'+(d.venue_id||'all'), null);
@@ -1539,10 +1692,13 @@ function bindCustomerDrawerEvents(lineId, venueId, c, name) {
     e.preventDefault();
     var d = fd(this);
     d.venue_id = document.getElementById('cust-venue-sel').value;
+    var prev = {};
+    Object.keys(d).forEach(function(k){ prev[k] = (c && c[k] !== undefined && c[k] !== null) ? c[k] : ''; });
     api('updateCustomer',[lineId,d],function(){
       toast('保存しました','success');
-      swrCache.set('customers_all', null);
-      loadAndRenderCustomers();
+      var after = function(){ swrCache.set('customers_all', null); loadAndRenderCustomers(); };
+      histPushSwap('カップル情報を編集', 'updateCustomer', [lineId,d], [lineId,prev], after);
+      after();
     });
   });
 
@@ -1574,6 +1730,10 @@ function bindCustomerDrawerEvents(lineId, venueId, c, name) {
         if (taskItem) taskItem.classList.toggle('task-done', chk.checked);
         swrCache.set('ctasks_'+lineId, null);
         swrCache.set('customers_all', null);
+        var doneNext = chk.checked;
+        histPushSwap(doneNext?'タスクを完了にする':'タスクを未完了に戻す', 'updateOrCreateTaskProgress',
+          [lineId, taskId, doneNext], [lineId, taskId, !doneNext],
+          function(){ swrCache.set('ctasks_'+lineId, null); swrCache.set('customers_all', null); refreshCustomerTasks(lineId, venueId); });
       })
       .withFailureHandler(function(err){ hideLoading(); toast(err.message||'エラー','error'); chk.checked=!chk.checked; })
       .updateOrCreateTaskProgress(lineId, taskId, chk.checked);
@@ -1584,9 +1744,13 @@ function bindCustomerDrawerEvents(lineId, venueId, c, name) {
     var tog = e.target.closest('.vis-toggle');
     if (!tog) return;
     var taskId = tog.dataset.taskId;
-    api('toggleCustomerTaskVisibility',[lineId,taskId,tog.checked],function(){
+    var vis = tog.checked;
+    api('toggleCustomerTaskVisibility',[lineId,taskId,vis],function(){
       toast('表示設定を更新しました','success');
       swrCache.set('ctasks_'+lineId, null);
+      histPushSwap(vis?'タスクを表示に変更':'タスクを非表示に変更', 'toggleCustomerTaskVisibility',
+        [lineId,taskId,vis], [lineId,taskId,!vis],
+        function(){ swrCache.set('ctasks_'+lineId, null); refreshCustomerTasks(lineId, venueId); });
     });
   });
 
@@ -1600,6 +1764,8 @@ function bindCustomerDrawerEvents(lineId, venueId, c, name) {
         toast('削除しました','success');
         swrCache.set('ctasks_'+lineId, null);
         refreshCustomerTasks(lineId, venueId);
+        // 追加時の内容を保持していないため、この削除は戻せない
+        histClear('タスクの削除は戻せないため、「戻す」の履歴をリセットしました');
       });
     });
   });
@@ -1609,11 +1775,14 @@ function bindCustomerDrawerEvents(lineId, venueId, c, name) {
     e.preventDefault();
     var d = fd(this);
     if (!d.task_content){toast('タスク内容は必須です','error');return;}
-    api('addTaskToCustomer',[lineId, c.venue_id||'', d],function(){
+    api('addTaskToCustomer',[lineId, c.venue_id||'', d],function(r){
       toast('タスクを追加しました','success');
       this.reset();
-      swrCache.set('ctasks_'+lineId, null);
-      refreshCustomerTasks(lineId, venueId);
+      var after = function(){ swrCache.set('ctasks_'+lineId, null); refreshCustomerTasks(lineId, venueId); };
+      histPushAdd({ label:'カップルにタスクを追加', addFn:'addTaskToCustomer', addArgs:[lineId, c.venue_id||'', d],
+        idKey:'task_id', delFn:'removeCustomTaskFromCustomer', delArgsOf:function(id){ return [id]; },
+        newId:(r&&r.task_id), after:after });
+      after();
     }.bind(this));
   });
 
@@ -1626,6 +1795,8 @@ function bindCustomerDrawerEvents(lineId, venueId, c, name) {
         swrCache.set('customers_all', null);
         loadAndRenderCustomers();
         refreshCustomerTasks(lineId, venueId);
+        // 進捗そのものを消すため復元できない
+        histClear('進捗リセットは取り消せないため、「戻す」の履歴をリセットしました');
       });
     });
   });
@@ -1637,7 +1808,10 @@ function bindCustomerDrawerEvents(lineId, venueId, c, name) {
     var itemId = chk.dataset.itemId;
     var row = chk.closest('.item-row');
     var nameInp = row.querySelector('.item-name-input');
-    api('updateDashboardTaskItem',[itemId,{is_done:chk.checked}],function(){
+    var doneNext = chk.checked;
+    api('updateDashboardTaskItem',[itemId,{is_done:doneNext}],function(){
+      histPushSwap(doneNext?'手配物を確定':'手配物の確定を解除', 'updateDashboardTaskItem',
+        [itemId,{is_done:doneNext}], [itemId,{is_done:!doneNext}], function(){ swrCache.set('citems_'+lineId, null); refreshCustomerTasks(lineId, venueId); });
       row.classList.toggle('item-done', chk.checked);
       if (nameInp) nameInp.style.textDecoration = chk.checked ? 'line-through' : '';
       if (nameInp) nameInp.style.color = chk.checked ? 'var(--text-sub)' : '';
@@ -1652,9 +1826,13 @@ function bindCustomerDrawerEvents(lineId, venueId, c, name) {
     var itemId = inp.dataset.itemId;
     var val = inp.value.trim();
     if (!val) return;
+    var prevItemName = inp.dataset.prevName !== undefined ? inp.dataset.prevName : '';
     api('updateDashboardTaskItem',[itemId,{item_name:val}],function(){
       swrCache.set('citems_'+lineId, null);
       toast('保存しました','success');
+      inp.dataset.prevName = val;
+      histPushSwap('手配物の名称を編集', 'updateDashboardTaskItem',
+        [itemId,{item_name:val}], [itemId,{item_name:prevItemName}], function(){ swrCache.set('citems_'+lineId, null); refreshCustomerTasks(lineId, venueId); });
     });
   }, true);
 
@@ -1671,6 +1849,8 @@ function bindCustomerDrawerEvents(lineId, venueId, c, name) {
     qtyEl.textContent = next;
     api('updateDashboardTaskItem',[itemId,{quantity:next}],function(){
       swrCache.set('citems_'+lineId, null);
+      histPushSwap('手配物の数量を変更', 'updateDashboardTaskItem',
+        [itemId,{quantity:next}], [itemId,{quantity:cur}], function(){ swrCache.set('citems_'+lineId, null); refreshCustomerTasks(lineId, venueId); });
     });
   });
 
@@ -1681,11 +1861,19 @@ function bindCustomerDrawerEvents(lineId, venueId, c, name) {
     var row = btn.closest('.item-row');
     var panel = row.closest('.items-panel');
     confirmDialog('この手配物を削除しますか？', function(){
+      var delTaskId = (panel && panel.id) ? panel.id.replace('items-','') : '';
+      var delNameEl = row.querySelector('.item-name-input');
+      var delQtyEl = document.getElementById('qty-'+itemId);
+      var delName = delNameEl ? delNameEl.value : '';
+      var delQty = parseInt(delQtyEl ? delQtyEl.textContent : '1',10)||1;
       api('deleteDashboardTaskItem',[itemId],function(){
         row.remove();
         swrCache.set('citems_'+lineId, null);
         refreshItemBadge(panel, lineId);
         toast('削除しました','success');
+        histPushDelete({ label:'手配物を削除', delFn:'deleteDashboardTaskItem', delId:itemId,
+          addFn:'addDashboardTaskItem', addArgs:[lineId,delTaskId,delName,delQty], idKey:'item_id',
+          delArgsOf:function(x){ return [x]; }, after:function(){ swrCache.set('citems_'+lineId, null); refreshCustomerTasks(lineId, venueId); } });
       });
     });
   });
@@ -1701,6 +1889,9 @@ function bindCustomerDrawerEvents(lineId, venueId, c, name) {
     if (!itemName){toast('手配物名を入力してください','error');return;}
     var qty = parseInt(qtyInp.value,10)||1;
     api('addDashboardTaskItem',[lineId,taskId,itemName,qty],function(r){
+      histPushAdd({ label:'手配物を追加', addFn:'addDashboardTaskItem', addArgs:[lineId,taskId,itemName,qty],
+        idKey:'item_id', delFn:'deleteDashboardTaskItem', delArgsOf:function(id){ return [id]; },
+        newId:(r&&r.item_id), after:function(){ swrCache.set('citems_'+lineId, null); refreshCustomerTasks(lineId, venueId); } });
       var panel = document.getElementById('items-'+taskId);
       if (!panel) return;
       var addRowEl = panel.querySelector('.item-add-row');
@@ -1862,12 +2053,20 @@ function openDraftDrawer(draftId, drafts) {
   );
   document.getElementById('draft-save-btn').addEventListener('click', function(){
     var msg = document.getElementById('draft-msg-edit').value;
-    api('editDraftMessage',[draftId,msg],function(){ toast('保存しました','success'); d.draft_message=msg; });
+    var prevMsg = d.draft_message;
+    api('editDraftMessage',[draftId,msg],function(){
+      toast('保存しました','success'); d.draft_message=msg;
+      histPushSwap('メッセージ本文を編集', 'editDraftMessage', [draftId,msg], [draftId,prevMsg],
+        function(){ loadAndRenderLogs(); });
+    });
   });
   document.getElementById('draft-status-btn').addEventListener('click', function(){
     var status = document.getElementById('draft-status-sel').value;
+    var prevStatus = d.status;
     api('changeDraftStatus',[draftId,status],function(){
       toast('状態を「'+status+'」に変更しました','success'); d.status=status; loadAndRenderLogs();
+      histPushSwap('メッセージの状態を変更', 'changeDraftStatus', [draftId,status], [draftId,prevStatus],
+        function(){ loadAndRenderLogs(); });
     });
   });
 }
@@ -1888,17 +2087,17 @@ function renderSystem() {
     '</div>';
   document.getElementById('sys-remind-btn').addEventListener('click', function(){
     confirmDialog('本当に全カップルにリマインドを送信しますか？\nLINEに即時送信されます。', function(){
-      api('runSendReminders',[],function(){ toast('リマインド送信完了','success'); showSysResult('sys-remind','完了',true); }, function(e){ showSysResult('sys-remind',(e&&e.message||'失敗'),false); });
+      api('runSendReminders',[],function(){ toast('リマインド送信完了','success'); showSysResult('sys-remind','完了',true); histClear('LINE送信は取り消せないため、「戻す」の履歴をリセットしました'); }, function(e){ showSysResult('sys-remind',(e&&e.message||'失敗'),false); });
     });
   });
   document.getElementById('sys-setup-btn').addEventListener('click', function(){
     confirmDialog('シートのヘッダーを初期化します。実行しますか？', function(){
-      api('runSetupEnvironment',[],function(){ toast('セットアップ完了','success'); showSysResult('sys-setup','完了',true); }, function(e){ showSysResult('sys-setup',(e&&e.message||'失敗'),false); });
+      api('runSetupEnvironment',[],function(){ toast('セットアップ完了','success'); showSysResult('sys-setup','完了',true); histClear('シート初期化は取り消せないため、「戻す」の履歴をリセットしました'); }, function(e){ showSysResult('sys-setup',(e&&e.message||'失敗'),false); });
     });
   });
   document.getElementById('sys-trigger-btn').addEventListener('click', function(){
     confirmDialog('毎朝9時のトリガーを登録します。実行しますか？', function(){
-      api('runSetupRemindTrigger',[],function(){ toast('トリガー登録完了','success'); showSysResult('sys-trigger','完了（毎日 9:00）',true); }, function(e){ showSysResult('sys-trigger',(e&&e.message||'失敗'),false); });
+      api('runSetupRemindTrigger',[],function(){ toast('トリガー登録完了','success'); showSysResult('sys-trigger','完了（毎日 9:00）',true); histClear('トリガー登録は取り消せないため、「戻す」の履歴をリセットしました'); }, function(e){ showSysResult('sys-trigger',(e&&e.message||'失敗'),false); });
     });
   });
 }
@@ -2236,6 +2435,9 @@ function ir(label,value){
 }
 
 // ─── Boot ─────────────────────────────────────────────────
+document.getElementById('btn-undo').addEventListener('click', function(){ histStep(-1); });
+document.getElementById('btn-redo').addEventListener('click', function(){ histStep(1); });
+histRender();
 renderSection('venues');
 
 })();
